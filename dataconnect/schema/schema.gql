@@ -68,6 +68,7 @@ type People @table {
   type: String
   ukPercentage: Float
   usPercentage: Float
+  isActive: Boolean @default(value: true)
 }
 
 type PhaseAllocations @table {
@@ -104,6 +105,7 @@ type ProjectScopes @table {
   projectId: UUID
   roleId: UUID
   scopedHours: Float!
+  isActive: Boolean @default(value: true)
 }
 
 type Projects @table {
@@ -174,6 +176,7 @@ type Projects @table {
   valuePerWeekPhase2: Float
   valuePerWeekPhase3: Float
   valuePerWeekPhase4: Float
+  isActive: Boolean @default(value: true)
 }
 
 type RateCards @table {
@@ -183,6 +186,7 @@ type RateCards @table {
   id: UUID! @default(expr: "uuidV4()")
   name: String!
   roleId: UUID
+  isActive: Boolean @default(value: true)
 }
 
 type Roles @table {
@@ -190,6 +194,7 @@ type Roles @table {
   createdAt: Date!
   id: UUID! @default(expr: "uuidV4()")
   name: String!
+  isActive: Boolean @default(value: true)
 }
 
 type TimeEntries @table {

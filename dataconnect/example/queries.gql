@@ -20,6 +20,7 @@ query ListProjects @auth(level: PUBLIC) {
     extra_data: extraData
     opportunity_record_type: opportunityRecordType
     stage
+    isActive
   }
 }
 
@@ -118,3 +119,43 @@ query ListAppUsers @auth(level: PUBLIC) {
     addedBy
   }
 }
+
+query GetOldestTimeEntry @auth(level: PUBLIC) {
+  timeEntriess(limit: 1, orderBy: [{date: ASC}]) {
+    date
+  }
+}
+
+query GetNewestTimeEntry @auth(level: PUBLIC) {
+  timeEntriess(limit: 1, orderBy: [{date: DESC}]) {
+    date
+  }
+}
+
+query GetTimeEntriesByDateRange($startDate: Date!, $endDate: Date!) @auth(level: PUBLIC) {
+  timeEntriess(where: { date: { ge: $startDate, le: $endDate } }, limit: 50000) {
+    id date hours
+    project_id: projectId
+    person_id: personId
+  }
+}
+
+query GetAllTimeEntries @auth(level: PUBLIC) {
+  timeEntriess(limit: 50000) {
+    id date hours notes createdAt
+    project_id: projectId
+    person_id: personId
+    personName projectName projectCode
+  }
+}
+
+query ListProjectScopes @auth(level: PUBLIC) {
+  projectScopess(limit: 50000) {
+    id
+    project_id: projectId
+    role_id: roleId
+    scoped_hours: scopedHours
+    phase_percentages: phasePercentages
+  }
+}
+

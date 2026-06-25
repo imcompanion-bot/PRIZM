@@ -3,12 +3,23 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.runRateCardSync = runRateCardSync;
 const googleapis_1 = require("googleapis");
 const app_1 = require("firebase-admin/app");
+const app_2 = require("firebase/app");
 const uuid_1 = require("uuid");
 const generated_server_1 = require("@dataconnect/generated-server");
 // Namespace for deterministic UUIDs
 const NAMESPACE = '1b671a64-40d5-491e-99b0-da01ff1f3341';
 if ((0, app_1.getApps)().length === 0) {
     (0, app_1.initializeApp)();
+}
+if ((0, app_2.getApps)().length === 0) {
+    (0, app_2.initializeApp)({
+        projectId: "pharaoh-54a0e",
+        appId: "1:909637352706:web:98a9ef33d6b680d6e8d61b",
+        storageBucket: "pharaoh-54a0e.firebasestorage.app",
+        apiKey: "AIzaSyBWy2AP5d-YTdpirVipzs2tvd0hVqqfeIw",
+        authDomain: "pharaoh-54a0e.firebaseapp.com",
+        messagingSenderId: "909637352706",
+    });
 }
 async function runRateCardSync(spreadsheetId, sheetName) {
     console.log(`Starting Google Sheets Sync for Rate Cards...`);
@@ -19,9 +30,18 @@ async function runRateCardSync(spreadsheetId, sheetName) {
     const sheets = googleapis_1.google.sheets({ version: 'v4', auth });
     let response;
     try {
+        // Resolve GID to actual sheet name if a numeric GID was passed
+        let actualSheetName = sheetName;
+        if (!isNaN(Number(sheetName))) {
+            const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+            const sheet = spreadsheet.data.sheets?.find(s => s.properties?.sheetId === Number(sheetName));
+            if (sheet && sheet.properties?.title) {
+                actualSheetName = sheet.properties.title;
+            }
+        }
         response = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: sheetName,
+            range: actualSheetName,
         });
     }
     catch (e) {

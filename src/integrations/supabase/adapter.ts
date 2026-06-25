@@ -1,6 +1,7 @@
 import { 
-  listRoles, listProjects, listPeople, listTimeEntries, 
-  listProjectPhases, listAllocations, listDataImports, listRateCards
+  listRoles, listProjects, listPeople, getAllTimeEntries, 
+  listProjectPhases, listAllocations, listDataImports, listRateCards,
+  listProjectScopes
 } from "@/dataconnect-generated";
 import * as aggregations from "../../lib/aggregations";
 
@@ -20,6 +21,11 @@ class SupabaseQueryBuilder {
     return this;
   }
 
+  limit(count: number) {
+    this.rangeParams = { from: 0, to: count - 1 };
+    return this;
+  }
+
   select(cols?: string) { return this; }
   
   eq(col: string, val: any) { 
@@ -29,6 +35,11 @@ class SupabaseQueryBuilder {
   
   in(col: string, vals: any[]) {
     this.filters[col] = { in: vals };
+    return this;
+  }
+
+  not(col: string, op: string, val: any) {
+    this.filters[col] = { not: { op, val } };
     return this;
   }
 
@@ -78,16 +89,56 @@ class SupabaseQueryBuilder {
         data = res.data.roless;
       } else if (this.table === 'projects') {
         const res = await listProjects();
-        data = res.data.projectss;
+        const projects = res.data.projectss || [];
+        
+        // Fetch relations for projects to match Supabase's project_scopes(id, scoped_hours, role_id), rate_cards(name, hourly_rate, currency)
+        const [scopesRes, rateCardsRes] = await Promise.all([
+          listProjectScopes(),
+          listRateCards()
+        ]);
+        
+        const allScopes = scopesRes.data.projectScopess || [];
+        const allRateCards = rateCardsRes.data.rateCardss || [];
+        
+        data = projects.map((p: any) => {
+          const scopes = allScopes.filter((s: any) => s.project_id === p.id);
+          const rc = allRateCards.find((r: any) => r.id === p.rate_card_id);
+          return {
+            ...p,
+            status: p.isActive !== false ? "Active" : "Completed",
+            project_scopes: scopes,
+            rate_cards: rc || null
+          };
+        });
       } else if (this.table === 'people') {
         const res = await listPeople();
-        data = res.data.peoples;
+        const people = res.data.peoples || [];
+        
+        const rolesRes = await listRoles();
+        const allRoles = rolesRes.data.roless || [];
+        
+        data = people.map((p: any) => {
+          const role = allRoles.find((r: any) => r.id === p.role_id);
+          return {
+            ...p,
+            roles: role || null
+          };
+        });
       } else if (this.table === 'rate_cards') {
         const res = await listRateCards();
         data = res.data.rateCardss;
       } else if (this.table === 'time_entries') {
-        const res = await listTimeEntries();
-        data = res.data.timeEntriess;
+        const [timeRes, peopleRes] = await Promise.all([
+          aggregations.getCachedAllTimeEntries(),
+          aggregations.getCachedPeople()
+        ]);
+        const allPeople = peopleRes.data.peoples || [];
+        const peopleMap = new Map(allPeople.map(p => [p.id, p]));
+        
+        data = (timeRes.data.timeEntriess || []).map(te => ({
+          ...te,
+          people: { role_id: peopleMap.get(te.person_id)?.roleId || null }
+        }));
       } else if (this.table === 'project_phases') {
         const res = await listProjectPhases();
         data = res.data.projectPhasess;
@@ -106,6 +157,14 @@ class SupabaseQueryBuilder {
       for (const [col, val] of Object.entries(this.filters)) {
         if (val && typeof val === 'object' && 'in' in (val as any)) {
           data = data.filter(d => (val as any).in.includes(d[col]));
+        } else if (val && typeof val === 'object' && 'not' in (val as any)) {
+          const { op, val: targetVal } = (val as any).not;
+          if (op === 'is') {
+            data = data.filter(d => d[col] !== targetVal);
+          } else {
+            // fallback, just exclude matching
+            data = data.filter(d => d[col] !== targetVal);
+          }
         } else {
           data = data.filter(d => d[col] === val);
         }
@@ -128,6 +187,7 @@ class SupabaseQueryBuilder {
         resolve({ data, error: null });
       }
     } catch (error) {
+      console.error(`Error in SupabaseQueryBuilder for table ${this.table}:`, error);
       resolve({ data: null, error });
     }
   }
@@ -155,6 +215,20 @@ class SupabaseRpcBuilder {
         data = await aggregations.getProjectCostsMonthly(this.args?._start_date, this.args?._end_date);
       } else if (this.func === 'get_utilisation_summary') {
         data = await aggregations.getUtilisationSummary(this.args?._start_date, this.args?._end_date);
+      } else if (this.func === 'get_utilisation_summary_monthly') {
+        data = await aggregations.getUtilisationSummaryMonthly(this.args?._start_date, this.args?._end_date);
+      } else if (this.func === 'get_project_costs') {
+        data = await aggregations.getProjectCosts();
+      } else if (this.func === 'get_project_hours_by_role') {
+        data = await aggregations.getProjectHoursByRole();
+      } else if (this.func === 'get_project_costs_by_role') {
+        data = await aggregations.getProjectCostsByRole();
+      } else if (this.func === 'get_project_person_hours') {
+        data = await aggregations.getProjectPersonHours();
+      } else if (this.func === 'get_project_hours') {
+        data = await aggregations.getProjectHours();
+      } else if (this.func === 'get_person_hours_in_range') {
+        data = await aggregations.getPersonHoursInRange({ startDate: this.args?._start_date, endDate: this.args?._end_date });
       } else if (this.func === 'relink_time_entries_from_fallbacks') {
         resolve({ data: {}, error: null });
         return;
@@ -165,6 +239,7 @@ class SupabaseRpcBuilder {
       }
       resolve({ data, error: null });
     } catch (e) {
+      console.error(`Error in SupabaseRpcBuilder for func ${this.func}:`, e);
       resolve({ data: null, error: e });
     }
   }

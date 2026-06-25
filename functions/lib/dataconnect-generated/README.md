@@ -1,8 +1,6 @@
 # Generated TypeScript README
 This README will guide you through the process of using the generated JavaScript SDK package for the connector `example`. It will also provide examples on how to use your generated SDK to call your Data Connect queries and mutations.
 
-**If you're looking for the `React README`, you can find it at [`dataconnect-generated/react/README.md`](./react/README.md)**
-
 ***NOTE:** This README is generated alongside the generated SDK. If you make changes to this file, they will be overwritten when the SDK is regenerated.*
 
 # Table of Contents
@@ -22,11 +20,6 @@ This README will guide you through the process of using the generated JavaScript
   - [*ListDataImports*](#listdataimports)
   - [*GetAppUserByEmail*](#getappuserbyemail)
   - [*ListAppUsers*](#listappusers)
-  - [*GetOldestTimeEntry*](#getoldesttimeentry)
-  - [*GetNewestTimeEntry*](#getnewesttimeentry)
-  - [*GetTimeEntriesByDateRange*](#gettimeentriesbydaterange)
-  - [*GetAllTimeEntries*](#getalltimeentries)
-  - [*ListProjectScopes*](#listprojectscopes)
 - [**Mutations**](#mutations)
   - [*InsertAllocations*](#insertallocations)
   - [*UpsertAllocations*](#upsertallocations)
@@ -61,19 +54,17 @@ This README will guide you through the process of using the generated JavaScript
   - [*CreateAppUser*](#createappuser)
   - [*UpdateAppUser*](#updateappuser)
   - [*DeleteAppUser*](#deleteappuser)
-  - [*DeleteTimeEntriesByDate*](#deletetimeentriesbydate)
-  - [*DeleteAllTimeEntries*](#deletealltimeentries)
 
 # Accessing the connector
 A connector is a collection of Queries and Mutations. One SDK is generated for each connector - this SDK is generated for the connector `example`. You can find more information about connectors in the [Data Connect documentation](https://firebase.google.com/docs/data-connect#how-does).
 
-You can use this generated SDK by importing from the package `@dataconnect/generated` as shown below. Both CommonJS and ESM imports are supported.
+You can use this generated SDK by importing from the package `@dataconnect/generated-server` as shown below. Both CommonJS and ESM imports are supported.
 
 You can also follow the instructions from the [Data Connect documentation](https://firebase.google.com/docs/data-connect/web-sdk#set-client).
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig } from '@dataconnect/generated';
+import { connectorConfig } from '@dataconnect/generated-server';
 
 const dataConnect = getDataConnect(connectorConfig);
 ```
@@ -86,7 +77,7 @@ You can also follow the emulator instructions from the [Data Connect documentati
 
 ```typescript
 import { connectDataConnectEmulator, getDataConnect } from 'firebase/data-connect';
-import { connectorConfig } from '@dataconnect/generated';
+import { connectorConfig } from '@dataconnect/generated-server';
 
 const dataConnect = getDataConnect(connectorConfig);
 connectDataConnectEmulator(dataConnect, 'localhost', 9399);
@@ -167,7 +158,6 @@ export interface ListProjectsData {
     extra_data?: unknown | null;
     opportunity_record_type?: string | null;
     stage?: string | null;
-    isActive?: boolean | null;
   } & Projects_Key)[];
 }
 ```
@@ -175,7 +165,7 @@ export interface ListProjectsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, listProjects } from '@dataconnect/generated';
+import { connectorConfig, listProjects } from '@dataconnect/generated-server';
 
 
 // Call the `listProjects()` function to execute the query.
@@ -199,7 +189,7 @@ listProjects().then((response) => {
 
 ```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, listProjectsRef } from '@dataconnect/generated';
+import { connectorConfig, listProjectsRef } from '@dataconnect/generated-server';
 
 
 // Call the `listProjectsRef()` function to get a reference to the query.
@@ -275,7 +265,7 @@ export interface GetProjectData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, getProject, GetProjectVariables } from '@dataconnect/generated';
+import { connectorConfig, getProject, GetProjectVariables } from '@dataconnect/generated-server';
 
 // The `GetProject` query requires an argument of type `GetProjectVariables`:
 const getProjectVars: GetProjectVariables = {
@@ -305,7 +295,7 @@ getProject(getProjectVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, getProjectRef, GetProjectVariables } from '@dataconnect/generated';
+import { connectorConfig, getProjectRef, GetProjectVariables } from '@dataconnect/generated-server';
 
 // The `GetProject` query requires an argument of type `GetProjectVariables`:
 const getProjectVars: GetProjectVariables = {
@@ -391,7 +381,7 @@ export interface ListPeopleData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, listPeople } from '@dataconnect/generated';
+import { connectorConfig, listPeople } from '@dataconnect/generated-server';
 
 
 // Call the `listPeople()` function to execute the query.
@@ -415,7 +405,7 @@ listPeople().then((response) => {
 
 ```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, listPeopleRef } from '@dataconnect/generated';
+import { connectorConfig, listPeopleRef } from '@dataconnect/generated-server';
 
 
 // Call the `listPeopleRef()` function to get a reference to the query.
@@ -486,7 +476,7 @@ export interface ListRolesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, listRoles } from '@dataconnect/generated';
+import { connectorConfig, listRoles } from '@dataconnect/generated-server';
 
 
 // Call the `listRoles()` function to execute the query.
@@ -510,7 +500,7 @@ listRoles().then((response) => {
 
 ```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, listRolesRef } from '@dataconnect/generated';
+import { connectorConfig, listRolesRef } from '@dataconnect/generated-server';
 
 
 // Call the `listRolesRef()` function to get a reference to the query.
@@ -583,7 +573,7 @@ export interface ListRateCardsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, listRateCards } from '@dataconnect/generated';
+import { connectorConfig, listRateCards } from '@dataconnect/generated-server';
 
 
 // Call the `listRateCards()` function to execute the query.
@@ -607,7 +597,7 @@ listRateCards().then((response) => {
 
 ```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, listRateCardsRef } from '@dataconnect/generated';
+import { connectorConfig, listRateCardsRef } from '@dataconnect/generated-server';
 
 
 // Call the `listRateCardsRef()` function to get a reference to the query.
@@ -681,7 +671,7 @@ export interface ListTimeEntriesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, listTimeEntries } from '@dataconnect/generated';
+import { connectorConfig, listTimeEntries } from '@dataconnect/generated-server';
 
 
 // Call the `listTimeEntries()` function to execute the query.
@@ -705,7 +695,7 @@ listTimeEntries().then((response) => {
 
 ```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, listTimeEntriesRef } from '@dataconnect/generated';
+import { connectorConfig, listTimeEntriesRef } from '@dataconnect/generated-server';
 
 
 // Call the `listTimeEntriesRef()` function to get a reference to the query.
@@ -785,7 +775,7 @@ export interface ListTimeEntriesByProjectData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, listTimeEntriesByProject, ListTimeEntriesByProjectVariables } from '@dataconnect/generated';
+import { connectorConfig, listTimeEntriesByProject, ListTimeEntriesByProjectVariables } from '@dataconnect/generated-server';
 
 // The `ListTimeEntriesByProject` query requires an argument of type `ListTimeEntriesByProjectVariables`:
 const listTimeEntriesByProjectVars: ListTimeEntriesByProjectVariables = {
@@ -815,7 +805,7 @@ listTimeEntriesByProject(listTimeEntriesByProjectVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, listTimeEntriesByProjectRef, ListTimeEntriesByProjectVariables } from '@dataconnect/generated';
+import { connectorConfig, listTimeEntriesByProjectRef, ListTimeEntriesByProjectVariables } from '@dataconnect/generated-server';
 
 // The `ListTimeEntriesByProject` query requires an argument of type `ListTimeEntriesByProjectVariables`:
 const listTimeEntriesByProjectVars: ListTimeEntriesByProjectVariables = {
@@ -895,7 +885,7 @@ export interface ListProjectPhasesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, listProjectPhases } from '@dataconnect/generated';
+import { connectorConfig, listProjectPhases } from '@dataconnect/generated-server';
 
 
 // Call the `listProjectPhases()` function to execute the query.
@@ -919,7 +909,7 @@ listProjectPhases().then((response) => {
 
 ```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, listProjectPhasesRef } from '@dataconnect/generated';
+import { connectorConfig, listProjectPhasesRef } from '@dataconnect/generated-server';
 
 
 // Call the `listProjectPhasesRef()` function to get a reference to the query.
@@ -991,7 +981,7 @@ export interface ListAllocationsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, listAllocations } from '@dataconnect/generated';
+import { connectorConfig, listAllocations } from '@dataconnect/generated-server';
 
 
 // Call the `listAllocations()` function to execute the query.
@@ -1015,7 +1005,7 @@ listAllocations().then((response) => {
 
 ```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, listAllocationsRef } from '@dataconnect/generated';
+import { connectorConfig, listAllocationsRef } from '@dataconnect/generated-server';
 
 
 // Call the `listAllocationsRef()` function to get a reference to the query.
@@ -1086,7 +1076,7 @@ export interface ListDataImportsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, listDataImports } from '@dataconnect/generated';
+import { connectorConfig, listDataImports } from '@dataconnect/generated-server';
 
 
 // Call the `listDataImports()` function to execute the query.
@@ -1110,7 +1100,7 @@ listDataImports().then((response) => {
 
 ```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, listDataImportsRef } from '@dataconnect/generated';
+import { connectorConfig, listDataImportsRef } from '@dataconnect/generated-server';
 
 
 // Call the `listDataImportsRef()` function to get a reference to the query.
@@ -1189,7 +1179,7 @@ export interface GetAppUserByEmailData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, getAppUserByEmail, GetAppUserByEmailVariables } from '@dataconnect/generated';
+import { connectorConfig, getAppUserByEmail, GetAppUserByEmailVariables } from '@dataconnect/generated-server';
 
 // The `GetAppUserByEmail` query requires an argument of type `GetAppUserByEmailVariables`:
 const getAppUserByEmailVars: GetAppUserByEmailVariables = {
@@ -1219,7 +1209,7 @@ getAppUserByEmail(getAppUserByEmailVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, getAppUserByEmailRef, GetAppUserByEmailVariables } from '@dataconnect/generated';
+import { connectorConfig, getAppUserByEmailRef, GetAppUserByEmailVariables } from '@dataconnect/generated-server';
 
 // The `GetAppUserByEmail` query requires an argument of type `GetAppUserByEmailVariables`:
 const getAppUserByEmailVars: GetAppUserByEmailVariables = {
@@ -1298,7 +1288,7 @@ export interface ListAppUsersData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, listAppUsers } from '@dataconnect/generated';
+import { connectorConfig, listAppUsers } from '@dataconnect/generated-server';
 
 
 // Call the `listAppUsers()` function to execute the query.
@@ -1322,7 +1312,7 @@ listAppUsers().then((response) => {
 
 ```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, listAppUsersRef } from '@dataconnect/generated';
+import { connectorConfig, listAppUsersRef } from '@dataconnect/generated-server';
 
 
 // Call the `listAppUsersRef()` function to get a reference to the query.
@@ -1342,509 +1332,6 @@ console.log(data.appUserss);
 executeQuery(ref).then((response) => {
   const data = response.data;
   console.log(data.appUserss);
-});
-```
-
-## GetOldestTimeEntry
-You can execute the `GetOldestTimeEntry` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
-```typescript
-getOldestTimeEntry(options?: ExecuteQueryOptions): QueryPromise<GetOldestTimeEntryData, undefined>;
-
-interface GetOldestTimeEntryRef {
-  ...
-  /* Allow users to create refs without passing in DataConnect */
-  (): QueryRef<GetOldestTimeEntryData, undefined>;
-}
-export const getOldestTimeEntryRef: GetOldestTimeEntryRef;
-```
-You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescript
-getOldestTimeEntry(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<GetOldestTimeEntryData, undefined>;
-
-interface GetOldestTimeEntryRef {
-  ...
-  (dc: DataConnect): QueryRef<GetOldestTimeEntryData, undefined>;
-}
-export const getOldestTimeEntryRef: GetOldestTimeEntryRef;
-```
-
-If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getOldestTimeEntryRef:
-```typescript
-const name = getOldestTimeEntryRef.operationName;
-console.log(name);
-```
-
-### Variables
-The `GetOldestTimeEntry` query has no variables.
-### Return Type
-Recall that executing the `GetOldestTimeEntry` query returns a `QueryPromise` that resolves to an object with a `data` property.
-
-The `data` property is an object of type `GetOldestTimeEntryData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
-```typescript
-export interface GetOldestTimeEntryData {
-  timeEntriess: ({
-    date: DateString;
-  })[];
-}
-```
-### Using `GetOldestTimeEntry`'s action shortcut function
-
-```typescript
-import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, getOldestTimeEntry } from '@dataconnect/generated';
-
-
-// Call the `getOldestTimeEntry()` function to execute the query.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await getOldestTimeEntry();
-
-// You can also pass in a `DataConnect` instance to the action shortcut function.
-const dataConnect = getDataConnect(connectorConfig);
-const { data } = await getOldestTimeEntry(dataConnect);
-
-console.log(data.timeEntriess);
-
-// Or, you can use the `Promise` API.
-getOldestTimeEntry().then((response) => {
-  const data = response.data;
-  console.log(data.timeEntriess);
-});
-```
-
-### Using `GetOldestTimeEntry`'s `QueryRef` function
-
-```typescript
-import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, getOldestTimeEntryRef } from '@dataconnect/generated';
-
-
-// Call the `getOldestTimeEntryRef()` function to get a reference to the query.
-const ref = getOldestTimeEntryRef();
-
-// You can also pass in a `DataConnect` instance to the `QueryRef` function.
-const dataConnect = getDataConnect(connectorConfig);
-const ref = getOldestTimeEntryRef(dataConnect);
-
-// Call `executeQuery()` on the reference to execute the query.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await executeQuery(ref);
-
-console.log(data.timeEntriess);
-
-// Or, you can use the `Promise` API.
-executeQuery(ref).then((response) => {
-  const data = response.data;
-  console.log(data.timeEntriess);
-});
-```
-
-## GetNewestTimeEntry
-You can execute the `GetNewestTimeEntry` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
-```typescript
-getNewestTimeEntry(options?: ExecuteQueryOptions): QueryPromise<GetNewestTimeEntryData, undefined>;
-
-interface GetNewestTimeEntryRef {
-  ...
-  /* Allow users to create refs without passing in DataConnect */
-  (): QueryRef<GetNewestTimeEntryData, undefined>;
-}
-export const getNewestTimeEntryRef: GetNewestTimeEntryRef;
-```
-You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescript
-getNewestTimeEntry(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<GetNewestTimeEntryData, undefined>;
-
-interface GetNewestTimeEntryRef {
-  ...
-  (dc: DataConnect): QueryRef<GetNewestTimeEntryData, undefined>;
-}
-export const getNewestTimeEntryRef: GetNewestTimeEntryRef;
-```
-
-If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getNewestTimeEntryRef:
-```typescript
-const name = getNewestTimeEntryRef.operationName;
-console.log(name);
-```
-
-### Variables
-The `GetNewestTimeEntry` query has no variables.
-### Return Type
-Recall that executing the `GetNewestTimeEntry` query returns a `QueryPromise` that resolves to an object with a `data` property.
-
-The `data` property is an object of type `GetNewestTimeEntryData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
-```typescript
-export interface GetNewestTimeEntryData {
-  timeEntriess: ({
-    date: DateString;
-  })[];
-}
-```
-### Using `GetNewestTimeEntry`'s action shortcut function
-
-```typescript
-import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, getNewestTimeEntry } from '@dataconnect/generated';
-
-
-// Call the `getNewestTimeEntry()` function to execute the query.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await getNewestTimeEntry();
-
-// You can also pass in a `DataConnect` instance to the action shortcut function.
-const dataConnect = getDataConnect(connectorConfig);
-const { data } = await getNewestTimeEntry(dataConnect);
-
-console.log(data.timeEntriess);
-
-// Or, you can use the `Promise` API.
-getNewestTimeEntry().then((response) => {
-  const data = response.data;
-  console.log(data.timeEntriess);
-});
-```
-
-### Using `GetNewestTimeEntry`'s `QueryRef` function
-
-```typescript
-import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, getNewestTimeEntryRef } from '@dataconnect/generated';
-
-
-// Call the `getNewestTimeEntryRef()` function to get a reference to the query.
-const ref = getNewestTimeEntryRef();
-
-// You can also pass in a `DataConnect` instance to the `QueryRef` function.
-const dataConnect = getDataConnect(connectorConfig);
-const ref = getNewestTimeEntryRef(dataConnect);
-
-// Call `executeQuery()` on the reference to execute the query.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await executeQuery(ref);
-
-console.log(data.timeEntriess);
-
-// Or, you can use the `Promise` API.
-executeQuery(ref).then((response) => {
-  const data = response.data;
-  console.log(data.timeEntriess);
-});
-```
-
-## GetTimeEntriesByDateRange
-You can execute the `GetTimeEntriesByDateRange` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
-```typescript
-getTimeEntriesByDateRange(vars: GetTimeEntriesByDateRangeVariables, options?: ExecuteQueryOptions): QueryPromise<GetTimeEntriesByDateRangeData, GetTimeEntriesByDateRangeVariables>;
-
-interface GetTimeEntriesByDateRangeRef {
-  ...
-  /* Allow users to create refs without passing in DataConnect */
-  (vars: GetTimeEntriesByDateRangeVariables): QueryRef<GetTimeEntriesByDateRangeData, GetTimeEntriesByDateRangeVariables>;
-}
-export const getTimeEntriesByDateRangeRef: GetTimeEntriesByDateRangeRef;
-```
-You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescript
-getTimeEntriesByDateRange(dc: DataConnect, vars: GetTimeEntriesByDateRangeVariables, options?: ExecuteQueryOptions): QueryPromise<GetTimeEntriesByDateRangeData, GetTimeEntriesByDateRangeVariables>;
-
-interface GetTimeEntriesByDateRangeRef {
-  ...
-  (dc: DataConnect, vars: GetTimeEntriesByDateRangeVariables): QueryRef<GetTimeEntriesByDateRangeData, GetTimeEntriesByDateRangeVariables>;
-}
-export const getTimeEntriesByDateRangeRef: GetTimeEntriesByDateRangeRef;
-```
-
-If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getTimeEntriesByDateRangeRef:
-```typescript
-const name = getTimeEntriesByDateRangeRef.operationName;
-console.log(name);
-```
-
-### Variables
-The `GetTimeEntriesByDateRange` query requires an argument of type `GetTimeEntriesByDateRangeVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
-
-```typescript
-export interface GetTimeEntriesByDateRangeVariables {
-  startDate: DateString;
-  endDate: DateString;
-}
-```
-### Return Type
-Recall that executing the `GetTimeEntriesByDateRange` query returns a `QueryPromise` that resolves to an object with a `data` property.
-
-The `data` property is an object of type `GetTimeEntriesByDateRangeData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
-```typescript
-export interface GetTimeEntriesByDateRangeData {
-  timeEntriess: ({
-    id: UUIDString;
-    date: DateString;
-    hours: number;
-    project_id?: UUIDString | null;
-    person_id?: UUIDString | null;
-  } & TimeEntries_Key)[];
-}
-```
-### Using `GetTimeEntriesByDateRange`'s action shortcut function
-
-```typescript
-import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, getTimeEntriesByDateRange, GetTimeEntriesByDateRangeVariables } from '@dataconnect/generated';
-
-// The `GetTimeEntriesByDateRange` query requires an argument of type `GetTimeEntriesByDateRangeVariables`:
-const getTimeEntriesByDateRangeVars: GetTimeEntriesByDateRangeVariables = {
-  startDate: ..., 
-  endDate: ..., 
-};
-
-// Call the `getTimeEntriesByDateRange()` function to execute the query.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await getTimeEntriesByDateRange(getTimeEntriesByDateRangeVars);
-// Variables can be defined inline as well.
-const { data } = await getTimeEntriesByDateRange({ startDate: ..., endDate: ..., });
-
-// You can also pass in a `DataConnect` instance to the action shortcut function.
-const dataConnect = getDataConnect(connectorConfig);
-const { data } = await getTimeEntriesByDateRange(dataConnect, getTimeEntriesByDateRangeVars);
-
-console.log(data.timeEntriess);
-
-// Or, you can use the `Promise` API.
-getTimeEntriesByDateRange(getTimeEntriesByDateRangeVars).then((response) => {
-  const data = response.data;
-  console.log(data.timeEntriess);
-});
-```
-
-### Using `GetTimeEntriesByDateRange`'s `QueryRef` function
-
-```typescript
-import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, getTimeEntriesByDateRangeRef, GetTimeEntriesByDateRangeVariables } from '@dataconnect/generated';
-
-// The `GetTimeEntriesByDateRange` query requires an argument of type `GetTimeEntriesByDateRangeVariables`:
-const getTimeEntriesByDateRangeVars: GetTimeEntriesByDateRangeVariables = {
-  startDate: ..., 
-  endDate: ..., 
-};
-
-// Call the `getTimeEntriesByDateRangeRef()` function to get a reference to the query.
-const ref = getTimeEntriesByDateRangeRef(getTimeEntriesByDateRangeVars);
-// Variables can be defined inline as well.
-const ref = getTimeEntriesByDateRangeRef({ startDate: ..., endDate: ..., });
-
-// You can also pass in a `DataConnect` instance to the `QueryRef` function.
-const dataConnect = getDataConnect(connectorConfig);
-const ref = getTimeEntriesByDateRangeRef(dataConnect, getTimeEntriesByDateRangeVars);
-
-// Call `executeQuery()` on the reference to execute the query.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await executeQuery(ref);
-
-console.log(data.timeEntriess);
-
-// Or, you can use the `Promise` API.
-executeQuery(ref).then((response) => {
-  const data = response.data;
-  console.log(data.timeEntriess);
-});
-```
-
-## GetAllTimeEntries
-You can execute the `GetAllTimeEntries` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
-```typescript
-getAllTimeEntries(options?: ExecuteQueryOptions): QueryPromise<GetAllTimeEntriesData, undefined>;
-
-interface GetAllTimeEntriesRef {
-  ...
-  /* Allow users to create refs without passing in DataConnect */
-  (): QueryRef<GetAllTimeEntriesData, undefined>;
-}
-export const getAllTimeEntriesRef: GetAllTimeEntriesRef;
-```
-You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescript
-getAllTimeEntries(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<GetAllTimeEntriesData, undefined>;
-
-interface GetAllTimeEntriesRef {
-  ...
-  (dc: DataConnect): QueryRef<GetAllTimeEntriesData, undefined>;
-}
-export const getAllTimeEntriesRef: GetAllTimeEntriesRef;
-```
-
-If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getAllTimeEntriesRef:
-```typescript
-const name = getAllTimeEntriesRef.operationName;
-console.log(name);
-```
-
-### Variables
-The `GetAllTimeEntries` query has no variables.
-### Return Type
-Recall that executing the `GetAllTimeEntries` query returns a `QueryPromise` that resolves to an object with a `data` property.
-
-The `data` property is an object of type `GetAllTimeEntriesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
-```typescript
-export interface GetAllTimeEntriesData {
-  timeEntriess: ({
-    id: UUIDString;
-    date: DateString;
-    hours: number;
-    notes?: string | null;
-    createdAt: DateString;
-    project_id?: UUIDString | null;
-    person_id?: UUIDString | null;
-    personName?: string | null;
-    projectName?: string | null;
-    projectCode?: string | null;
-  } & TimeEntries_Key)[];
-}
-```
-### Using `GetAllTimeEntries`'s action shortcut function
-
-```typescript
-import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, getAllTimeEntries } from '@dataconnect/generated';
-
-
-// Call the `getAllTimeEntries()` function to execute the query.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await getAllTimeEntries();
-
-// You can also pass in a `DataConnect` instance to the action shortcut function.
-const dataConnect = getDataConnect(connectorConfig);
-const { data } = await getAllTimeEntries(dataConnect);
-
-console.log(data.timeEntriess);
-
-// Or, you can use the `Promise` API.
-getAllTimeEntries().then((response) => {
-  const data = response.data;
-  console.log(data.timeEntriess);
-});
-```
-
-### Using `GetAllTimeEntries`'s `QueryRef` function
-
-```typescript
-import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, getAllTimeEntriesRef } from '@dataconnect/generated';
-
-
-// Call the `getAllTimeEntriesRef()` function to get a reference to the query.
-const ref = getAllTimeEntriesRef();
-
-// You can also pass in a `DataConnect` instance to the `QueryRef` function.
-const dataConnect = getDataConnect(connectorConfig);
-const ref = getAllTimeEntriesRef(dataConnect);
-
-// Call `executeQuery()` on the reference to execute the query.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await executeQuery(ref);
-
-console.log(data.timeEntriess);
-
-// Or, you can use the `Promise` API.
-executeQuery(ref).then((response) => {
-  const data = response.data;
-  console.log(data.timeEntriess);
-});
-```
-
-## ListProjectScopes
-You can execute the `ListProjectScopes` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
-```typescript
-listProjectScopes(options?: ExecuteQueryOptions): QueryPromise<ListProjectScopesData, undefined>;
-
-interface ListProjectScopesRef {
-  ...
-  /* Allow users to create refs without passing in DataConnect */
-  (): QueryRef<ListProjectScopesData, undefined>;
-}
-export const listProjectScopesRef: ListProjectScopesRef;
-```
-You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescript
-listProjectScopes(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListProjectScopesData, undefined>;
-
-interface ListProjectScopesRef {
-  ...
-  (dc: DataConnect): QueryRef<ListProjectScopesData, undefined>;
-}
-export const listProjectScopesRef: ListProjectScopesRef;
-```
-
-If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the listProjectScopesRef:
-```typescript
-const name = listProjectScopesRef.operationName;
-console.log(name);
-```
-
-### Variables
-The `ListProjectScopes` query has no variables.
-### Return Type
-Recall that executing the `ListProjectScopes` query returns a `QueryPromise` that resolves to an object with a `data` property.
-
-The `data` property is an object of type `ListProjectScopesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
-```typescript
-export interface ListProjectScopesData {
-  projectScopess: ({
-    id: UUIDString;
-    project_id?: UUIDString | null;
-    role_id?: UUIDString | null;
-    scoped_hours: number;
-    phase_percentages?: unknown | null;
-  } & ProjectScopes_Key)[];
-}
-```
-### Using `ListProjectScopes`'s action shortcut function
-
-```typescript
-import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, listProjectScopes } from '@dataconnect/generated';
-
-
-// Call the `listProjectScopes()` function to execute the query.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await listProjectScopes();
-
-// You can also pass in a `DataConnect` instance to the action shortcut function.
-const dataConnect = getDataConnect(connectorConfig);
-const { data } = await listProjectScopes(dataConnect);
-
-console.log(data.projectScopess);
-
-// Or, you can use the `Promise` API.
-listProjectScopes().then((response) => {
-  const data = response.data;
-  console.log(data.projectScopess);
-});
-```
-
-### Using `ListProjectScopes`'s `QueryRef` function
-
-```typescript
-import { getDataConnect, executeQuery } from 'firebase/data-connect';
-import { connectorConfig, listProjectScopesRef } from '@dataconnect/generated';
-
-
-// Call the `listProjectScopesRef()` function to get a reference to the query.
-const ref = listProjectScopesRef();
-
-// You can also pass in a `DataConnect` instance to the `QueryRef` function.
-const dataConnect = getDataConnect(connectorConfig);
-const ref = listProjectScopesRef(dataConnect);
-
-// Call `executeQuery()` on the reference to execute the query.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await executeQuery(ref);
-
-console.log(data.projectScopess);
-
-// Or, you can use the `Promise` API.
-executeQuery(ref).then((response) => {
-  const data = response.data;
-  console.log(data.projectScopess);
 });
 ```
 
@@ -1917,7 +1404,7 @@ export interface InsertAllocationsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertAllocations, InsertAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertAllocations, InsertAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `InsertAllocations` mutation requires an argument of type `InsertAllocationsVariables`:
 const insertAllocationsVars: InsertAllocationsVariables = {
@@ -1951,7 +1438,7 @@ insertAllocations(insertAllocationsVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertAllocationsRef, InsertAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertAllocationsRef, InsertAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `InsertAllocations` mutation requires an argument of type `InsertAllocationsVariables`:
 const insertAllocationsVars: InsertAllocationsVariables = {
@@ -2038,7 +1525,7 @@ export interface UpsertAllocationsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertAllocations, UpsertAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertAllocations, UpsertAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertAllocations` mutation requires an argument of type `UpsertAllocationsVariables`:
 const upsertAllocationsVars: UpsertAllocationsVariables = {
@@ -2072,7 +1559,7 @@ upsertAllocations(upsertAllocationsVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertAllocationsRef, UpsertAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertAllocationsRef, UpsertAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertAllocations` mutation requires an argument of type `UpsertAllocationsVariables`:
 const upsertAllocationsVars: UpsertAllocationsVariables = {
@@ -2161,7 +1648,7 @@ export interface InsertBillabilityRuleConditionsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertBillabilityRuleConditions, InsertBillabilityRuleConditionsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertBillabilityRuleConditions, InsertBillabilityRuleConditionsVariables } from '@dataconnect/generated-server';
 
 // The `InsertBillabilityRuleConditions` mutation requires an argument of type `InsertBillabilityRuleConditionsVariables`:
 const insertBillabilityRuleConditionsVars: InsertBillabilityRuleConditionsVariables = {
@@ -2197,7 +1684,7 @@ insertBillabilityRuleConditions(insertBillabilityRuleConditionsVars).then((respo
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertBillabilityRuleConditionsRef, InsertBillabilityRuleConditionsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertBillabilityRuleConditionsRef, InsertBillabilityRuleConditionsVariables } from '@dataconnect/generated-server';
 
 // The `InsertBillabilityRuleConditions` mutation requires an argument of type `InsertBillabilityRuleConditionsVariables`:
 const insertBillabilityRuleConditionsVars: InsertBillabilityRuleConditionsVariables = {
@@ -2288,7 +1775,7 @@ export interface UpsertBillabilityRuleConditionsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertBillabilityRuleConditions, UpsertBillabilityRuleConditionsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertBillabilityRuleConditions, UpsertBillabilityRuleConditionsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertBillabilityRuleConditions` mutation requires an argument of type `UpsertBillabilityRuleConditionsVariables`:
 const upsertBillabilityRuleConditionsVars: UpsertBillabilityRuleConditionsVariables = {
@@ -2324,7 +1811,7 @@ upsertBillabilityRuleConditions(upsertBillabilityRuleConditionsVars).then((respo
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertBillabilityRuleConditionsRef, UpsertBillabilityRuleConditionsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertBillabilityRuleConditionsRef, UpsertBillabilityRuleConditionsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertBillabilityRuleConditions` mutation requires an argument of type `UpsertBillabilityRuleConditionsVariables`:
 const upsertBillabilityRuleConditionsVars: UpsertBillabilityRuleConditionsVariables = {
@@ -2414,7 +1901,7 @@ export interface InsertBillabilityRulesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertBillabilityRules, InsertBillabilityRulesVariables } from '@dataconnect/generated';
+import { connectorConfig, insertBillabilityRules, InsertBillabilityRulesVariables } from '@dataconnect/generated-server';
 
 // The `InsertBillabilityRules` mutation requires an argument of type `InsertBillabilityRulesVariables`:
 const insertBillabilityRulesVars: InsertBillabilityRulesVariables = {
@@ -2449,7 +1936,7 @@ insertBillabilityRules(insertBillabilityRulesVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertBillabilityRulesRef, InsertBillabilityRulesVariables } from '@dataconnect/generated';
+import { connectorConfig, insertBillabilityRulesRef, InsertBillabilityRulesVariables } from '@dataconnect/generated-server';
 
 // The `InsertBillabilityRules` mutation requires an argument of type `InsertBillabilityRulesVariables`:
 const insertBillabilityRulesVars: InsertBillabilityRulesVariables = {
@@ -2538,7 +2025,7 @@ export interface UpsertBillabilityRulesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertBillabilityRules, UpsertBillabilityRulesVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertBillabilityRules, UpsertBillabilityRulesVariables } from '@dataconnect/generated-server';
 
 // The `UpsertBillabilityRules` mutation requires an argument of type `UpsertBillabilityRulesVariables`:
 const upsertBillabilityRulesVars: UpsertBillabilityRulesVariables = {
@@ -2573,7 +2060,7 @@ upsertBillabilityRules(upsertBillabilityRulesVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertBillabilityRulesRef, UpsertBillabilityRulesVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertBillabilityRulesRef, UpsertBillabilityRulesVariables } from '@dataconnect/generated-server';
 
 // The `UpsertBillabilityRules` mutation requires an argument of type `UpsertBillabilityRulesVariables`:
 const upsertBillabilityRulesVars: UpsertBillabilityRulesVariables = {
@@ -2662,7 +2149,7 @@ export interface InsertClientTeamAllocationsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertClientTeamAllocations, InsertClientTeamAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertClientTeamAllocations, InsertClientTeamAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `InsertClientTeamAllocations` mutation requires an argument of type `InsertClientTeamAllocationsVariables`:
 const insertClientTeamAllocationsVars: InsertClientTeamAllocationsVariables = {
@@ -2697,7 +2184,7 @@ insertClientTeamAllocations(insertClientTeamAllocationsVars).then((response) => 
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertClientTeamAllocationsRef, InsertClientTeamAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertClientTeamAllocationsRef, InsertClientTeamAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `InsertClientTeamAllocations` mutation requires an argument of type `InsertClientTeamAllocationsVariables`:
 const insertClientTeamAllocationsVars: InsertClientTeamAllocationsVariables = {
@@ -2786,7 +2273,7 @@ export interface UpsertClientTeamAllocationsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertClientTeamAllocations, UpsertClientTeamAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertClientTeamAllocations, UpsertClientTeamAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertClientTeamAllocations` mutation requires an argument of type `UpsertClientTeamAllocationsVariables`:
 const upsertClientTeamAllocationsVars: UpsertClientTeamAllocationsVariables = {
@@ -2821,7 +2308,7 @@ upsertClientTeamAllocations(upsertClientTeamAllocationsVars).then((response) => 
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertClientTeamAllocationsRef, UpsertClientTeamAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertClientTeamAllocationsRef, UpsertClientTeamAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertClientTeamAllocations` mutation requires an argument of type `UpsertClientTeamAllocationsVariables`:
 const upsertClientTeamAllocationsVars: UpsertClientTeamAllocationsVariables = {
@@ -2909,7 +2396,7 @@ export interface InsertDailyAllocationsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertDailyAllocations, InsertDailyAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertDailyAllocations, InsertDailyAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `InsertDailyAllocations` mutation requires an argument of type `InsertDailyAllocationsVariables`:
 const insertDailyAllocationsVars: InsertDailyAllocationsVariables = {
@@ -2943,7 +2430,7 @@ insertDailyAllocations(insertDailyAllocationsVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertDailyAllocationsRef, InsertDailyAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertDailyAllocationsRef, InsertDailyAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `InsertDailyAllocations` mutation requires an argument of type `InsertDailyAllocationsVariables`:
 const insertDailyAllocationsVars: InsertDailyAllocationsVariables = {
@@ -3030,7 +2517,7 @@ export interface UpsertDailyAllocationsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertDailyAllocations, UpsertDailyAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertDailyAllocations, UpsertDailyAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertDailyAllocations` mutation requires an argument of type `UpsertDailyAllocationsVariables`:
 const upsertDailyAllocationsVars: UpsertDailyAllocationsVariables = {
@@ -3064,7 +2551,7 @@ upsertDailyAllocations(upsertDailyAllocationsVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertDailyAllocationsRef, UpsertDailyAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertDailyAllocationsRef, UpsertDailyAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertDailyAllocations` mutation requires an argument of type `UpsertDailyAllocationsVariables`:
 const upsertDailyAllocationsVars: UpsertDailyAllocationsVariables = {
@@ -3150,7 +2637,7 @@ export interface InsertDataImportsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertDataImports, InsertDataImportsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertDataImports, InsertDataImportsVariables } from '@dataconnect/generated-server';
 
 // The `InsertDataImports` mutation requires an argument of type `InsertDataImportsVariables`:
 const insertDataImportsVars: InsertDataImportsVariables = {
@@ -3183,7 +2670,7 @@ insertDataImports(insertDataImportsVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertDataImportsRef, InsertDataImportsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertDataImportsRef, InsertDataImportsVariables } from '@dataconnect/generated-server';
 
 // The `InsertDataImports` mutation requires an argument of type `InsertDataImportsVariables`:
 const insertDataImportsVars: InsertDataImportsVariables = {
@@ -3268,7 +2755,7 @@ export interface UpsertDataImportsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertDataImports, UpsertDataImportsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertDataImports, UpsertDataImportsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertDataImports` mutation requires an argument of type `UpsertDataImportsVariables`:
 const upsertDataImportsVars: UpsertDataImportsVariables = {
@@ -3301,7 +2788,7 @@ upsertDataImports(upsertDataImportsVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertDataImportsRef, UpsertDataImportsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertDataImportsRef, UpsertDataImportsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertDataImports` mutation requires an argument of type `UpsertDataImportsVariables`:
 const upsertDataImportsVars: UpsertDataImportsVariables = {
@@ -3401,7 +2888,7 @@ export interface InsertPeopleData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertPeople, InsertPeopleVariables } from '@dataconnect/generated';
+import { connectorConfig, insertPeople, InsertPeopleVariables } from '@dataconnect/generated-server';
 
 // The `InsertPeople` mutation requires an argument of type `InsertPeopleVariables`:
 const insertPeopleVars: InsertPeopleVariables = {
@@ -3449,7 +2936,7 @@ insertPeople(insertPeopleVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertPeopleRef, InsertPeopleVariables } from '@dataconnect/generated';
+import { connectorConfig, insertPeopleRef, InsertPeopleVariables } from '@dataconnect/generated-server';
 
 // The `InsertPeople` mutation requires an argument of type `InsertPeopleVariables`:
 const insertPeopleVars: InsertPeopleVariables = {
@@ -3564,7 +3051,7 @@ export interface UpsertPeopleData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertPeople, UpsertPeopleVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertPeople, UpsertPeopleVariables } from '@dataconnect/generated-server';
 
 // The `UpsertPeople` mutation requires an argument of type `UpsertPeopleVariables`:
 const upsertPeopleVars: UpsertPeopleVariables = {
@@ -3612,7 +3099,7 @@ upsertPeople(upsertPeopleVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertPeopleRef, UpsertPeopleVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertPeopleRef, UpsertPeopleVariables } from '@dataconnect/generated-server';
 
 // The `UpsertPeople` mutation requires an argument of type `UpsertPeopleVariables`:
 const upsertPeopleVars: UpsertPeopleVariables = {
@@ -3714,7 +3201,7 @@ export interface InsertPhaseAllocationsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertPhaseAllocations, InsertPhaseAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertPhaseAllocations, InsertPhaseAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `InsertPhaseAllocations` mutation requires an argument of type `InsertPhaseAllocationsVariables`:
 const insertPhaseAllocationsVars: InsertPhaseAllocationsVariables = {
@@ -3749,7 +3236,7 @@ insertPhaseAllocations(insertPhaseAllocationsVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertPhaseAllocationsRef, InsertPhaseAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertPhaseAllocationsRef, InsertPhaseAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `InsertPhaseAllocations` mutation requires an argument of type `InsertPhaseAllocationsVariables`:
 const insertPhaseAllocationsVars: InsertPhaseAllocationsVariables = {
@@ -3838,7 +3325,7 @@ export interface UpsertPhaseAllocationsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertPhaseAllocations, UpsertPhaseAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertPhaseAllocations, UpsertPhaseAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertPhaseAllocations` mutation requires an argument of type `UpsertPhaseAllocationsVariables`:
 const upsertPhaseAllocationsVars: UpsertPhaseAllocationsVariables = {
@@ -3873,7 +3360,7 @@ upsertPhaseAllocations(upsertPhaseAllocationsVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertPhaseAllocationsRef, UpsertPhaseAllocationsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertPhaseAllocationsRef, UpsertPhaseAllocationsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertPhaseAllocations` mutation requires an argument of type `UpsertPhaseAllocationsVariables`:
 const upsertPhaseAllocationsVars: UpsertPhaseAllocationsVariables = {
@@ -3961,7 +3448,7 @@ export interface InsertProjectMonthlyRevenueData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertProjectMonthlyRevenue, InsertProjectMonthlyRevenueVariables } from '@dataconnect/generated';
+import { connectorConfig, insertProjectMonthlyRevenue, InsertProjectMonthlyRevenueVariables } from '@dataconnect/generated-server';
 
 // The `InsertProjectMonthlyRevenue` mutation requires an argument of type `InsertProjectMonthlyRevenueVariables`:
 const insertProjectMonthlyRevenueVars: InsertProjectMonthlyRevenueVariables = {
@@ -3995,7 +3482,7 @@ insertProjectMonthlyRevenue(insertProjectMonthlyRevenueVars).then((response) => 
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertProjectMonthlyRevenueRef, InsertProjectMonthlyRevenueVariables } from '@dataconnect/generated';
+import { connectorConfig, insertProjectMonthlyRevenueRef, InsertProjectMonthlyRevenueVariables } from '@dataconnect/generated-server';
 
 // The `InsertProjectMonthlyRevenue` mutation requires an argument of type `InsertProjectMonthlyRevenueVariables`:
 const insertProjectMonthlyRevenueVars: InsertProjectMonthlyRevenueVariables = {
@@ -4082,7 +3569,7 @@ export interface UpsertProjectMonthlyRevenueData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertProjectMonthlyRevenue, UpsertProjectMonthlyRevenueVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertProjectMonthlyRevenue, UpsertProjectMonthlyRevenueVariables } from '@dataconnect/generated-server';
 
 // The `UpsertProjectMonthlyRevenue` mutation requires an argument of type `UpsertProjectMonthlyRevenueVariables`:
 const upsertProjectMonthlyRevenueVars: UpsertProjectMonthlyRevenueVariables = {
@@ -4116,7 +3603,7 @@ upsertProjectMonthlyRevenue(upsertProjectMonthlyRevenueVars).then((response) => 
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertProjectMonthlyRevenueRef, UpsertProjectMonthlyRevenueVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertProjectMonthlyRevenueRef, UpsertProjectMonthlyRevenueVariables } from '@dataconnect/generated-server';
 
 // The `UpsertProjectMonthlyRevenue` mutation requires an argument of type `UpsertProjectMonthlyRevenueVariables`:
 const upsertProjectMonthlyRevenueVars: UpsertProjectMonthlyRevenueVariables = {
@@ -4205,7 +3692,7 @@ export interface InsertProjectPhasesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertProjectPhases, InsertProjectPhasesVariables } from '@dataconnect/generated';
+import { connectorConfig, insertProjectPhases, InsertProjectPhasesVariables } from '@dataconnect/generated-server';
 
 // The `InsertProjectPhases` mutation requires an argument of type `InsertProjectPhasesVariables`:
 const insertProjectPhasesVars: InsertProjectPhasesVariables = {
@@ -4241,7 +3728,7 @@ insertProjectPhases(insertProjectPhasesVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertProjectPhasesRef, InsertProjectPhasesVariables } from '@dataconnect/generated';
+import { connectorConfig, insertProjectPhasesRef, InsertProjectPhasesVariables } from '@dataconnect/generated-server';
 
 // The `InsertProjectPhases` mutation requires an argument of type `InsertProjectPhasesVariables`:
 const insertProjectPhasesVars: InsertProjectPhasesVariables = {
@@ -4332,7 +3819,7 @@ export interface UpsertProjectPhasesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertProjectPhases, UpsertProjectPhasesVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertProjectPhases, UpsertProjectPhasesVariables } from '@dataconnect/generated-server';
 
 // The `UpsertProjectPhases` mutation requires an argument of type `UpsertProjectPhasesVariables`:
 const upsertProjectPhasesVars: UpsertProjectPhasesVariables = {
@@ -4368,7 +3855,7 @@ upsertProjectPhases(upsertProjectPhasesVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertProjectPhasesRef, UpsertProjectPhasesVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertProjectPhasesRef, UpsertProjectPhasesVariables } from '@dataconnect/generated-server';
 
 // The `UpsertProjectPhases` mutation requires an argument of type `UpsertProjectPhasesVariables`:
 const upsertProjectPhasesVars: UpsertProjectPhasesVariables = {
@@ -4459,7 +3946,7 @@ export interface InsertProjectScopesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertProjectScopes, InsertProjectScopesVariables } from '@dataconnect/generated';
+import { connectorConfig, insertProjectScopes, InsertProjectScopesVariables } from '@dataconnect/generated-server';
 
 // The `InsertProjectScopes` mutation requires an argument of type `InsertProjectScopesVariables`:
 const insertProjectScopesVars: InsertProjectScopesVariables = {
@@ -4495,7 +3982,7 @@ insertProjectScopes(insertProjectScopesVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertProjectScopesRef, InsertProjectScopesVariables } from '@dataconnect/generated';
+import { connectorConfig, insertProjectScopesRef, InsertProjectScopesVariables } from '@dataconnect/generated-server';
 
 // The `InsertProjectScopes` mutation requires an argument of type `InsertProjectScopesVariables`:
 const insertProjectScopesVars: InsertProjectScopesVariables = {
@@ -4586,7 +4073,7 @@ export interface UpsertProjectScopesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertProjectScopes, UpsertProjectScopesVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertProjectScopes, UpsertProjectScopesVariables } from '@dataconnect/generated-server';
 
 // The `UpsertProjectScopes` mutation requires an argument of type `UpsertProjectScopesVariables`:
 const upsertProjectScopesVars: UpsertProjectScopesVariables = {
@@ -4622,7 +4109,7 @@ upsertProjectScopes(upsertProjectScopesVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertProjectScopesRef, UpsertProjectScopesVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertProjectScopesRef, UpsertProjectScopesVariables } from '@dataconnect/generated-server';
 
 // The `UpsertProjectScopes` mutation requires an argument of type `UpsertProjectScopesVariables`:
 const upsertProjectScopesVars: UpsertProjectScopesVariables = {
@@ -4774,7 +4261,7 @@ export interface InsertProjectsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertProjects, InsertProjectsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertProjects, InsertProjectsVariables } from '@dataconnect/generated-server';
 
 // The `InsertProjects` mutation requires an argument of type `InsertProjectsVariables`:
 const insertProjectsVars: InsertProjectsVariables = {
@@ -4871,7 +4358,7 @@ insertProjects(insertProjectsVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertProjectsRef, InsertProjectsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertProjectsRef, InsertProjectsVariables } from '@dataconnect/generated-server';
 
 // The `InsertProjects` mutation requires an argument of type `InsertProjectsVariables`:
 const insertProjectsVars: InsertProjectsVariables = {
@@ -5084,7 +4571,7 @@ export interface UpsertProjectsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertProjects, UpsertProjectsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertProjects, UpsertProjectsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertProjects` mutation requires an argument of type `UpsertProjectsVariables`:
 const upsertProjectsVars: UpsertProjectsVariables = {
@@ -5181,7 +4668,7 @@ upsertProjects(upsertProjectsVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertProjectsRef, UpsertProjectsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertProjectsRef, UpsertProjectsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertProjects` mutation requires an argument of type `UpsertProjectsVariables`:
 const upsertProjectsVars: UpsertProjectsVariables = {
@@ -5333,7 +4820,7 @@ export interface InsertRateCardsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertRateCards, InsertRateCardsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertRateCards, InsertRateCardsVariables } from '@dataconnect/generated-server';
 
 // The `InsertRateCards` mutation requires an argument of type `InsertRateCardsVariables`:
 const insertRateCardsVars: InsertRateCardsVariables = {
@@ -5369,7 +4856,7 @@ insertRateCards(insertRateCardsVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertRateCardsRef, InsertRateCardsVariables } from '@dataconnect/generated';
+import { connectorConfig, insertRateCardsRef, InsertRateCardsVariables } from '@dataconnect/generated-server';
 
 // The `InsertRateCards` mutation requires an argument of type `InsertRateCardsVariables`:
 const insertRateCardsVars: InsertRateCardsVariables = {
@@ -5460,7 +4947,7 @@ export interface UpsertRateCardsData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertRateCards, UpsertRateCardsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertRateCards, UpsertRateCardsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertRateCards` mutation requires an argument of type `UpsertRateCardsVariables`:
 const upsertRateCardsVars: UpsertRateCardsVariables = {
@@ -5496,7 +4983,7 @@ upsertRateCards(upsertRateCardsVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertRateCardsRef, UpsertRateCardsVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertRateCardsRef, UpsertRateCardsVariables } from '@dataconnect/generated-server';
 
 // The `UpsertRateCards` mutation requires an argument of type `UpsertRateCardsVariables`:
 const upsertRateCardsVars: UpsertRateCardsVariables = {
@@ -5585,7 +5072,7 @@ export interface InsertRolesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertRoles, InsertRolesVariables } from '@dataconnect/generated';
+import { connectorConfig, insertRoles, InsertRolesVariables } from '@dataconnect/generated-server';
 
 // The `InsertRoles` mutation requires an argument of type `InsertRolesVariables`:
 const insertRolesVars: InsertRolesVariables = {
@@ -5619,7 +5106,7 @@ insertRoles(insertRolesVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertRolesRef, InsertRolesVariables } from '@dataconnect/generated';
+import { connectorConfig, insertRolesRef, InsertRolesVariables } from '@dataconnect/generated-server';
 
 // The `InsertRoles` mutation requires an argument of type `InsertRolesVariables`:
 const insertRolesVars: InsertRolesVariables = {
@@ -5706,7 +5193,7 @@ export interface UpsertRolesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertRoles, UpsertRolesVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertRoles, UpsertRolesVariables } from '@dataconnect/generated-server';
 
 // The `UpsertRoles` mutation requires an argument of type `UpsertRolesVariables`:
 const upsertRolesVars: UpsertRolesVariables = {
@@ -5740,7 +5227,7 @@ upsertRoles(upsertRolesVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertRolesRef, UpsertRolesVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertRolesRef, UpsertRolesVariables } from '@dataconnect/generated-server';
 
 // The `UpsertRoles` mutation requires an argument of type `UpsertRolesVariables`:
 const upsertRolesVars: UpsertRolesVariables = {
@@ -5832,7 +5319,7 @@ export interface InsertTimeEntriesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, insertTimeEntries, InsertTimeEntriesVariables } from '@dataconnect/generated';
+import { connectorConfig, insertTimeEntries, InsertTimeEntriesVariables } from '@dataconnect/generated-server';
 
 // The `InsertTimeEntries` mutation requires an argument of type `InsertTimeEntriesVariables`:
 const insertTimeEntriesVars: InsertTimeEntriesVariables = {
@@ -5871,7 +5358,7 @@ insertTimeEntries(insertTimeEntriesVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, insertTimeEntriesRef, InsertTimeEntriesVariables } from '@dataconnect/generated';
+import { connectorConfig, insertTimeEntriesRef, InsertTimeEntriesVariables } from '@dataconnect/generated-server';
 
 // The `InsertTimeEntries` mutation requires an argument of type `InsertTimeEntriesVariables`:
 const insertTimeEntriesVars: InsertTimeEntriesVariables = {
@@ -5968,7 +5455,7 @@ export interface UpsertTimeEntriesData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, upsertTimeEntries, UpsertTimeEntriesVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertTimeEntries, UpsertTimeEntriesVariables } from '@dataconnect/generated-server';
 
 // The `UpsertTimeEntries` mutation requires an argument of type `UpsertTimeEntriesVariables`:
 const upsertTimeEntriesVars: UpsertTimeEntriesVariables = {
@@ -6007,7 +5494,7 @@ upsertTimeEntries(upsertTimeEntriesVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, upsertTimeEntriesRef, UpsertTimeEntriesVariables } from '@dataconnect/generated';
+import { connectorConfig, upsertTimeEntriesRef, UpsertTimeEntriesVariables } from '@dataconnect/generated-server';
 
 // The `UpsertTimeEntries` mutation requires an argument of type `UpsertTimeEntriesVariables`:
 const upsertTimeEntriesVars: UpsertTimeEntriesVariables = {
@@ -6097,7 +5584,7 @@ export interface CreateAppUserData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, createAppUser, CreateAppUserVariables } from '@dataconnect/generated';
+import { connectorConfig, createAppUser, CreateAppUserVariables } from '@dataconnect/generated-server';
 
 // The `CreateAppUser` mutation requires an argument of type `CreateAppUserVariables`:
 const createAppUserVars: CreateAppUserVariables = {
@@ -6129,7 +5616,7 @@ createAppUser(createAppUserVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, createAppUserRef, CreateAppUserVariables } from '@dataconnect/generated';
+import { connectorConfig, createAppUserRef, CreateAppUserVariables } from '@dataconnect/generated-server';
 
 // The `CreateAppUser` mutation requires an argument of type `CreateAppUserVariables`:
 const createAppUserVars: CreateAppUserVariables = {
@@ -6211,7 +5698,7 @@ export interface UpdateAppUserData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, updateAppUser, UpdateAppUserVariables } from '@dataconnect/generated';
+import { connectorConfig, updateAppUser, UpdateAppUserVariables } from '@dataconnect/generated-server';
 
 // The `UpdateAppUser` mutation requires an argument of type `UpdateAppUserVariables`:
 const updateAppUserVars: UpdateAppUserVariables = {
@@ -6242,7 +5729,7 @@ updateAppUser(updateAppUserVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, updateAppUserRef, UpdateAppUserVariables } from '@dataconnect/generated';
+import { connectorConfig, updateAppUserRef, UpdateAppUserVariables } from '@dataconnect/generated-server';
 
 // The `UpdateAppUser` mutation requires an argument of type `UpdateAppUserVariables`:
 const updateAppUserVars: UpdateAppUserVariables = {
@@ -6322,7 +5809,7 @@ export interface DeleteAppUserData {
 
 ```typescript
 import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, deleteAppUser, DeleteAppUserVariables } from '@dataconnect/generated';
+import { connectorConfig, deleteAppUser, DeleteAppUserVariables } from '@dataconnect/generated-server';
 
 // The `DeleteAppUser` mutation requires an argument of type `DeleteAppUserVariables`:
 const deleteAppUserVars: DeleteAppUserVariables = {
@@ -6352,7 +5839,7 @@ deleteAppUser(deleteAppUserVars).then((response) => {
 
 ```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, deleteAppUserRef, DeleteAppUserVariables } from '@dataconnect/generated';
+import { connectorConfig, deleteAppUserRef, DeleteAppUserVariables } from '@dataconnect/generated-server';
 
 // The `DeleteAppUser` mutation requires an argument of type `DeleteAppUserVariables`:
 const deleteAppUserVars: DeleteAppUserVariables = {
@@ -6378,206 +5865,6 @@ console.log(data.appUsers_delete);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.appUsers_delete);
-});
-```
-
-## DeleteTimeEntriesByDate
-You can execute the `DeleteTimeEntriesByDate` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
-```typescript
-deleteTimeEntriesByDate(vars: DeleteTimeEntriesByDateVariables): MutationPromise<DeleteTimeEntriesByDateData, DeleteTimeEntriesByDateVariables>;
-
-interface DeleteTimeEntriesByDateRef {
-  ...
-  /* Allow users to create refs without passing in DataConnect */
-  (vars: DeleteTimeEntriesByDateVariables): MutationRef<DeleteTimeEntriesByDateData, DeleteTimeEntriesByDateVariables>;
-}
-export const deleteTimeEntriesByDateRef: DeleteTimeEntriesByDateRef;
-```
-You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescript
-deleteTimeEntriesByDate(dc: DataConnect, vars: DeleteTimeEntriesByDateVariables): MutationPromise<DeleteTimeEntriesByDateData, DeleteTimeEntriesByDateVariables>;
-
-interface DeleteTimeEntriesByDateRef {
-  ...
-  (dc: DataConnect, vars: DeleteTimeEntriesByDateVariables): MutationRef<DeleteTimeEntriesByDateData, DeleteTimeEntriesByDateVariables>;
-}
-export const deleteTimeEntriesByDateRef: DeleteTimeEntriesByDateRef;
-```
-
-If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the deleteTimeEntriesByDateRef:
-```typescript
-const name = deleteTimeEntriesByDateRef.operationName;
-console.log(name);
-```
-
-### Variables
-The `DeleteTimeEntriesByDate` mutation requires an argument of type `DeleteTimeEntriesByDateVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
-
-```typescript
-export interface DeleteTimeEntriesByDateVariables {
-  fromDate: DateString;
-}
-```
-### Return Type
-Recall that executing the `DeleteTimeEntriesByDate` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
-
-The `data` property is an object of type `DeleteTimeEntriesByDateData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
-```typescript
-export interface DeleteTimeEntriesByDateData {
-  timeEntries_deleteMany: number;
-}
-```
-### Using `DeleteTimeEntriesByDate`'s action shortcut function
-
-```typescript
-import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, deleteTimeEntriesByDate, DeleteTimeEntriesByDateVariables } from '@dataconnect/generated';
-
-// The `DeleteTimeEntriesByDate` mutation requires an argument of type `DeleteTimeEntriesByDateVariables`:
-const deleteTimeEntriesByDateVars: DeleteTimeEntriesByDateVariables = {
-  fromDate: ..., 
-};
-
-// Call the `deleteTimeEntriesByDate()` function to execute the mutation.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await deleteTimeEntriesByDate(deleteTimeEntriesByDateVars);
-// Variables can be defined inline as well.
-const { data } = await deleteTimeEntriesByDate({ fromDate: ..., });
-
-// You can also pass in a `DataConnect` instance to the action shortcut function.
-const dataConnect = getDataConnect(connectorConfig);
-const { data } = await deleteTimeEntriesByDate(dataConnect, deleteTimeEntriesByDateVars);
-
-console.log(data.timeEntries_deleteMany);
-
-// Or, you can use the `Promise` API.
-deleteTimeEntriesByDate(deleteTimeEntriesByDateVars).then((response) => {
-  const data = response.data;
-  console.log(data.timeEntries_deleteMany);
-});
-```
-
-### Using `DeleteTimeEntriesByDate`'s `MutationRef` function
-
-```typescript
-import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, deleteTimeEntriesByDateRef, DeleteTimeEntriesByDateVariables } from '@dataconnect/generated';
-
-// The `DeleteTimeEntriesByDate` mutation requires an argument of type `DeleteTimeEntriesByDateVariables`:
-const deleteTimeEntriesByDateVars: DeleteTimeEntriesByDateVariables = {
-  fromDate: ..., 
-};
-
-// Call the `deleteTimeEntriesByDateRef()` function to get a reference to the mutation.
-const ref = deleteTimeEntriesByDateRef(deleteTimeEntriesByDateVars);
-// Variables can be defined inline as well.
-const ref = deleteTimeEntriesByDateRef({ fromDate: ..., });
-
-// You can also pass in a `DataConnect` instance to the `MutationRef` function.
-const dataConnect = getDataConnect(connectorConfig);
-const ref = deleteTimeEntriesByDateRef(dataConnect, deleteTimeEntriesByDateVars);
-
-// Call `executeMutation()` on the reference to execute the mutation.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await executeMutation(ref);
-
-console.log(data.timeEntries_deleteMany);
-
-// Or, you can use the `Promise` API.
-executeMutation(ref).then((response) => {
-  const data = response.data;
-  console.log(data.timeEntries_deleteMany);
-});
-```
-
-## DeleteAllTimeEntries
-You can execute the `DeleteAllTimeEntries` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
-```typescript
-deleteAllTimeEntries(): MutationPromise<DeleteAllTimeEntriesData, undefined>;
-
-interface DeleteAllTimeEntriesRef {
-  ...
-  /* Allow users to create refs without passing in DataConnect */
-  (): MutationRef<DeleteAllTimeEntriesData, undefined>;
-}
-export const deleteAllTimeEntriesRef: DeleteAllTimeEntriesRef;
-```
-You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescript
-deleteAllTimeEntries(dc: DataConnect): MutationPromise<DeleteAllTimeEntriesData, undefined>;
-
-interface DeleteAllTimeEntriesRef {
-  ...
-  (dc: DataConnect): MutationRef<DeleteAllTimeEntriesData, undefined>;
-}
-export const deleteAllTimeEntriesRef: DeleteAllTimeEntriesRef;
-```
-
-If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the deleteAllTimeEntriesRef:
-```typescript
-const name = deleteAllTimeEntriesRef.operationName;
-console.log(name);
-```
-
-### Variables
-The `DeleteAllTimeEntries` mutation has no variables.
-### Return Type
-Recall that executing the `DeleteAllTimeEntries` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
-
-The `data` property is an object of type `DeleteAllTimeEntriesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
-```typescript
-export interface DeleteAllTimeEntriesData {
-  timeEntries_deleteMany: number;
-}
-```
-### Using `DeleteAllTimeEntries`'s action shortcut function
-
-```typescript
-import { getDataConnect } from 'firebase/data-connect';
-import { connectorConfig, deleteAllTimeEntries } from '@dataconnect/generated';
-
-
-// Call the `deleteAllTimeEntries()` function to execute the mutation.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await deleteAllTimeEntries();
-
-// You can also pass in a `DataConnect` instance to the action shortcut function.
-const dataConnect = getDataConnect(connectorConfig);
-const { data } = await deleteAllTimeEntries(dataConnect);
-
-console.log(data.timeEntries_deleteMany);
-
-// Or, you can use the `Promise` API.
-deleteAllTimeEntries().then((response) => {
-  const data = response.data;
-  console.log(data.timeEntries_deleteMany);
-});
-```
-
-### Using `DeleteAllTimeEntries`'s `MutationRef` function
-
-```typescript
-import { getDataConnect, executeMutation } from 'firebase/data-connect';
-import { connectorConfig, deleteAllTimeEntriesRef } from '@dataconnect/generated';
-
-
-// Call the `deleteAllTimeEntriesRef()` function to get a reference to the mutation.
-const ref = deleteAllTimeEntriesRef();
-
-// You can also pass in a `DataConnect` instance to the `MutationRef` function.
-const dataConnect = getDataConnect(connectorConfig);
-const ref = deleteAllTimeEntriesRef(dataConnect);
-
-// Call `executeMutation()` on the reference to execute the mutation.
-// You can use the `await` keyword to wait for the promise to resolve.
-const { data } = await executeMutation(ref);
-
-console.log(data.timeEntries_deleteMany);
-
-// Or, you can use the `Promise` API.
-executeMutation(ref).then((response) => {
-  const data = response.data;
-  console.log(data.timeEntries_deleteMany);
 });
 ```
 

@@ -17,7 +17,7 @@ import TimeTrackingPage from "./pages/TimeTrackingPage";
 import ProfitabilityPage from "./pages/ProfitabilityPage";
 import UtilisationPage from "./pages/UtilisationPage";
 import BillableWorkPage from "./pages/BillableWorkPage";
-import DataPage from "./pages/DataPage";
+
 import ScopingToolPage from "./pages/ScopingToolPage";
 import ClientPortfolioPage from "./pages/ClientPortfolioPage";
 import FeeCalculatorPage from "./pages/FeeCalculatorPage";
@@ -71,7 +71,7 @@ const App = () => (
                 <Route path="/profitability" element={<ProfitabilityPage />} />
                 <Route path="/scoping" element={<ScopingToolPage />} />
                 <Route path="/billable-work" element={<BillableWorkPage />} />
-                <Route path="/data" element={<DataPage />} />
+
                 <Route path="/fee-calculator" element={<FeeCalculatorPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Route>

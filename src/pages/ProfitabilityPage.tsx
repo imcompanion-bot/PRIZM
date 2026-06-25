@@ -299,6 +299,7 @@ const ProfitabilityPage = () => {
       while (true) {
         const { data, error } = await supabase.rpc("get_project_costs_monthly", { _start_date: cutoffDate, _end_date: endDateStr }).range(from, from + pageSize - 1);
         if (error) throw error;
+        console.log("DEBUG: monthlyCosts fetched:", data?.slice(0, 5));
         allData.push(...(data || []));
         if (!data || data.length < pageSize) break;
         from += pageSize;
@@ -397,32 +398,9 @@ const ProfitabilityPage = () => {
     queryKey: ["profitability_project_person_project_hours"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const PAGE_SIZE = 1000;
-      const allData: { project_id: string | null; person_id: string | null; hours: number | null }[] = [];
-      let from = 0;
-      while (true) {
-        const { data, error } = await supabase
-          .from("time_entries")
-          .select("project_id, person_id, hours")
-          .not("project_id", "is", null)
-          .not("person_id", "is", null)
-          .range(from, from + PAGE_SIZE - 1);
-        if (error) throw error;
-        allData.push(...(data || []));
-        if (!data || data.length < PAGE_SIZE) break;
-        from += PAGE_SIZE;
-      }
-
-      const aggregated = new Map<string, { project_id: string; person_id: string; total_hours: number }>();
-      for (const row of allData) {
-        if (!row.project_id || !row.person_id) continue;
-        const key = `${row.project_id}::${row.person_id}`;
-        const curr = aggregated.get(key);
-        const h = Number(row.hours) || 0;
-        if (!curr) aggregated.set(key, { project_id: row.project_id, person_id: row.person_id, total_hours: h });
-        else curr.total_hours += h;
-      }
-      return Array.from(aggregated.values());
+      const { data, error } = await supabase.rpc("get_project_person_hours").range(0, 99999);
+      if (error) throw error;
+      return data as { project_id: string; person_id: string; total_hours: number }[];
     },
   });
 

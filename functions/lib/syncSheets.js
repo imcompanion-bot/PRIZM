@@ -6,9 +6,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.runSync = runSync;
 const googleapis_1 = require("googleapis");
 const app_1 = require("firebase-admin/app");
+const app_2 = require("firebase/app");
 const generated_server_1 = require("@dataconnect/generated-server");
 // Initialize the Firebase Admin SDK (used for default credentials if needed)
-(0, app_1.initializeApp)();
+if ((0, app_1.getApps)().length === 0) {
+    (0, app_1.initializeApp)();
+}
+if ((0, app_2.getApps)().length === 0) {
+    (0, app_2.initializeApp)({
+        projectId: "pharaoh-54a0e",
+        appId: "1:909637352706:web:98a9ef33d6b680d6e8d61b",
+        storageBucket: "pharaoh-54a0e.firebasestorage.app",
+        apiKey: "AIzaSyBWy2AP5d-YTdpirVipzs2tvd0hVqqfeIw",
+        authDomain: "pharaoh-54a0e.firebaseapp.com",
+        messagingSenderId: "909637352706",
+    });
+}
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 // Configuration

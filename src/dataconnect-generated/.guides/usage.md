@@ -12,28 +12,28 @@ For each operation, there is a wrapper hook that can be used to call the operati
 
 Here are all of the hooks that get generated:
 ```ts
-import { useListProjects, useGetProject, useListPeople, useListRoles, useListRateCards, useListTimeEntries, useListTimeEntriesByProject, useListProjectPhases, useListAllocations, useListDataImports } from '@dataconnect/generated/react';
+import { useInsertAllocations, useUpsertAllocations, useInsertBillabilityRuleConditions, useUpsertBillabilityRuleConditions, useInsertBillabilityRules, useUpsertBillabilityRules, useInsertClientTeamAllocations, useUpsertClientTeamAllocations, useInsertDailyAllocations, useUpsertDailyAllocations } from '@dataconnect/generated/react';
 // The types of these hooks are available in react/index.d.ts
 
-const { data, isPending, isSuccess, isError, error } = useListProjects();
+const { data, isPending, isSuccess, isError, error } = useInsertAllocations(insertAllocationsVars);
 
-const { data, isPending, isSuccess, isError, error } = useGetProject(getProjectVars);
+const { data, isPending, isSuccess, isError, error } = useUpsertAllocations(upsertAllocationsVars);
 
-const { data, isPending, isSuccess, isError, error } = useListPeople();
+const { data, isPending, isSuccess, isError, error } = useInsertBillabilityRuleConditions(insertBillabilityRuleConditionsVars);
 
-const { data, isPending, isSuccess, isError, error } = useListRoles();
+const { data, isPending, isSuccess, isError, error } = useUpsertBillabilityRuleConditions(upsertBillabilityRuleConditionsVars);
 
-const { data, isPending, isSuccess, isError, error } = useListRateCards();
+const { data, isPending, isSuccess, isError, error } = useInsertBillabilityRules(insertBillabilityRulesVars);
 
-const { data, isPending, isSuccess, isError, error } = useListTimeEntries();
+const { data, isPending, isSuccess, isError, error } = useUpsertBillabilityRules(upsertBillabilityRulesVars);
 
-const { data, isPending, isSuccess, isError, error } = useListTimeEntriesByProject(listTimeEntriesByProjectVars);
+const { data, isPending, isSuccess, isError, error } = useInsertClientTeamAllocations(insertClientTeamAllocationsVars);
 
-const { data, isPending, isSuccess, isError, error } = useListProjectPhases();
+const { data, isPending, isSuccess, isError, error } = useUpsertClientTeamAllocations(upsertClientTeamAllocationsVars);
 
-const { data, isPending, isSuccess, isError, error } = useListAllocations();
+const { data, isPending, isSuccess, isError, error } = useInsertDailyAllocations(insertDailyAllocationsVars);
 
-const { data, isPending, isSuccess, isError, error } = useListDataImports();
+const { data, isPending, isSuccess, isError, error } = useUpsertDailyAllocations(upsertDailyAllocationsVars);
 
 ```
 
@@ -72,38 +72,38 @@ If a user is not using a supported framework, they can use the generated SDK dir
 Here's an example of how to use it with the first 5 operations:
 
 ```js
-import { listProjects, getProject, listPeople, listRoles, listRateCards, listTimeEntries, listTimeEntriesByProject, listProjectPhases, listAllocations, listDataImports } from '@dataconnect/generated';
+import { insertAllocations, upsertAllocations, insertBillabilityRuleConditions, upsertBillabilityRuleConditions, insertBillabilityRules, upsertBillabilityRules, insertClientTeamAllocations, upsertClientTeamAllocations, insertDailyAllocations, upsertDailyAllocations } from '@dataconnect/generated';
 
 
-// Operation ListProjects: 
-const { data } = await ListProjects(dataConnect);
+// Operation InsertAllocations:  For variables, look at type InsertAllocationsVars in ../index.d.ts
+const { data } = await InsertAllocations(dataConnect, insertAllocationsVars);
 
-// Operation GetProject:  For variables, look at type GetProjectVars in ../index.d.ts
-const { data } = await GetProject(dataConnect, getProjectVars);
+// Operation UpsertAllocations:  For variables, look at type UpsertAllocationsVars in ../index.d.ts
+const { data } = await UpsertAllocations(dataConnect, upsertAllocationsVars);
 
-// Operation ListPeople: 
-const { data } = await ListPeople(dataConnect);
+// Operation InsertBillabilityRuleConditions:  For variables, look at type InsertBillabilityRuleConditionsVars in ../index.d.ts
+const { data } = await InsertBillabilityRuleConditions(dataConnect, insertBillabilityRuleConditionsVars);
 
-// Operation ListRoles: 
-const { data } = await ListRoles(dataConnect);
+// Operation UpsertBillabilityRuleConditions:  For variables, look at type UpsertBillabilityRuleConditionsVars in ../index.d.ts
+const { data } = await UpsertBillabilityRuleConditions(dataConnect, upsertBillabilityRuleConditionsVars);
 
-// Operation ListRateCards: 
-const { data } = await ListRateCards(dataConnect);
+// Operation InsertBillabilityRules:  For variables, look at type InsertBillabilityRulesVars in ../index.d.ts
+const { data } = await InsertBillabilityRules(dataConnect, insertBillabilityRulesVars);
 
-// Operation ListTimeEntries: 
-const { data } = await ListTimeEntries(dataConnect);
+// Operation UpsertBillabilityRules:  For variables, look at type UpsertBillabilityRulesVars in ../index.d.ts
+const { data } = await UpsertBillabilityRules(dataConnect, upsertBillabilityRulesVars);
 
-// Operation ListTimeEntriesByProject:  For variables, look at type ListTimeEntriesByProjectVars in ../index.d.ts
-const { data } = await ListTimeEntriesByProject(dataConnect, listTimeEntriesByProjectVars);
+// Operation InsertClientTeamAllocations:  For variables, look at type InsertClientTeamAllocationsVars in ../index.d.ts
+const { data } = await InsertClientTeamAllocations(dataConnect, insertClientTeamAllocationsVars);
 
-// Operation ListProjectPhases: 
-const { data } = await ListProjectPhases(dataConnect);
+// Operation UpsertClientTeamAllocations:  For variables, look at type UpsertClientTeamAllocationsVars in ../index.d.ts
+const { data } = await UpsertClientTeamAllocations(dataConnect, upsertClientTeamAllocationsVars);
 
-// Operation ListAllocations: 
-const { data } = await ListAllocations(dataConnect);
+// Operation InsertDailyAllocations:  For variables, look at type InsertDailyAllocationsVars in ../index.d.ts
+const { data } = await InsertDailyAllocations(dataConnect, insertDailyAllocationsVars);
 
-// Operation ListDataImports: 
-const { data } = await ListDataImports(dataConnect);
+// Operation UpsertDailyAllocations:  For variables, look at type UpsertDailyAllocationsVars in ../index.d.ts
+const { data } = await UpsertDailyAllocations(dataConnect, upsertDailyAllocationsVars);
 
 
 ```

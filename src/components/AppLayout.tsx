@@ -30,7 +30,7 @@ const mainNav = [
 ];
 
 const settingsNav = [
-  { to: "/data", icon: Database, label: "Data" },
+  { to: "/settings", icon: Settings, label: "Settings" },
   { to: "/billable-work", icon: Receipt, label: "Billable Work" },
 ];
 
@@ -80,9 +80,6 @@ const AppLayout = () => {
           {settingsNav.map((item) => (
             <NavItem key={item.to} item={item} />
           ))}
-          {appUser?.role === "admin" && (
-            <NavItem item={{ to: "/settings", icon: ShieldAlert, label: "Admin Settings" }} />
-          )}
         </div>
         
         <div className="p-3 border-t border-border bg-transparent">

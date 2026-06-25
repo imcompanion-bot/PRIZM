@@ -20,25 +20,47 @@ This README will guide you through the process of using the generated JavaScript
   - [*ListDataImports*](#listdataimports)
   - [*GetAppUserByEmail*](#getappuserbyemail)
   - [*ListAppUsers*](#listappusers)
+  - [*GetOldestTimeEntry*](#getoldesttimeentry)
+  - [*GetNewestTimeEntry*](#getnewesttimeentry)
+  - [*GetTimeEntriesByDateRange*](#gettimeentriesbydaterange)
+  - [*GetAllTimeEntries*](#getalltimeentries)
+  - [*ListProjectScopes*](#listprojectscopes)
 - [**Mutations**](#mutations)
   - [*InsertAllocations*](#insertallocations)
+  - [*UpsertAllocations*](#upsertallocations)
   - [*InsertBillabilityRuleConditions*](#insertbillabilityruleconditions)
+  - [*UpsertBillabilityRuleConditions*](#upsertbillabilityruleconditions)
   - [*InsertBillabilityRules*](#insertbillabilityrules)
+  - [*UpsertBillabilityRules*](#upsertbillabilityrules)
   - [*InsertClientTeamAllocations*](#insertclientteamallocations)
+  - [*UpsertClientTeamAllocations*](#upsertclientteamallocations)
   - [*InsertDailyAllocations*](#insertdailyallocations)
+  - [*UpsertDailyAllocations*](#upsertdailyallocations)
   - [*InsertDataImports*](#insertdataimports)
+  - [*UpsertDataImports*](#upsertdataimports)
   - [*InsertPeople*](#insertpeople)
+  - [*UpsertPeople*](#upsertpeople)
   - [*InsertPhaseAllocations*](#insertphaseallocations)
+  - [*UpsertPhaseAllocations*](#upsertphaseallocations)
   - [*InsertProjectMonthlyRevenue*](#insertprojectmonthlyrevenue)
+  - [*UpsertProjectMonthlyRevenue*](#upsertprojectmonthlyrevenue)
   - [*InsertProjectPhases*](#insertprojectphases)
+  - [*UpsertProjectPhases*](#upsertprojectphases)
   - [*InsertProjectScopes*](#insertprojectscopes)
+  - [*UpsertProjectScopes*](#upsertprojectscopes)
   - [*InsertProjects*](#insertprojects)
+  - [*UpsertProjects*](#upsertprojects)
   - [*InsertRateCards*](#insertratecards)
+  - [*UpsertRateCards*](#upsertratecards)
   - [*InsertRoles*](#insertroles)
+  - [*UpsertRoles*](#upsertroles)
   - [*InsertTimeEntries*](#inserttimeentries)
+  - [*UpsertTimeEntries*](#upserttimeentries)
   - [*CreateAppUser*](#createappuser)
   - [*UpdateAppUser*](#updateappuser)
   - [*DeleteAppUser*](#deleteappuser)
+  - [*DeleteTimeEntriesByDate*](#deletetimeentriesbydate)
+  - [*DeleteAllTimeEntries*](#deletealltimeentries)
 
 # Accessing the connector
 A connector is a collection of Queries and Mutations. One SDK is generated for each connector - this SDK is generated for the connector `example`. You can find more information about connectors in the [Data Connect documentation](https://firebase.google.com/docs/data-connect#how-does).
@@ -88,7 +110,7 @@ Below are examples of how to use the `example` connector's generated functions t
 ## ListProjects
 You can execute the `ListProjects` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listProjects(): QueryPromise<ListProjectsData, undefined>;
+listProjects(options?: ExecuteQueryOptions): QueryPromise<ListProjectsData, undefined>;
 
 interface ListProjectsRef {
   ...
@@ -99,7 +121,7 @@ export const listProjectsRef: ListProjectsRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listProjects(dc: DataConnect): QueryPromise<ListProjectsData, undefined>;
+listProjects(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListProjectsData, undefined>;
 
 interface ListProjectsRef {
   ...
@@ -143,6 +165,7 @@ export interface ListProjectsData {
     extra_data?: unknown | null;
     opportunity_record_type?: string | null;
     stage?: string | null;
+    isActive?: boolean | null;
   } & Projects_Key)[];
 }
 ```
@@ -200,7 +223,7 @@ executeQuery(ref).then((response) => {
 ## GetProject
 You can execute the `GetProject` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-getProject(vars: GetProjectVariables): QueryPromise<GetProjectData, GetProjectVariables>;
+getProject(vars: GetProjectVariables, options?: ExecuteQueryOptions): QueryPromise<GetProjectData, GetProjectVariables>;
 
 interface GetProjectRef {
   ...
@@ -211,7 +234,7 @@ export const getProjectRef: GetProjectRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-getProject(dc: DataConnect, vars: GetProjectVariables): QueryPromise<GetProjectData, GetProjectVariables>;
+getProject(dc: DataConnect, vars: GetProjectVariables, options?: ExecuteQueryOptions): QueryPromise<GetProjectData, GetProjectVariables>;
 
 interface GetProjectRef {
   ...
@@ -312,7 +335,7 @@ executeQuery(ref).then((response) => {
 ## ListPeople
 You can execute the `ListPeople` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listPeople(): QueryPromise<ListPeopleData, undefined>;
+listPeople(options?: ExecuteQueryOptions): QueryPromise<ListPeopleData, undefined>;
 
 interface ListPeopleRef {
   ...
@@ -323,7 +346,7 @@ export const listPeopleRef: ListPeopleRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listPeople(dc: DataConnect): QueryPromise<ListPeopleData, undefined>;
+listPeople(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListPeopleData, undefined>;
 
 interface ListPeopleRef {
   ...
@@ -416,7 +439,7 @@ executeQuery(ref).then((response) => {
 ## ListRoles
 You can execute the `ListRoles` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listRoles(): QueryPromise<ListRolesData, undefined>;
+listRoles(options?: ExecuteQueryOptions): QueryPromise<ListRolesData, undefined>;
 
 interface ListRolesRef {
   ...
@@ -427,7 +450,7 @@ export const listRolesRef: ListRolesRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listRoles(dc: DataConnect): QueryPromise<ListRolesData, undefined>;
+listRoles(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListRolesData, undefined>;
 
 interface ListRolesRef {
   ...
@@ -511,7 +534,7 @@ executeQuery(ref).then((response) => {
 ## ListRateCards
 You can execute the `ListRateCards` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listRateCards(): QueryPromise<ListRateCardsData, undefined>;
+listRateCards(options?: ExecuteQueryOptions): QueryPromise<ListRateCardsData, undefined>;
 
 interface ListRateCardsRef {
   ...
@@ -522,7 +545,7 @@ export const listRateCardsRef: ListRateCardsRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listRateCards(dc: DataConnect): QueryPromise<ListRateCardsData, undefined>;
+listRateCards(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListRateCardsData, undefined>;
 
 interface ListRateCardsRef {
   ...
@@ -608,7 +631,7 @@ executeQuery(ref).then((response) => {
 ## ListTimeEntries
 You can execute the `ListTimeEntries` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listTimeEntries(): QueryPromise<ListTimeEntriesData, undefined>;
+listTimeEntries(options?: ExecuteQueryOptions): QueryPromise<ListTimeEntriesData, undefined>;
 
 interface ListTimeEntriesRef {
   ...
@@ -619,7 +642,7 @@ export const listTimeEntriesRef: ListTimeEntriesRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listTimeEntries(dc: DataConnect): QueryPromise<ListTimeEntriesData, undefined>;
+listTimeEntries(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListTimeEntriesData, undefined>;
 
 interface ListTimeEntriesRef {
   ...
@@ -706,7 +729,7 @@ executeQuery(ref).then((response) => {
 ## ListTimeEntriesByProject
 You can execute the `ListTimeEntriesByProject` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listTimeEntriesByProject(vars: ListTimeEntriesByProjectVariables): QueryPromise<ListTimeEntriesByProjectData, ListTimeEntriesByProjectVariables>;
+listTimeEntriesByProject(vars: ListTimeEntriesByProjectVariables, options?: ExecuteQueryOptions): QueryPromise<ListTimeEntriesByProjectData, ListTimeEntriesByProjectVariables>;
 
 interface ListTimeEntriesByProjectRef {
   ...
@@ -717,7 +740,7 @@ export const listTimeEntriesByProjectRef: ListTimeEntriesByProjectRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listTimeEntriesByProject(dc: DataConnect, vars: ListTimeEntriesByProjectVariables): QueryPromise<ListTimeEntriesByProjectData, ListTimeEntriesByProjectVariables>;
+listTimeEntriesByProject(dc: DataConnect, vars: ListTimeEntriesByProjectVariables, options?: ExecuteQueryOptions): QueryPromise<ListTimeEntriesByProjectData, ListTimeEntriesByProjectVariables>;
 
 interface ListTimeEntriesByProjectRef {
   ...
@@ -822,7 +845,7 @@ executeQuery(ref).then((response) => {
 ## ListProjectPhases
 You can execute the `ListProjectPhases` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listProjectPhases(): QueryPromise<ListProjectPhasesData, undefined>;
+listProjectPhases(options?: ExecuteQueryOptions): QueryPromise<ListProjectPhasesData, undefined>;
 
 interface ListProjectPhasesRef {
   ...
@@ -833,7 +856,7 @@ export const listProjectPhasesRef: ListProjectPhasesRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listProjectPhases(dc: DataConnect): QueryPromise<ListProjectPhasesData, undefined>;
+listProjectPhases(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListProjectPhasesData, undefined>;
 
 interface ListProjectPhasesRef {
   ...
@@ -920,7 +943,7 @@ executeQuery(ref).then((response) => {
 ## ListAllocations
 You can execute the `ListAllocations` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listAllocations(): QueryPromise<ListAllocationsData, undefined>;
+listAllocations(options?: ExecuteQueryOptions): QueryPromise<ListAllocationsData, undefined>;
 
 interface ListAllocationsRef {
   ...
@@ -931,7 +954,7 @@ export const listAllocationsRef: ListAllocationsRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listAllocations(dc: DataConnect): QueryPromise<ListAllocationsData, undefined>;
+listAllocations(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListAllocationsData, undefined>;
 
 interface ListAllocationsRef {
   ...
@@ -1016,7 +1039,7 @@ executeQuery(ref).then((response) => {
 ## ListDataImports
 You can execute the `ListDataImports` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listDataImports(): QueryPromise<ListDataImportsData, undefined>;
+listDataImports(options?: ExecuteQueryOptions): QueryPromise<ListDataImportsData, undefined>;
 
 interface ListDataImportsRef {
   ...
@@ -1027,7 +1050,7 @@ export const listDataImportsRef: ListDataImportsRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listDataImports(dc: DataConnect): QueryPromise<ListDataImportsData, undefined>;
+listDataImports(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListDataImportsData, undefined>;
 
 interface ListDataImportsRef {
   ...
@@ -1111,7 +1134,7 @@ executeQuery(ref).then((response) => {
 ## GetAppUserByEmail
 You can execute the `GetAppUserByEmail` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-getAppUserByEmail(vars: GetAppUserByEmailVariables): QueryPromise<GetAppUserByEmailData, GetAppUserByEmailVariables>;
+getAppUserByEmail(vars: GetAppUserByEmailVariables, options?: ExecuteQueryOptions): QueryPromise<GetAppUserByEmailData, GetAppUserByEmailVariables>;
 
 interface GetAppUserByEmailRef {
   ...
@@ -1122,7 +1145,7 @@ export const getAppUserByEmailRef: GetAppUserByEmailRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-getAppUserByEmail(dc: DataConnect, vars: GetAppUserByEmailVariables): QueryPromise<GetAppUserByEmailData, GetAppUserByEmailVariables>;
+getAppUserByEmail(dc: DataConnect, vars: GetAppUserByEmailVariables, options?: ExecuteQueryOptions): QueryPromise<GetAppUserByEmailData, GetAppUserByEmailVariables>;
 
 interface GetAppUserByEmailRef {
   ...
@@ -1226,7 +1249,7 @@ executeQuery(ref).then((response) => {
 ## ListAppUsers
 You can execute the `ListAppUsers` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listAppUsers(): QueryPromise<ListAppUsersData, undefined>;
+listAppUsers(options?: ExecuteQueryOptions): QueryPromise<ListAppUsersData, undefined>;
 
 interface ListAppUsersRef {
   ...
@@ -1237,7 +1260,7 @@ export const listAppUsersRef: ListAppUsersRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listAppUsers(dc: DataConnect): QueryPromise<ListAppUsersData, undefined>;
+listAppUsers(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListAppUsersData, undefined>;
 
 interface ListAppUsersRef {
   ...
@@ -1317,6 +1340,509 @@ console.log(data.appUserss);
 executeQuery(ref).then((response) => {
   const data = response.data;
   console.log(data.appUserss);
+});
+```
+
+## GetOldestTimeEntry
+You can execute the `GetOldestTimeEntry` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+getOldestTimeEntry(options?: ExecuteQueryOptions): QueryPromise<GetOldestTimeEntryData, undefined>;
+
+interface GetOldestTimeEntryRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<GetOldestTimeEntryData, undefined>;
+}
+export const getOldestTimeEntryRef: GetOldestTimeEntryRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+getOldestTimeEntry(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<GetOldestTimeEntryData, undefined>;
+
+interface GetOldestTimeEntryRef {
+  ...
+  (dc: DataConnect): QueryRef<GetOldestTimeEntryData, undefined>;
+}
+export const getOldestTimeEntryRef: GetOldestTimeEntryRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getOldestTimeEntryRef:
+```typescript
+const name = getOldestTimeEntryRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `GetOldestTimeEntry` query has no variables.
+### Return Type
+Recall that executing the `GetOldestTimeEntry` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `GetOldestTimeEntryData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface GetOldestTimeEntryData {
+  timeEntriess: ({
+    date: DateString;
+  })[];
+}
+```
+### Using `GetOldestTimeEntry`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, getOldestTimeEntry } from '@dataconnect/generated-server';
+
+
+// Call the `getOldestTimeEntry()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await getOldestTimeEntry();
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await getOldestTimeEntry(dataConnect);
+
+console.log(data.timeEntriess);
+
+// Or, you can use the `Promise` API.
+getOldestTimeEntry().then((response) => {
+  const data = response.data;
+  console.log(data.timeEntriess);
+});
+```
+
+### Using `GetOldestTimeEntry`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, getOldestTimeEntryRef } from '@dataconnect/generated-server';
+
+
+// Call the `getOldestTimeEntryRef()` function to get a reference to the query.
+const ref = getOldestTimeEntryRef();
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = getOldestTimeEntryRef(dataConnect);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.timeEntriess);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.timeEntriess);
+});
+```
+
+## GetNewestTimeEntry
+You can execute the `GetNewestTimeEntry` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+getNewestTimeEntry(options?: ExecuteQueryOptions): QueryPromise<GetNewestTimeEntryData, undefined>;
+
+interface GetNewestTimeEntryRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<GetNewestTimeEntryData, undefined>;
+}
+export const getNewestTimeEntryRef: GetNewestTimeEntryRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+getNewestTimeEntry(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<GetNewestTimeEntryData, undefined>;
+
+interface GetNewestTimeEntryRef {
+  ...
+  (dc: DataConnect): QueryRef<GetNewestTimeEntryData, undefined>;
+}
+export const getNewestTimeEntryRef: GetNewestTimeEntryRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getNewestTimeEntryRef:
+```typescript
+const name = getNewestTimeEntryRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `GetNewestTimeEntry` query has no variables.
+### Return Type
+Recall that executing the `GetNewestTimeEntry` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `GetNewestTimeEntryData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface GetNewestTimeEntryData {
+  timeEntriess: ({
+    date: DateString;
+  })[];
+}
+```
+### Using `GetNewestTimeEntry`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, getNewestTimeEntry } from '@dataconnect/generated-server';
+
+
+// Call the `getNewestTimeEntry()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await getNewestTimeEntry();
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await getNewestTimeEntry(dataConnect);
+
+console.log(data.timeEntriess);
+
+// Or, you can use the `Promise` API.
+getNewestTimeEntry().then((response) => {
+  const data = response.data;
+  console.log(data.timeEntriess);
+});
+```
+
+### Using `GetNewestTimeEntry`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, getNewestTimeEntryRef } from '@dataconnect/generated-server';
+
+
+// Call the `getNewestTimeEntryRef()` function to get a reference to the query.
+const ref = getNewestTimeEntryRef();
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = getNewestTimeEntryRef(dataConnect);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.timeEntriess);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.timeEntriess);
+});
+```
+
+## GetTimeEntriesByDateRange
+You can execute the `GetTimeEntriesByDateRange` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+getTimeEntriesByDateRange(vars: GetTimeEntriesByDateRangeVariables, options?: ExecuteQueryOptions): QueryPromise<GetTimeEntriesByDateRangeData, GetTimeEntriesByDateRangeVariables>;
+
+interface GetTimeEntriesByDateRangeRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetTimeEntriesByDateRangeVariables): QueryRef<GetTimeEntriesByDateRangeData, GetTimeEntriesByDateRangeVariables>;
+}
+export const getTimeEntriesByDateRangeRef: GetTimeEntriesByDateRangeRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+getTimeEntriesByDateRange(dc: DataConnect, vars: GetTimeEntriesByDateRangeVariables, options?: ExecuteQueryOptions): QueryPromise<GetTimeEntriesByDateRangeData, GetTimeEntriesByDateRangeVariables>;
+
+interface GetTimeEntriesByDateRangeRef {
+  ...
+  (dc: DataConnect, vars: GetTimeEntriesByDateRangeVariables): QueryRef<GetTimeEntriesByDateRangeData, GetTimeEntriesByDateRangeVariables>;
+}
+export const getTimeEntriesByDateRangeRef: GetTimeEntriesByDateRangeRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getTimeEntriesByDateRangeRef:
+```typescript
+const name = getTimeEntriesByDateRangeRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `GetTimeEntriesByDateRange` query requires an argument of type `GetTimeEntriesByDateRangeVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface GetTimeEntriesByDateRangeVariables {
+  startDate: DateString;
+  endDate: DateString;
+}
+```
+### Return Type
+Recall that executing the `GetTimeEntriesByDateRange` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `GetTimeEntriesByDateRangeData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface GetTimeEntriesByDateRangeData {
+  timeEntriess: ({
+    id: UUIDString;
+    date: DateString;
+    hours: number;
+    project_id?: UUIDString | null;
+    person_id?: UUIDString | null;
+  } & TimeEntries_Key)[];
+}
+```
+### Using `GetTimeEntriesByDateRange`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, getTimeEntriesByDateRange, GetTimeEntriesByDateRangeVariables } from '@dataconnect/generated-server';
+
+// The `GetTimeEntriesByDateRange` query requires an argument of type `GetTimeEntriesByDateRangeVariables`:
+const getTimeEntriesByDateRangeVars: GetTimeEntriesByDateRangeVariables = {
+  startDate: ..., 
+  endDate: ..., 
+};
+
+// Call the `getTimeEntriesByDateRange()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await getTimeEntriesByDateRange(getTimeEntriesByDateRangeVars);
+// Variables can be defined inline as well.
+const { data } = await getTimeEntriesByDateRange({ startDate: ..., endDate: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await getTimeEntriesByDateRange(dataConnect, getTimeEntriesByDateRangeVars);
+
+console.log(data.timeEntriess);
+
+// Or, you can use the `Promise` API.
+getTimeEntriesByDateRange(getTimeEntriesByDateRangeVars).then((response) => {
+  const data = response.data;
+  console.log(data.timeEntriess);
+});
+```
+
+### Using `GetTimeEntriesByDateRange`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, getTimeEntriesByDateRangeRef, GetTimeEntriesByDateRangeVariables } from '@dataconnect/generated-server';
+
+// The `GetTimeEntriesByDateRange` query requires an argument of type `GetTimeEntriesByDateRangeVariables`:
+const getTimeEntriesByDateRangeVars: GetTimeEntriesByDateRangeVariables = {
+  startDate: ..., 
+  endDate: ..., 
+};
+
+// Call the `getTimeEntriesByDateRangeRef()` function to get a reference to the query.
+const ref = getTimeEntriesByDateRangeRef(getTimeEntriesByDateRangeVars);
+// Variables can be defined inline as well.
+const ref = getTimeEntriesByDateRangeRef({ startDate: ..., endDate: ..., });
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = getTimeEntriesByDateRangeRef(dataConnect, getTimeEntriesByDateRangeVars);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.timeEntriess);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.timeEntriess);
+});
+```
+
+## GetAllTimeEntries
+You can execute the `GetAllTimeEntries` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+getAllTimeEntries(options?: ExecuteQueryOptions): QueryPromise<GetAllTimeEntriesData, undefined>;
+
+interface GetAllTimeEntriesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<GetAllTimeEntriesData, undefined>;
+}
+export const getAllTimeEntriesRef: GetAllTimeEntriesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+getAllTimeEntries(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<GetAllTimeEntriesData, undefined>;
+
+interface GetAllTimeEntriesRef {
+  ...
+  (dc: DataConnect): QueryRef<GetAllTimeEntriesData, undefined>;
+}
+export const getAllTimeEntriesRef: GetAllTimeEntriesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getAllTimeEntriesRef:
+```typescript
+const name = getAllTimeEntriesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `GetAllTimeEntries` query has no variables.
+### Return Type
+Recall that executing the `GetAllTimeEntries` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `GetAllTimeEntriesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface GetAllTimeEntriesData {
+  timeEntriess: ({
+    id: UUIDString;
+    date: DateString;
+    hours: number;
+    notes?: string | null;
+    createdAt: DateString;
+    project_id?: UUIDString | null;
+    person_id?: UUIDString | null;
+    personName?: string | null;
+    projectName?: string | null;
+    projectCode?: string | null;
+  } & TimeEntries_Key)[];
+}
+```
+### Using `GetAllTimeEntries`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, getAllTimeEntries } from '@dataconnect/generated-server';
+
+
+// Call the `getAllTimeEntries()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await getAllTimeEntries();
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await getAllTimeEntries(dataConnect);
+
+console.log(data.timeEntriess);
+
+// Or, you can use the `Promise` API.
+getAllTimeEntries().then((response) => {
+  const data = response.data;
+  console.log(data.timeEntriess);
+});
+```
+
+### Using `GetAllTimeEntries`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, getAllTimeEntriesRef } from '@dataconnect/generated-server';
+
+
+// Call the `getAllTimeEntriesRef()` function to get a reference to the query.
+const ref = getAllTimeEntriesRef();
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = getAllTimeEntriesRef(dataConnect);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.timeEntriess);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.timeEntriess);
+});
+```
+
+## ListProjectScopes
+You can execute the `ListProjectScopes` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+listProjectScopes(options?: ExecuteQueryOptions): QueryPromise<ListProjectScopesData, undefined>;
+
+interface ListProjectScopesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<ListProjectScopesData, undefined>;
+}
+export const listProjectScopesRef: ListProjectScopesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+listProjectScopes(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListProjectScopesData, undefined>;
+
+interface ListProjectScopesRef {
+  ...
+  (dc: DataConnect): QueryRef<ListProjectScopesData, undefined>;
+}
+export const listProjectScopesRef: ListProjectScopesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the listProjectScopesRef:
+```typescript
+const name = listProjectScopesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `ListProjectScopes` query has no variables.
+### Return Type
+Recall that executing the `ListProjectScopes` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `ListProjectScopesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface ListProjectScopesData {
+  projectScopess: ({
+    id: UUIDString;
+    project_id?: UUIDString | null;
+    role_id?: UUIDString | null;
+    scoped_hours: number;
+    phase_percentages?: unknown | null;
+  } & ProjectScopes_Key)[];
+}
+```
+### Using `ListProjectScopes`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, listProjectScopes } from '@dataconnect/generated-server';
+
+
+// Call the `listProjectScopes()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await listProjectScopes();
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await listProjectScopes(dataConnect);
+
+console.log(data.projectScopess);
+
+// Or, you can use the `Promise` API.
+listProjectScopes().then((response) => {
+  const data = response.data;
+  console.log(data.projectScopess);
+});
+```
+
+### Using `ListProjectScopes`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, listProjectScopesRef } from '@dataconnect/generated-server';
+
+
+// Call the `listProjectScopesRef()` function to get a reference to the query.
+const ref = listProjectScopesRef();
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = listProjectScopesRef(dataConnect);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.projectScopess);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.projectScopess);
 });
 ```
 
@@ -1456,6 +1982,127 @@ executeMutation(ref).then((response) => {
 });
 ```
 
+## UpsertAllocations
+You can execute the `UpsertAllocations` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertAllocations(vars: UpsertAllocationsVariables): MutationPromise<UpsertAllocationsData, UpsertAllocationsVariables>;
+
+interface UpsertAllocationsRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertAllocationsVariables): MutationRef<UpsertAllocationsData, UpsertAllocationsVariables>;
+}
+export const upsertAllocationsRef: UpsertAllocationsRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertAllocations(dc: DataConnect, vars: UpsertAllocationsVariables): MutationPromise<UpsertAllocationsData, UpsertAllocationsVariables>;
+
+interface UpsertAllocationsRef {
+  ...
+  (dc: DataConnect, vars: UpsertAllocationsVariables): MutationRef<UpsertAllocationsData, UpsertAllocationsVariables>;
+}
+export const upsertAllocationsRef: UpsertAllocationsRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertAllocationsRef:
+```typescript
+const name = upsertAllocationsRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertAllocations` mutation requires an argument of type `UpsertAllocationsVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertAllocationsVariables {
+  allocatedHours: number;
+  createdAt: DateString;
+  id: UUIDString;
+  personId?: UUIDString | null;
+  projectScopeId?: UUIDString | null;
+}
+```
+### Return Type
+Recall that executing the `UpsertAllocations` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertAllocationsData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertAllocationsData {
+  allocations_upsert: Allocations_Key;
+}
+```
+### Using `UpsertAllocations`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertAllocations, UpsertAllocationsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertAllocations` mutation requires an argument of type `UpsertAllocationsVariables`:
+const upsertAllocationsVars: UpsertAllocationsVariables = {
+  allocatedHours: ..., 
+  createdAt: ..., 
+  id: ..., 
+  personId: ..., // optional
+  projectScopeId: ..., // optional
+};
+
+// Call the `upsertAllocations()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertAllocations(upsertAllocationsVars);
+// Variables can be defined inline as well.
+const { data } = await upsertAllocations({ allocatedHours: ..., createdAt: ..., id: ..., personId: ..., projectScopeId: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertAllocations(dataConnect, upsertAllocationsVars);
+
+console.log(data.allocations_upsert);
+
+// Or, you can use the `Promise` API.
+upsertAllocations(upsertAllocationsVars).then((response) => {
+  const data = response.data;
+  console.log(data.allocations_upsert);
+});
+```
+
+### Using `UpsertAllocations`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertAllocationsRef, UpsertAllocationsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertAllocations` mutation requires an argument of type `UpsertAllocationsVariables`:
+const upsertAllocationsVars: UpsertAllocationsVariables = {
+  allocatedHours: ..., 
+  createdAt: ..., 
+  id: ..., 
+  personId: ..., // optional
+  projectScopeId: ..., // optional
+};
+
+// Call the `upsertAllocationsRef()` function to get a reference to the mutation.
+const ref = upsertAllocationsRef(upsertAllocationsVars);
+// Variables can be defined inline as well.
+const ref = upsertAllocationsRef({ allocatedHours: ..., createdAt: ..., id: ..., personId: ..., projectScopeId: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertAllocationsRef(dataConnect, upsertAllocationsVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.allocations_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.allocations_upsert);
+});
+```
+
 ## InsertBillabilityRuleConditions
 You can execute the `InsertBillabilityRuleConditions` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
@@ -1583,6 +2230,133 @@ executeMutation(ref).then((response) => {
 });
 ```
 
+## UpsertBillabilityRuleConditions
+You can execute the `UpsertBillabilityRuleConditions` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertBillabilityRuleConditions(vars: UpsertBillabilityRuleConditionsVariables): MutationPromise<UpsertBillabilityRuleConditionsData, UpsertBillabilityRuleConditionsVariables>;
+
+interface UpsertBillabilityRuleConditionsRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertBillabilityRuleConditionsVariables): MutationRef<UpsertBillabilityRuleConditionsData, UpsertBillabilityRuleConditionsVariables>;
+}
+export const upsertBillabilityRuleConditionsRef: UpsertBillabilityRuleConditionsRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertBillabilityRuleConditions(dc: DataConnect, vars: UpsertBillabilityRuleConditionsVariables): MutationPromise<UpsertBillabilityRuleConditionsData, UpsertBillabilityRuleConditionsVariables>;
+
+interface UpsertBillabilityRuleConditionsRef {
+  ...
+  (dc: DataConnect, vars: UpsertBillabilityRuleConditionsVariables): MutationRef<UpsertBillabilityRuleConditionsData, UpsertBillabilityRuleConditionsVariables>;
+}
+export const upsertBillabilityRuleConditionsRef: UpsertBillabilityRuleConditionsRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertBillabilityRuleConditionsRef:
+```typescript
+const name = upsertBillabilityRuleConditionsRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertBillabilityRuleConditions` mutation requires an argument of type `UpsertBillabilityRuleConditionsVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertBillabilityRuleConditionsVariables {
+  createdAt: DateString;
+  field: string;
+  id: UUIDString;
+  logicOperator: string;
+  operator: string;
+  ruleId: UUIDString;
+  value: string;
+}
+```
+### Return Type
+Recall that executing the `UpsertBillabilityRuleConditions` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertBillabilityRuleConditionsData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertBillabilityRuleConditionsData {
+  billabilityRuleConditions_upsert: BillabilityRuleConditions_Key;
+}
+```
+### Using `UpsertBillabilityRuleConditions`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertBillabilityRuleConditions, UpsertBillabilityRuleConditionsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertBillabilityRuleConditions` mutation requires an argument of type `UpsertBillabilityRuleConditionsVariables`:
+const upsertBillabilityRuleConditionsVars: UpsertBillabilityRuleConditionsVariables = {
+  createdAt: ..., 
+  field: ..., 
+  id: ..., 
+  logicOperator: ..., 
+  operator: ..., 
+  ruleId: ..., 
+  value: ..., 
+};
+
+// Call the `upsertBillabilityRuleConditions()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertBillabilityRuleConditions(upsertBillabilityRuleConditionsVars);
+// Variables can be defined inline as well.
+const { data } = await upsertBillabilityRuleConditions({ createdAt: ..., field: ..., id: ..., logicOperator: ..., operator: ..., ruleId: ..., value: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertBillabilityRuleConditions(dataConnect, upsertBillabilityRuleConditionsVars);
+
+console.log(data.billabilityRuleConditions_upsert);
+
+// Or, you can use the `Promise` API.
+upsertBillabilityRuleConditions(upsertBillabilityRuleConditionsVars).then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRuleConditions_upsert);
+});
+```
+
+### Using `UpsertBillabilityRuleConditions`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertBillabilityRuleConditionsRef, UpsertBillabilityRuleConditionsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertBillabilityRuleConditions` mutation requires an argument of type `UpsertBillabilityRuleConditionsVariables`:
+const upsertBillabilityRuleConditionsVars: UpsertBillabilityRuleConditionsVariables = {
+  createdAt: ..., 
+  field: ..., 
+  id: ..., 
+  logicOperator: ..., 
+  operator: ..., 
+  ruleId: ..., 
+  value: ..., 
+};
+
+// Call the `upsertBillabilityRuleConditionsRef()` function to get a reference to the mutation.
+const ref = upsertBillabilityRuleConditionsRef(upsertBillabilityRuleConditionsVars);
+// Variables can be defined inline as well.
+const ref = upsertBillabilityRuleConditionsRef({ createdAt: ..., field: ..., id: ..., logicOperator: ..., operator: ..., ruleId: ..., value: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertBillabilityRuleConditionsRef(dataConnect, upsertBillabilityRuleConditionsVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.billabilityRuleConditions_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRuleConditions_upsert);
+});
+```
+
 ## InsertBillabilityRules
 You can execute the `InsertBillabilityRules` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
@@ -1704,6 +2478,130 @@ console.log(data.billabilityRules_insert);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.billabilityRules_insert);
+});
+```
+
+## UpsertBillabilityRules
+You can execute the `UpsertBillabilityRules` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertBillabilityRules(vars: UpsertBillabilityRulesVariables): MutationPromise<UpsertBillabilityRulesData, UpsertBillabilityRulesVariables>;
+
+interface UpsertBillabilityRulesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertBillabilityRulesVariables): MutationRef<UpsertBillabilityRulesData, UpsertBillabilityRulesVariables>;
+}
+export const upsertBillabilityRulesRef: UpsertBillabilityRulesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertBillabilityRules(dc: DataConnect, vars: UpsertBillabilityRulesVariables): MutationPromise<UpsertBillabilityRulesData, UpsertBillabilityRulesVariables>;
+
+interface UpsertBillabilityRulesRef {
+  ...
+  (dc: DataConnect, vars: UpsertBillabilityRulesVariables): MutationRef<UpsertBillabilityRulesData, UpsertBillabilityRulesVariables>;
+}
+export const upsertBillabilityRulesRef: UpsertBillabilityRulesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertBillabilityRulesRef:
+```typescript
+const name = upsertBillabilityRulesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertBillabilityRules` mutation requires an argument of type `UpsertBillabilityRulesVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertBillabilityRulesVariables {
+  createdAt: DateString;
+  id: UUIDString;
+  isBillable: boolean;
+  logicOperator: string;
+  name: string;
+  priority: number;
+}
+```
+### Return Type
+Recall that executing the `UpsertBillabilityRules` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertBillabilityRulesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertBillabilityRulesData {
+  billabilityRules_upsert: BillabilityRules_Key;
+}
+```
+### Using `UpsertBillabilityRules`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertBillabilityRules, UpsertBillabilityRulesVariables } from '@dataconnect/generated-server';
+
+// The `UpsertBillabilityRules` mutation requires an argument of type `UpsertBillabilityRulesVariables`:
+const upsertBillabilityRulesVars: UpsertBillabilityRulesVariables = {
+  createdAt: ..., 
+  id: ..., 
+  isBillable: ..., 
+  logicOperator: ..., 
+  name: ..., 
+  priority: ..., 
+};
+
+// Call the `upsertBillabilityRules()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertBillabilityRules(upsertBillabilityRulesVars);
+// Variables can be defined inline as well.
+const { data } = await upsertBillabilityRules({ createdAt: ..., id: ..., isBillable: ..., logicOperator: ..., name: ..., priority: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertBillabilityRules(dataConnect, upsertBillabilityRulesVars);
+
+console.log(data.billabilityRules_upsert);
+
+// Or, you can use the `Promise` API.
+upsertBillabilityRules(upsertBillabilityRulesVars).then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRules_upsert);
+});
+```
+
+### Using `UpsertBillabilityRules`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertBillabilityRulesRef, UpsertBillabilityRulesVariables } from '@dataconnect/generated-server';
+
+// The `UpsertBillabilityRules` mutation requires an argument of type `UpsertBillabilityRulesVariables`:
+const upsertBillabilityRulesVars: UpsertBillabilityRulesVariables = {
+  createdAt: ..., 
+  id: ..., 
+  isBillable: ..., 
+  logicOperator: ..., 
+  name: ..., 
+  priority: ..., 
+};
+
+// Call the `upsertBillabilityRulesRef()` function to get a reference to the mutation.
+const ref = upsertBillabilityRulesRef(upsertBillabilityRulesVars);
+// Variables can be defined inline as well.
+const ref = upsertBillabilityRulesRef({ createdAt: ..., id: ..., isBillable: ..., logicOperator: ..., name: ..., priority: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertBillabilityRulesRef(dataConnect, upsertBillabilityRulesVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.billabilityRules_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRules_upsert);
 });
 ```
 
@@ -1831,6 +2729,130 @@ executeMutation(ref).then((response) => {
 });
 ```
 
+## UpsertClientTeamAllocations
+You can execute the `UpsertClientTeamAllocations` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertClientTeamAllocations(vars: UpsertClientTeamAllocationsVariables): MutationPromise<UpsertClientTeamAllocationsData, UpsertClientTeamAllocationsVariables>;
+
+interface UpsertClientTeamAllocationsRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertClientTeamAllocationsVariables): MutationRef<UpsertClientTeamAllocationsData, UpsertClientTeamAllocationsVariables>;
+}
+export const upsertClientTeamAllocationsRef: UpsertClientTeamAllocationsRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertClientTeamAllocations(dc: DataConnect, vars: UpsertClientTeamAllocationsVariables): MutationPromise<UpsertClientTeamAllocationsData, UpsertClientTeamAllocationsVariables>;
+
+interface UpsertClientTeamAllocationsRef {
+  ...
+  (dc: DataConnect, vars: UpsertClientTeamAllocationsVariables): MutationRef<UpsertClientTeamAllocationsData, UpsertClientTeamAllocationsVariables>;
+}
+export const upsertClientTeamAllocationsRef: UpsertClientTeamAllocationsRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertClientTeamAllocationsRef:
+```typescript
+const name = upsertClientTeamAllocationsRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertClientTeamAllocations` mutation requires an argument of type `UpsertClientTeamAllocationsVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertClientTeamAllocationsVariables {
+  clientName: string;
+  createdAt: DateString;
+  id: UUIDString;
+  personId: UUIDString;
+  priority: number;
+  roleId: UUIDString;
+}
+```
+### Return Type
+Recall that executing the `UpsertClientTeamAllocations` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertClientTeamAllocationsData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertClientTeamAllocationsData {
+  clientTeamAllocations_upsert: ClientTeamAllocations_Key;
+}
+```
+### Using `UpsertClientTeamAllocations`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertClientTeamAllocations, UpsertClientTeamAllocationsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertClientTeamAllocations` mutation requires an argument of type `UpsertClientTeamAllocationsVariables`:
+const upsertClientTeamAllocationsVars: UpsertClientTeamAllocationsVariables = {
+  clientName: ..., 
+  createdAt: ..., 
+  id: ..., 
+  personId: ..., 
+  priority: ..., 
+  roleId: ..., 
+};
+
+// Call the `upsertClientTeamAllocations()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertClientTeamAllocations(upsertClientTeamAllocationsVars);
+// Variables can be defined inline as well.
+const { data } = await upsertClientTeamAllocations({ clientName: ..., createdAt: ..., id: ..., personId: ..., priority: ..., roleId: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertClientTeamAllocations(dataConnect, upsertClientTeamAllocationsVars);
+
+console.log(data.clientTeamAllocations_upsert);
+
+// Or, you can use the `Promise` API.
+upsertClientTeamAllocations(upsertClientTeamAllocationsVars).then((response) => {
+  const data = response.data;
+  console.log(data.clientTeamAllocations_upsert);
+});
+```
+
+### Using `UpsertClientTeamAllocations`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertClientTeamAllocationsRef, UpsertClientTeamAllocationsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertClientTeamAllocations` mutation requires an argument of type `UpsertClientTeamAllocationsVariables`:
+const upsertClientTeamAllocationsVars: UpsertClientTeamAllocationsVariables = {
+  clientName: ..., 
+  createdAt: ..., 
+  id: ..., 
+  personId: ..., 
+  priority: ..., 
+  roleId: ..., 
+};
+
+// Call the `upsertClientTeamAllocationsRef()` function to get a reference to the mutation.
+const ref = upsertClientTeamAllocationsRef(upsertClientTeamAllocationsVars);
+// Variables can be defined inline as well.
+const ref = upsertClientTeamAllocationsRef({ clientName: ..., createdAt: ..., id: ..., personId: ..., priority: ..., roleId: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertClientTeamAllocationsRef(dataConnect, upsertClientTeamAllocationsVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.clientTeamAllocations_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.clientTeamAllocations_upsert);
+});
+```
+
 ## InsertDailyAllocations
 You can execute the `InsertDailyAllocations` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
@@ -1952,6 +2974,127 @@ executeMutation(ref).then((response) => {
 });
 ```
 
+## UpsertDailyAllocations
+You can execute the `UpsertDailyAllocations` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertDailyAllocations(vars: UpsertDailyAllocationsVariables): MutationPromise<UpsertDailyAllocationsData, UpsertDailyAllocationsVariables>;
+
+interface UpsertDailyAllocationsRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertDailyAllocationsVariables): MutationRef<UpsertDailyAllocationsData, UpsertDailyAllocationsVariables>;
+}
+export const upsertDailyAllocationsRef: UpsertDailyAllocationsRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertDailyAllocations(dc: DataConnect, vars: UpsertDailyAllocationsVariables): MutationPromise<UpsertDailyAllocationsData, UpsertDailyAllocationsVariables>;
+
+interface UpsertDailyAllocationsRef {
+  ...
+  (dc: DataConnect, vars: UpsertDailyAllocationsVariables): MutationRef<UpsertDailyAllocationsData, UpsertDailyAllocationsVariables>;
+}
+export const upsertDailyAllocationsRef: UpsertDailyAllocationsRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertDailyAllocationsRef:
+```typescript
+const name = upsertDailyAllocationsRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertDailyAllocations` mutation requires an argument of type `UpsertDailyAllocationsVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertDailyAllocationsVariables {
+  allocationId: UUIDString;
+  createdAt: DateString;
+  date: DateString;
+  hours: number;
+  id: UUIDString;
+}
+```
+### Return Type
+Recall that executing the `UpsertDailyAllocations` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertDailyAllocationsData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertDailyAllocationsData {
+  dailyAllocations_upsert: DailyAllocations_Key;
+}
+```
+### Using `UpsertDailyAllocations`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertDailyAllocations, UpsertDailyAllocationsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertDailyAllocations` mutation requires an argument of type `UpsertDailyAllocationsVariables`:
+const upsertDailyAllocationsVars: UpsertDailyAllocationsVariables = {
+  allocationId: ..., 
+  createdAt: ..., 
+  date: ..., 
+  hours: ..., 
+  id: ..., 
+};
+
+// Call the `upsertDailyAllocations()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertDailyAllocations(upsertDailyAllocationsVars);
+// Variables can be defined inline as well.
+const { data } = await upsertDailyAllocations({ allocationId: ..., createdAt: ..., date: ..., hours: ..., id: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertDailyAllocations(dataConnect, upsertDailyAllocationsVars);
+
+console.log(data.dailyAllocations_upsert);
+
+// Or, you can use the `Promise` API.
+upsertDailyAllocations(upsertDailyAllocationsVars).then((response) => {
+  const data = response.data;
+  console.log(data.dailyAllocations_upsert);
+});
+```
+
+### Using `UpsertDailyAllocations`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertDailyAllocationsRef, UpsertDailyAllocationsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertDailyAllocations` mutation requires an argument of type `UpsertDailyAllocationsVariables`:
+const upsertDailyAllocationsVars: UpsertDailyAllocationsVariables = {
+  allocationId: ..., 
+  createdAt: ..., 
+  date: ..., 
+  hours: ..., 
+  id: ..., 
+};
+
+// Call the `upsertDailyAllocationsRef()` function to get a reference to the mutation.
+const ref = upsertDailyAllocationsRef(upsertDailyAllocationsVars);
+// Variables can be defined inline as well.
+const ref = upsertDailyAllocationsRef({ allocationId: ..., createdAt: ..., date: ..., hours: ..., id: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertDailyAllocationsRef(dataConnect, upsertDailyAllocationsVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.dailyAllocations_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.dailyAllocations_upsert);
+});
+```
+
 ## InsertDataImports
 You can execute the `InsertDataImports` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
@@ -2070,6 +3213,124 @@ executeMutation(ref).then((response) => {
 });
 ```
 
+## UpsertDataImports
+You can execute the `UpsertDataImports` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertDataImports(vars: UpsertDataImportsVariables): MutationPromise<UpsertDataImportsData, UpsertDataImportsVariables>;
+
+interface UpsertDataImportsRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertDataImportsVariables): MutationRef<UpsertDataImportsData, UpsertDataImportsVariables>;
+}
+export const upsertDataImportsRef: UpsertDataImportsRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertDataImports(dc: DataConnect, vars: UpsertDataImportsVariables): MutationPromise<UpsertDataImportsData, UpsertDataImportsVariables>;
+
+interface UpsertDataImportsRef {
+  ...
+  (dc: DataConnect, vars: UpsertDataImportsVariables): MutationRef<UpsertDataImportsData, UpsertDataImportsVariables>;
+}
+export const upsertDataImportsRef: UpsertDataImportsRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertDataImportsRef:
+```typescript
+const name = upsertDataImportsRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertDataImports` mutation requires an argument of type `UpsertDataImportsVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertDataImportsVariables {
+  dataset: string;
+  id: UUIDString;
+  lastImportedAt: string;
+  rowCount: number;
+}
+```
+### Return Type
+Recall that executing the `UpsertDataImports` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertDataImportsData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertDataImportsData {
+  dataImports_upsert: DataImports_Key;
+}
+```
+### Using `UpsertDataImports`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertDataImports, UpsertDataImportsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertDataImports` mutation requires an argument of type `UpsertDataImportsVariables`:
+const upsertDataImportsVars: UpsertDataImportsVariables = {
+  dataset: ..., 
+  id: ..., 
+  lastImportedAt: ..., 
+  rowCount: ..., 
+};
+
+// Call the `upsertDataImports()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertDataImports(upsertDataImportsVars);
+// Variables can be defined inline as well.
+const { data } = await upsertDataImports({ dataset: ..., id: ..., lastImportedAt: ..., rowCount: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertDataImports(dataConnect, upsertDataImportsVars);
+
+console.log(data.dataImports_upsert);
+
+// Or, you can use the `Promise` API.
+upsertDataImports(upsertDataImportsVars).then((response) => {
+  const data = response.data;
+  console.log(data.dataImports_upsert);
+});
+```
+
+### Using `UpsertDataImports`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertDataImportsRef, UpsertDataImportsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertDataImports` mutation requires an argument of type `UpsertDataImportsVariables`:
+const upsertDataImportsVars: UpsertDataImportsVariables = {
+  dataset: ..., 
+  id: ..., 
+  lastImportedAt: ..., 
+  rowCount: ..., 
+};
+
+// Call the `upsertDataImportsRef()` function to get a reference to the mutation.
+const ref = upsertDataImportsRef(upsertDataImportsVars);
+// Variables can be defined inline as well.
+const ref = upsertDataImportsRef({ dataset: ..., id: ..., lastImportedAt: ..., rowCount: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertDataImportsRef(dataConnect, upsertDataImportsVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.dataImports_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.dataImports_upsert);
+});
+```
+
 ## InsertPeople
 You can execute the `InsertPeople` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
@@ -2122,6 +3383,7 @@ export interface InsertPeopleVariables {
   type?: string | null;
   ukPercentage?: number | null;
   usPercentage?: number | null;
+  isActive?: boolean | null;
 }
 ```
 ### Return Type
@@ -2159,13 +3421,14 @@ const insertPeopleVars: InsertPeopleVariables = {
   type: ..., // optional
   ukPercentage: ..., // optional
   usPercentage: ..., // optional
+  isActive: ..., // optional
 };
 
 // Call the `insertPeople()` function to execute the mutation.
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await insertPeople(insertPeopleVars);
 // Variables can be defined inline as well.
-const { data } = await insertPeople({ annualSalary: ..., code: ..., createdAt: ..., employmentEndDate: ..., employmentStartDate: ..., id: ..., imcPercentage: ..., monthlySalary: ..., name: ..., office: ..., overallEndDate: ..., overallStartDate: ..., roleId: ..., status: ..., team: ..., type: ..., ukPercentage: ..., usPercentage: ..., });
+const { data } = await insertPeople({ annualSalary: ..., code: ..., createdAt: ..., employmentEndDate: ..., employmentStartDate: ..., id: ..., imcPercentage: ..., monthlySalary: ..., name: ..., office: ..., overallEndDate: ..., overallStartDate: ..., roleId: ..., status: ..., team: ..., type: ..., ukPercentage: ..., usPercentage: ..., isActive: ..., });
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -2206,12 +3469,13 @@ const insertPeopleVars: InsertPeopleVariables = {
   type: ..., // optional
   ukPercentage: ..., // optional
   usPercentage: ..., // optional
+  isActive: ..., // optional
 };
 
 // Call the `insertPeopleRef()` function to get a reference to the mutation.
 const ref = insertPeopleRef(insertPeopleVars);
 // Variables can be defined inline as well.
-const ref = insertPeopleRef({ annualSalary: ..., code: ..., createdAt: ..., employmentEndDate: ..., employmentStartDate: ..., id: ..., imcPercentage: ..., monthlySalary: ..., name: ..., office: ..., overallEndDate: ..., overallStartDate: ..., roleId: ..., status: ..., team: ..., type: ..., ukPercentage: ..., usPercentage: ..., });
+const ref = insertPeopleRef({ annualSalary: ..., code: ..., createdAt: ..., employmentEndDate: ..., employmentStartDate: ..., id: ..., imcPercentage: ..., monthlySalary: ..., name: ..., office: ..., overallEndDate: ..., overallStartDate: ..., roleId: ..., status: ..., team: ..., type: ..., ukPercentage: ..., usPercentage: ..., isActive: ..., });
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -2227,6 +3491,169 @@ console.log(data.people_insert);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.people_insert);
+});
+```
+
+## UpsertPeople
+You can execute the `UpsertPeople` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertPeople(vars: UpsertPeopleVariables): MutationPromise<UpsertPeopleData, UpsertPeopleVariables>;
+
+interface UpsertPeopleRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertPeopleVariables): MutationRef<UpsertPeopleData, UpsertPeopleVariables>;
+}
+export const upsertPeopleRef: UpsertPeopleRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertPeople(dc: DataConnect, vars: UpsertPeopleVariables): MutationPromise<UpsertPeopleData, UpsertPeopleVariables>;
+
+interface UpsertPeopleRef {
+  ...
+  (dc: DataConnect, vars: UpsertPeopleVariables): MutationRef<UpsertPeopleData, UpsertPeopleVariables>;
+}
+export const upsertPeopleRef: UpsertPeopleRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertPeopleRef:
+```typescript
+const name = upsertPeopleRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertPeople` mutation requires an argument of type `UpsertPeopleVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertPeopleVariables {
+  annualSalary?: number | null;
+  code?: string | null;
+  createdAt: DateString;
+  employmentEndDate?: DateString | null;
+  employmentStartDate?: DateString | null;
+  id: UUIDString;
+  imcPercentage?: number | null;
+  monthlySalary?: number | null;
+  name: string;
+  office: string;
+  overallEndDate?: DateString | null;
+  overallStartDate?: DateString | null;
+  roleId?: UUIDString | null;
+  status?: string | null;
+  team?: string | null;
+  type?: string | null;
+  ukPercentage?: number | null;
+  usPercentage?: number | null;
+  isActive?: boolean | null;
+}
+```
+### Return Type
+Recall that executing the `UpsertPeople` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertPeopleData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertPeopleData {
+  people_upsert: People_Key;
+}
+```
+### Using `UpsertPeople`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertPeople, UpsertPeopleVariables } from '@dataconnect/generated-server';
+
+// The `UpsertPeople` mutation requires an argument of type `UpsertPeopleVariables`:
+const upsertPeopleVars: UpsertPeopleVariables = {
+  annualSalary: ..., // optional
+  code: ..., // optional
+  createdAt: ..., 
+  employmentEndDate: ..., // optional
+  employmentStartDate: ..., // optional
+  id: ..., 
+  imcPercentage: ..., // optional
+  monthlySalary: ..., // optional
+  name: ..., 
+  office: ..., 
+  overallEndDate: ..., // optional
+  overallStartDate: ..., // optional
+  roleId: ..., // optional
+  status: ..., // optional
+  team: ..., // optional
+  type: ..., // optional
+  ukPercentage: ..., // optional
+  usPercentage: ..., // optional
+  isActive: ..., // optional
+};
+
+// Call the `upsertPeople()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertPeople(upsertPeopleVars);
+// Variables can be defined inline as well.
+const { data } = await upsertPeople({ annualSalary: ..., code: ..., createdAt: ..., employmentEndDate: ..., employmentStartDate: ..., id: ..., imcPercentage: ..., monthlySalary: ..., name: ..., office: ..., overallEndDate: ..., overallStartDate: ..., roleId: ..., status: ..., team: ..., type: ..., ukPercentage: ..., usPercentage: ..., isActive: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertPeople(dataConnect, upsertPeopleVars);
+
+console.log(data.people_upsert);
+
+// Or, you can use the `Promise` API.
+upsertPeople(upsertPeopleVars).then((response) => {
+  const data = response.data;
+  console.log(data.people_upsert);
+});
+```
+
+### Using `UpsertPeople`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertPeopleRef, UpsertPeopleVariables } from '@dataconnect/generated-server';
+
+// The `UpsertPeople` mutation requires an argument of type `UpsertPeopleVariables`:
+const upsertPeopleVars: UpsertPeopleVariables = {
+  annualSalary: ..., // optional
+  code: ..., // optional
+  createdAt: ..., 
+  employmentEndDate: ..., // optional
+  employmentStartDate: ..., // optional
+  id: ..., 
+  imcPercentage: ..., // optional
+  monthlySalary: ..., // optional
+  name: ..., 
+  office: ..., 
+  overallEndDate: ..., // optional
+  overallStartDate: ..., // optional
+  roleId: ..., // optional
+  status: ..., // optional
+  team: ..., // optional
+  type: ..., // optional
+  ukPercentage: ..., // optional
+  usPercentage: ..., // optional
+  isActive: ..., // optional
+};
+
+// Call the `upsertPeopleRef()` function to get a reference to the mutation.
+const ref = upsertPeopleRef(upsertPeopleVars);
+// Variables can be defined inline as well.
+const ref = upsertPeopleRef({ annualSalary: ..., code: ..., createdAt: ..., employmentEndDate: ..., employmentStartDate: ..., id: ..., imcPercentage: ..., monthlySalary: ..., name: ..., office: ..., overallEndDate: ..., overallStartDate: ..., roleId: ..., status: ..., team: ..., type: ..., ukPercentage: ..., usPercentage: ..., isActive: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertPeopleRef(dataConnect, upsertPeopleVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.people_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.people_upsert);
 });
 ```
 
@@ -2354,6 +3781,130 @@ executeMutation(ref).then((response) => {
 });
 ```
 
+## UpsertPhaseAllocations
+You can execute the `UpsertPhaseAllocations` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertPhaseAllocations(vars: UpsertPhaseAllocationsVariables): MutationPromise<UpsertPhaseAllocationsData, UpsertPhaseAllocationsVariables>;
+
+interface UpsertPhaseAllocationsRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertPhaseAllocationsVariables): MutationRef<UpsertPhaseAllocationsData, UpsertPhaseAllocationsVariables>;
+}
+export const upsertPhaseAllocationsRef: UpsertPhaseAllocationsRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertPhaseAllocations(dc: DataConnect, vars: UpsertPhaseAllocationsVariables): MutationPromise<UpsertPhaseAllocationsData, UpsertPhaseAllocationsVariables>;
+
+interface UpsertPhaseAllocationsRef {
+  ...
+  (dc: DataConnect, vars: UpsertPhaseAllocationsVariables): MutationRef<UpsertPhaseAllocationsData, UpsertPhaseAllocationsVariables>;
+}
+export const upsertPhaseAllocationsRef: UpsertPhaseAllocationsRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertPhaseAllocationsRef:
+```typescript
+const name = upsertPhaseAllocationsRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertPhaseAllocations` mutation requires an argument of type `UpsertPhaseAllocationsVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertPhaseAllocationsVariables {
+  allocationId?: UUIDString | null;
+  createdAt: DateString;
+  hours: number;
+  id: UUIDString;
+  phaseId: UUIDString;
+  projectScopeId?: UUIDString | null;
+}
+```
+### Return Type
+Recall that executing the `UpsertPhaseAllocations` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertPhaseAllocationsData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertPhaseAllocationsData {
+  phaseAllocations_upsert: PhaseAllocations_Key;
+}
+```
+### Using `UpsertPhaseAllocations`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertPhaseAllocations, UpsertPhaseAllocationsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertPhaseAllocations` mutation requires an argument of type `UpsertPhaseAllocationsVariables`:
+const upsertPhaseAllocationsVars: UpsertPhaseAllocationsVariables = {
+  allocationId: ..., // optional
+  createdAt: ..., 
+  hours: ..., 
+  id: ..., 
+  phaseId: ..., 
+  projectScopeId: ..., // optional
+};
+
+// Call the `upsertPhaseAllocations()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertPhaseAllocations(upsertPhaseAllocationsVars);
+// Variables can be defined inline as well.
+const { data } = await upsertPhaseAllocations({ allocationId: ..., createdAt: ..., hours: ..., id: ..., phaseId: ..., projectScopeId: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertPhaseAllocations(dataConnect, upsertPhaseAllocationsVars);
+
+console.log(data.phaseAllocations_upsert);
+
+// Or, you can use the `Promise` API.
+upsertPhaseAllocations(upsertPhaseAllocationsVars).then((response) => {
+  const data = response.data;
+  console.log(data.phaseAllocations_upsert);
+});
+```
+
+### Using `UpsertPhaseAllocations`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertPhaseAllocationsRef, UpsertPhaseAllocationsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertPhaseAllocations` mutation requires an argument of type `UpsertPhaseAllocationsVariables`:
+const upsertPhaseAllocationsVars: UpsertPhaseAllocationsVariables = {
+  allocationId: ..., // optional
+  createdAt: ..., 
+  hours: ..., 
+  id: ..., 
+  phaseId: ..., 
+  projectScopeId: ..., // optional
+};
+
+// Call the `upsertPhaseAllocationsRef()` function to get a reference to the mutation.
+const ref = upsertPhaseAllocationsRef(upsertPhaseAllocationsVars);
+// Variables can be defined inline as well.
+const ref = upsertPhaseAllocationsRef({ allocationId: ..., createdAt: ..., hours: ..., id: ..., phaseId: ..., projectScopeId: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertPhaseAllocationsRef(dataConnect, upsertPhaseAllocationsVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.phaseAllocations_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.phaseAllocations_upsert);
+});
+```
+
 ## InsertProjectMonthlyRevenue
 You can execute the `InsertProjectMonthlyRevenue` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
@@ -2472,6 +4023,127 @@ console.log(data.projectMonthlyRevenue_insert);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.projectMonthlyRevenue_insert);
+});
+```
+
+## UpsertProjectMonthlyRevenue
+You can execute the `UpsertProjectMonthlyRevenue` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertProjectMonthlyRevenue(vars: UpsertProjectMonthlyRevenueVariables): MutationPromise<UpsertProjectMonthlyRevenueData, UpsertProjectMonthlyRevenueVariables>;
+
+interface UpsertProjectMonthlyRevenueRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertProjectMonthlyRevenueVariables): MutationRef<UpsertProjectMonthlyRevenueData, UpsertProjectMonthlyRevenueVariables>;
+}
+export const upsertProjectMonthlyRevenueRef: UpsertProjectMonthlyRevenueRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertProjectMonthlyRevenue(dc: DataConnect, vars: UpsertProjectMonthlyRevenueVariables): MutationPromise<UpsertProjectMonthlyRevenueData, UpsertProjectMonthlyRevenueVariables>;
+
+interface UpsertProjectMonthlyRevenueRef {
+  ...
+  (dc: DataConnect, vars: UpsertProjectMonthlyRevenueVariables): MutationRef<UpsertProjectMonthlyRevenueData, UpsertProjectMonthlyRevenueVariables>;
+}
+export const upsertProjectMonthlyRevenueRef: UpsertProjectMonthlyRevenueRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertProjectMonthlyRevenueRef:
+```typescript
+const name = upsertProjectMonthlyRevenueRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertProjectMonthlyRevenue` mutation requires an argument of type `UpsertProjectMonthlyRevenueVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertProjectMonthlyRevenueVariables {
+  createdAt: DateString;
+  id: UUIDString;
+  monthDate: DateString;
+  projectId: UUIDString;
+  value: number;
+}
+```
+### Return Type
+Recall that executing the `UpsertProjectMonthlyRevenue` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertProjectMonthlyRevenueData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertProjectMonthlyRevenueData {
+  projectMonthlyRevenue_upsert: ProjectMonthlyRevenue_Key;
+}
+```
+### Using `UpsertProjectMonthlyRevenue`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertProjectMonthlyRevenue, UpsertProjectMonthlyRevenueVariables } from '@dataconnect/generated-server';
+
+// The `UpsertProjectMonthlyRevenue` mutation requires an argument of type `UpsertProjectMonthlyRevenueVariables`:
+const upsertProjectMonthlyRevenueVars: UpsertProjectMonthlyRevenueVariables = {
+  createdAt: ..., 
+  id: ..., 
+  monthDate: ..., 
+  projectId: ..., 
+  value: ..., 
+};
+
+// Call the `upsertProjectMonthlyRevenue()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertProjectMonthlyRevenue(upsertProjectMonthlyRevenueVars);
+// Variables can be defined inline as well.
+const { data } = await upsertProjectMonthlyRevenue({ createdAt: ..., id: ..., monthDate: ..., projectId: ..., value: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertProjectMonthlyRevenue(dataConnect, upsertProjectMonthlyRevenueVars);
+
+console.log(data.projectMonthlyRevenue_upsert);
+
+// Or, you can use the `Promise` API.
+upsertProjectMonthlyRevenue(upsertProjectMonthlyRevenueVars).then((response) => {
+  const data = response.data;
+  console.log(data.projectMonthlyRevenue_upsert);
+});
+```
+
+### Using `UpsertProjectMonthlyRevenue`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertProjectMonthlyRevenueRef, UpsertProjectMonthlyRevenueVariables } from '@dataconnect/generated-server';
+
+// The `UpsertProjectMonthlyRevenue` mutation requires an argument of type `UpsertProjectMonthlyRevenueVariables`:
+const upsertProjectMonthlyRevenueVars: UpsertProjectMonthlyRevenueVariables = {
+  createdAt: ..., 
+  id: ..., 
+  monthDate: ..., 
+  projectId: ..., 
+  value: ..., 
+};
+
+// Call the `upsertProjectMonthlyRevenueRef()` function to get a reference to the mutation.
+const ref = upsertProjectMonthlyRevenueRef(upsertProjectMonthlyRevenueVars);
+// Variables can be defined inline as well.
+const ref = upsertProjectMonthlyRevenueRef({ createdAt: ..., id: ..., monthDate: ..., projectId: ..., value: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertProjectMonthlyRevenueRef(dataConnect, upsertProjectMonthlyRevenueVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.projectMonthlyRevenue_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.projectMonthlyRevenue_upsert);
 });
 ```
 
@@ -2602,6 +4274,133 @@ executeMutation(ref).then((response) => {
 });
 ```
 
+## UpsertProjectPhases
+You can execute the `UpsertProjectPhases` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertProjectPhases(vars: UpsertProjectPhasesVariables): MutationPromise<UpsertProjectPhasesData, UpsertProjectPhasesVariables>;
+
+interface UpsertProjectPhasesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertProjectPhasesVariables): MutationRef<UpsertProjectPhasesData, UpsertProjectPhasesVariables>;
+}
+export const upsertProjectPhasesRef: UpsertProjectPhasesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertProjectPhases(dc: DataConnect, vars: UpsertProjectPhasesVariables): MutationPromise<UpsertProjectPhasesData, UpsertProjectPhasesVariables>;
+
+interface UpsertProjectPhasesRef {
+  ...
+  (dc: DataConnect, vars: UpsertProjectPhasesVariables): MutationRef<UpsertProjectPhasesData, UpsertProjectPhasesVariables>;
+}
+export const upsertProjectPhasesRef: UpsertProjectPhasesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertProjectPhasesRef:
+```typescript
+const name = upsertProjectPhasesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertProjectPhases` mutation requires an argument of type `UpsertProjectPhasesVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertProjectPhasesVariables {
+  createdAt: DateString;
+  endDate?: DateString | null;
+  id: UUIDString;
+  phaseName: string;
+  projectId: UUIDString;
+  sortOrder: number;
+  startDate?: DateString | null;
+}
+```
+### Return Type
+Recall that executing the `UpsertProjectPhases` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertProjectPhasesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertProjectPhasesData {
+  projectPhases_upsert: ProjectPhases_Key;
+}
+```
+### Using `UpsertProjectPhases`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertProjectPhases, UpsertProjectPhasesVariables } from '@dataconnect/generated-server';
+
+// The `UpsertProjectPhases` mutation requires an argument of type `UpsertProjectPhasesVariables`:
+const upsertProjectPhasesVars: UpsertProjectPhasesVariables = {
+  createdAt: ..., 
+  endDate: ..., // optional
+  id: ..., 
+  phaseName: ..., 
+  projectId: ..., 
+  sortOrder: ..., 
+  startDate: ..., // optional
+};
+
+// Call the `upsertProjectPhases()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertProjectPhases(upsertProjectPhasesVars);
+// Variables can be defined inline as well.
+const { data } = await upsertProjectPhases({ createdAt: ..., endDate: ..., id: ..., phaseName: ..., projectId: ..., sortOrder: ..., startDate: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertProjectPhases(dataConnect, upsertProjectPhasesVars);
+
+console.log(data.projectPhases_upsert);
+
+// Or, you can use the `Promise` API.
+upsertProjectPhases(upsertProjectPhasesVars).then((response) => {
+  const data = response.data;
+  console.log(data.projectPhases_upsert);
+});
+```
+
+### Using `UpsertProjectPhases`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertProjectPhasesRef, UpsertProjectPhasesVariables } from '@dataconnect/generated-server';
+
+// The `UpsertProjectPhases` mutation requires an argument of type `UpsertProjectPhasesVariables`:
+const upsertProjectPhasesVars: UpsertProjectPhasesVariables = {
+  createdAt: ..., 
+  endDate: ..., // optional
+  id: ..., 
+  phaseName: ..., 
+  projectId: ..., 
+  sortOrder: ..., 
+  startDate: ..., // optional
+};
+
+// Call the `upsertProjectPhasesRef()` function to get a reference to the mutation.
+const ref = upsertProjectPhasesRef(upsertProjectPhasesVars);
+// Variables can be defined inline as well.
+const ref = upsertProjectPhasesRef({ createdAt: ..., endDate: ..., id: ..., phaseName: ..., projectId: ..., sortOrder: ..., startDate: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertProjectPhasesRef(dataConnect, upsertProjectPhasesVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.projectPhases_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.projectPhases_upsert);
+});
+```
+
 ## InsertProjectScopes
 You can execute the `InsertProjectScopes` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
@@ -2642,6 +4441,7 @@ export interface InsertProjectScopesVariables {
   projectId?: UUIDString | null;
   roleId?: UUIDString | null;
   scopedHours: number;
+  isActive?: boolean | null;
 }
 ```
 ### Return Type
@@ -2667,13 +4467,14 @@ const insertProjectScopesVars: InsertProjectScopesVariables = {
   projectId: ..., // optional
   roleId: ..., // optional
   scopedHours: ..., 
+  isActive: ..., // optional
 };
 
 // Call the `insertProjectScopes()` function to execute the mutation.
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await insertProjectScopes(insertProjectScopesVars);
 // Variables can be defined inline as well.
-const { data } = await insertProjectScopes({ createdAt: ..., id: ..., phasePercentages: ..., projectId: ..., roleId: ..., scopedHours: ..., });
+const { data } = await insertProjectScopes({ createdAt: ..., id: ..., phasePercentages: ..., projectId: ..., roleId: ..., scopedHours: ..., isActive: ..., });
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -2702,12 +4503,13 @@ const insertProjectScopesVars: InsertProjectScopesVariables = {
   projectId: ..., // optional
   roleId: ..., // optional
   scopedHours: ..., 
+  isActive: ..., // optional
 };
 
 // Call the `insertProjectScopesRef()` function to get a reference to the mutation.
 const ref = insertProjectScopesRef(insertProjectScopesVars);
 // Variables can be defined inline as well.
-const ref = insertProjectScopesRef({ createdAt: ..., id: ..., phasePercentages: ..., projectId: ..., roleId: ..., scopedHours: ..., });
+const ref = insertProjectScopesRef({ createdAt: ..., id: ..., phasePercentages: ..., projectId: ..., roleId: ..., scopedHours: ..., isActive: ..., });
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -2723,6 +4525,133 @@ console.log(data.projectScopes_insert);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.projectScopes_insert);
+});
+```
+
+## UpsertProjectScopes
+You can execute the `UpsertProjectScopes` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertProjectScopes(vars: UpsertProjectScopesVariables): MutationPromise<UpsertProjectScopesData, UpsertProjectScopesVariables>;
+
+interface UpsertProjectScopesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertProjectScopesVariables): MutationRef<UpsertProjectScopesData, UpsertProjectScopesVariables>;
+}
+export const upsertProjectScopesRef: UpsertProjectScopesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertProjectScopes(dc: DataConnect, vars: UpsertProjectScopesVariables): MutationPromise<UpsertProjectScopesData, UpsertProjectScopesVariables>;
+
+interface UpsertProjectScopesRef {
+  ...
+  (dc: DataConnect, vars: UpsertProjectScopesVariables): MutationRef<UpsertProjectScopesData, UpsertProjectScopesVariables>;
+}
+export const upsertProjectScopesRef: UpsertProjectScopesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertProjectScopesRef:
+```typescript
+const name = upsertProjectScopesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertProjectScopes` mutation requires an argument of type `UpsertProjectScopesVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertProjectScopesVariables {
+  createdAt: DateString;
+  id: UUIDString;
+  phasePercentages?: unknown | null;
+  projectId?: UUIDString | null;
+  roleId?: UUIDString | null;
+  scopedHours: number;
+  isActive?: boolean | null;
+}
+```
+### Return Type
+Recall that executing the `UpsertProjectScopes` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertProjectScopesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertProjectScopesData {
+  projectScopes_upsert: ProjectScopes_Key;
+}
+```
+### Using `UpsertProjectScopes`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertProjectScopes, UpsertProjectScopesVariables } from '@dataconnect/generated-server';
+
+// The `UpsertProjectScopes` mutation requires an argument of type `UpsertProjectScopesVariables`:
+const upsertProjectScopesVars: UpsertProjectScopesVariables = {
+  createdAt: ..., 
+  id: ..., 
+  phasePercentages: ..., // optional
+  projectId: ..., // optional
+  roleId: ..., // optional
+  scopedHours: ..., 
+  isActive: ..., // optional
+};
+
+// Call the `upsertProjectScopes()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertProjectScopes(upsertProjectScopesVars);
+// Variables can be defined inline as well.
+const { data } = await upsertProjectScopes({ createdAt: ..., id: ..., phasePercentages: ..., projectId: ..., roleId: ..., scopedHours: ..., isActive: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertProjectScopes(dataConnect, upsertProjectScopesVars);
+
+console.log(data.projectScopes_upsert);
+
+// Or, you can use the `Promise` API.
+upsertProjectScopes(upsertProjectScopesVars).then((response) => {
+  const data = response.data;
+  console.log(data.projectScopes_upsert);
+});
+```
+
+### Using `UpsertProjectScopes`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertProjectScopesRef, UpsertProjectScopesVariables } from '@dataconnect/generated-server';
+
+// The `UpsertProjectScopes` mutation requires an argument of type `UpsertProjectScopesVariables`:
+const upsertProjectScopesVars: UpsertProjectScopesVariables = {
+  createdAt: ..., 
+  id: ..., 
+  phasePercentages: ..., // optional
+  projectId: ..., // optional
+  roleId: ..., // optional
+  scopedHours: ..., 
+  isActive: ..., // optional
+};
+
+// Call the `upsertProjectScopesRef()` function to get a reference to the mutation.
+const ref = upsertProjectScopesRef(upsertProjectScopesVars);
+// Variables can be defined inline as well.
+const ref = upsertProjectScopesRef({ createdAt: ..., id: ..., phasePercentages: ..., projectId: ..., roleId: ..., scopedHours: ..., isActive: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertProjectScopesRef(dataConnect, upsertProjectScopesVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.projectScopes_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.projectScopes_upsert);
 });
 ```
 
@@ -2827,6 +4756,7 @@ export interface InsertProjectsVariables {
   valuePerWeekPhase2?: number | null;
   valuePerWeekPhase3?: number | null;
   valuePerWeekPhase4?: number | null;
+  isActive?: boolean | null;
 }
 ```
 ### Return Type
@@ -2913,13 +4843,14 @@ const insertProjectsVars: InsertProjectsVariables = {
   valuePerWeekPhase2: ..., // optional
   valuePerWeekPhase3: ..., // optional
   valuePerWeekPhase4: ..., // optional
+  isActive: ..., // optional
 };
 
 // Call the `insertProjects()` function to execute the mutation.
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await insertProjects(insertProjectsVars);
 // Variables can be defined inline as well.
-const { data } = await insertProjects({ actualCost: ..., bdbHours: ..., budgetCost: ..., closeDate: ..., contractedInflCost: ..., createdAt: ..., createdDate: ..., dealValueDerisked: ..., durationWeeks: ..., durationWeeksRounded: ..., endDate: ..., endWeek: ..., extraData: ..., feeCalcCurrency: ..., fxLockDate: ..., fxRateGbp: ..., fxRateUsd: ..., gpCheck: ..., gpFullValue: ..., gpFullValuePerDay: ..., gpMarginPct: ..., grossBudget: ..., hardCosts: ..., hub: ..., id: ..., industry: ..., inflProductionCosts: ..., lastFeeCalcUrl: ..., leadSource: ..., mediaCost: ..., newRepeat: ..., office: ..., opportunityNumber: ..., opportunityOwner: ..., opportunityRecordType: ..., originalLeadSource: ..., paidMediaFees: ..., parentAccount: ..., phase1End: ..., phase1Name: ..., phase1Start: ..., phase2End: ..., phase2Name: ..., phase2Start: ..., phase3End: ..., phase3Name: ..., phase3Start: ..., phase4End: ..., phase4Name: ..., phase4Start: ..., price: ..., probability: ..., rateCardDiscount: ..., rateCardId: ..., revenue: ..., sfAccount: ..., stage: ..., startDate: ..., startWeek: ..., title: ..., totalFees: ..., ultimateParent: ..., updatedAt: ..., valuePerWeekPhase1: ..., valuePerWeekPhase2: ..., valuePerWeekPhase3: ..., valuePerWeekPhase4: ..., });
+const { data } = await insertProjects({ actualCost: ..., bdbHours: ..., budgetCost: ..., closeDate: ..., contractedInflCost: ..., createdAt: ..., createdDate: ..., dealValueDerisked: ..., durationWeeks: ..., durationWeeksRounded: ..., endDate: ..., endWeek: ..., extraData: ..., feeCalcCurrency: ..., fxLockDate: ..., fxRateGbp: ..., fxRateUsd: ..., gpCheck: ..., gpFullValue: ..., gpFullValuePerDay: ..., gpMarginPct: ..., grossBudget: ..., hardCosts: ..., hub: ..., id: ..., industry: ..., inflProductionCosts: ..., lastFeeCalcUrl: ..., leadSource: ..., mediaCost: ..., newRepeat: ..., office: ..., opportunityNumber: ..., opportunityOwner: ..., opportunityRecordType: ..., originalLeadSource: ..., paidMediaFees: ..., parentAccount: ..., phase1End: ..., phase1Name: ..., phase1Start: ..., phase2End: ..., phase2Name: ..., phase2Start: ..., phase3End: ..., phase3Name: ..., phase3Start: ..., phase4End: ..., phase4Name: ..., phase4Start: ..., price: ..., probability: ..., rateCardDiscount: ..., rateCardId: ..., revenue: ..., sfAccount: ..., stage: ..., startDate: ..., startWeek: ..., title: ..., totalFees: ..., ultimateParent: ..., updatedAt: ..., valuePerWeekPhase1: ..., valuePerWeekPhase2: ..., valuePerWeekPhase3: ..., valuePerWeekPhase4: ..., isActive: ..., });
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -3009,12 +4940,13 @@ const insertProjectsVars: InsertProjectsVariables = {
   valuePerWeekPhase2: ..., // optional
   valuePerWeekPhase3: ..., // optional
   valuePerWeekPhase4: ..., // optional
+  isActive: ..., // optional
 };
 
 // Call the `insertProjectsRef()` function to get a reference to the mutation.
 const ref = insertProjectsRef(insertProjectsVars);
 // Variables can be defined inline as well.
-const ref = insertProjectsRef({ actualCost: ..., bdbHours: ..., budgetCost: ..., closeDate: ..., contractedInflCost: ..., createdAt: ..., createdDate: ..., dealValueDerisked: ..., durationWeeks: ..., durationWeeksRounded: ..., endDate: ..., endWeek: ..., extraData: ..., feeCalcCurrency: ..., fxLockDate: ..., fxRateGbp: ..., fxRateUsd: ..., gpCheck: ..., gpFullValue: ..., gpFullValuePerDay: ..., gpMarginPct: ..., grossBudget: ..., hardCosts: ..., hub: ..., id: ..., industry: ..., inflProductionCosts: ..., lastFeeCalcUrl: ..., leadSource: ..., mediaCost: ..., newRepeat: ..., office: ..., opportunityNumber: ..., opportunityOwner: ..., opportunityRecordType: ..., originalLeadSource: ..., paidMediaFees: ..., parentAccount: ..., phase1End: ..., phase1Name: ..., phase1Start: ..., phase2End: ..., phase2Name: ..., phase2Start: ..., phase3End: ..., phase3Name: ..., phase3Start: ..., phase4End: ..., phase4Name: ..., phase4Start: ..., price: ..., probability: ..., rateCardDiscount: ..., rateCardId: ..., revenue: ..., sfAccount: ..., stage: ..., startDate: ..., startWeek: ..., title: ..., totalFees: ..., ultimateParent: ..., updatedAt: ..., valuePerWeekPhase1: ..., valuePerWeekPhase2: ..., valuePerWeekPhase3: ..., valuePerWeekPhase4: ..., });
+const ref = insertProjectsRef({ actualCost: ..., bdbHours: ..., budgetCost: ..., closeDate: ..., contractedInflCost: ..., createdAt: ..., createdDate: ..., dealValueDerisked: ..., durationWeeks: ..., durationWeeksRounded: ..., endDate: ..., endWeek: ..., extraData: ..., feeCalcCurrency: ..., fxLockDate: ..., fxRateGbp: ..., fxRateUsd: ..., gpCheck: ..., gpFullValue: ..., gpFullValuePerDay: ..., gpMarginPct: ..., grossBudget: ..., hardCosts: ..., hub: ..., id: ..., industry: ..., inflProductionCosts: ..., lastFeeCalcUrl: ..., leadSource: ..., mediaCost: ..., newRepeat: ..., office: ..., opportunityNumber: ..., opportunityOwner: ..., opportunityRecordType: ..., originalLeadSource: ..., paidMediaFees: ..., parentAccount: ..., phase1End: ..., phase1Name: ..., phase1Start: ..., phase2End: ..., phase2Name: ..., phase2Start: ..., phase3End: ..., phase3Name: ..., phase3Start: ..., phase4End: ..., phase4Name: ..., phase4Start: ..., price: ..., probability: ..., rateCardDiscount: ..., rateCardId: ..., revenue: ..., sfAccount: ..., stage: ..., startDate: ..., startWeek: ..., title: ..., totalFees: ..., ultimateParent: ..., updatedAt: ..., valuePerWeekPhase1: ..., valuePerWeekPhase2: ..., valuePerWeekPhase3: ..., valuePerWeekPhase4: ..., isActive: ..., });
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -3030,6 +4962,316 @@ console.log(data.projects_insert);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.projects_insert);
+});
+```
+
+## UpsertProjects
+You can execute the `UpsertProjects` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertProjects(vars: UpsertProjectsVariables): MutationPromise<UpsertProjectsData, UpsertProjectsVariables>;
+
+interface UpsertProjectsRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertProjectsVariables): MutationRef<UpsertProjectsData, UpsertProjectsVariables>;
+}
+export const upsertProjectsRef: UpsertProjectsRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertProjects(dc: DataConnect, vars: UpsertProjectsVariables): MutationPromise<UpsertProjectsData, UpsertProjectsVariables>;
+
+interface UpsertProjectsRef {
+  ...
+  (dc: DataConnect, vars: UpsertProjectsVariables): MutationRef<UpsertProjectsData, UpsertProjectsVariables>;
+}
+export const upsertProjectsRef: UpsertProjectsRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertProjectsRef:
+```typescript
+const name = upsertProjectsRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertProjects` mutation requires an argument of type `UpsertProjectsVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertProjectsVariables {
+  actualCost?: number | null;
+  bdbHours?: number | null;
+  budgetCost?: number | null;
+  closeDate?: DateString | null;
+  contractedInflCost?: number | null;
+  createdAt: DateString;
+  createdDate?: DateString | null;
+  dealValueDerisked?: number | null;
+  durationWeeks?: number | null;
+  durationWeeksRounded?: number | null;
+  endDate: DateString;
+  endWeek?: string | null;
+  extraData?: unknown | null;
+  feeCalcCurrency?: string | null;
+  fxLockDate?: DateString | null;
+  fxRateGbp?: number | null;
+  fxRateUsd?: number | null;
+  gpCheck?: string | null;
+  gpFullValue?: number | null;
+  gpFullValuePerDay?: number | null;
+  gpMarginPct?: number | null;
+  grossBudget?: number | null;
+  hardCosts?: number | null;
+  hub?: string | null;
+  id: UUIDString;
+  industry?: string | null;
+  inflProductionCosts?: number | null;
+  lastFeeCalcUrl?: string | null;
+  leadSource?: string | null;
+  mediaCost?: number | null;
+  newRepeat?: string | null;
+  office?: string | null;
+  opportunityNumber?: string | null;
+  opportunityOwner?: string | null;
+  opportunityRecordType?: string | null;
+  originalLeadSource?: string | null;
+  paidMediaFees?: number | null;
+  parentAccount?: string | null;
+  phase1End?: string | null;
+  phase1Name?: string | null;
+  phase1Start?: string | null;
+  phase2End?: string | null;
+  phase2Name?: string | null;
+  phase2Start?: string | null;
+  phase3End?: string | null;
+  phase3Name?: string | null;
+  phase3Start?: string | null;
+  phase4End?: string | null;
+  phase4Name?: string | null;
+  phase4Start?: string | null;
+  price?: number | null;
+  probability?: number | null;
+  rateCardDiscount: number;
+  rateCardId?: UUIDString | null;
+  revenue?: number | null;
+  sfAccount?: string | null;
+  stage?: string | null;
+  startDate: DateString;
+  startWeek?: string | null;
+  title: string;
+  totalFees?: number | null;
+  ultimateParent?: string | null;
+  updatedAt: DateString;
+  valuePerWeekPhase1?: number | null;
+  valuePerWeekPhase2?: number | null;
+  valuePerWeekPhase3?: number | null;
+  valuePerWeekPhase4?: number | null;
+  isActive?: boolean | null;
+}
+```
+### Return Type
+Recall that executing the `UpsertProjects` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertProjectsData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertProjectsData {
+  projects_upsert: Projects_Key;
+}
+```
+### Using `UpsertProjects`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertProjects, UpsertProjectsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertProjects` mutation requires an argument of type `UpsertProjectsVariables`:
+const upsertProjectsVars: UpsertProjectsVariables = {
+  actualCost: ..., // optional
+  bdbHours: ..., // optional
+  budgetCost: ..., // optional
+  closeDate: ..., // optional
+  contractedInflCost: ..., // optional
+  createdAt: ..., 
+  createdDate: ..., // optional
+  dealValueDerisked: ..., // optional
+  durationWeeks: ..., // optional
+  durationWeeksRounded: ..., // optional
+  endDate: ..., 
+  endWeek: ..., // optional
+  extraData: ..., // optional
+  feeCalcCurrency: ..., // optional
+  fxLockDate: ..., // optional
+  fxRateGbp: ..., // optional
+  fxRateUsd: ..., // optional
+  gpCheck: ..., // optional
+  gpFullValue: ..., // optional
+  gpFullValuePerDay: ..., // optional
+  gpMarginPct: ..., // optional
+  grossBudget: ..., // optional
+  hardCosts: ..., // optional
+  hub: ..., // optional
+  id: ..., 
+  industry: ..., // optional
+  inflProductionCosts: ..., // optional
+  lastFeeCalcUrl: ..., // optional
+  leadSource: ..., // optional
+  mediaCost: ..., // optional
+  newRepeat: ..., // optional
+  office: ..., // optional
+  opportunityNumber: ..., // optional
+  opportunityOwner: ..., // optional
+  opportunityRecordType: ..., // optional
+  originalLeadSource: ..., // optional
+  paidMediaFees: ..., // optional
+  parentAccount: ..., // optional
+  phase1End: ..., // optional
+  phase1Name: ..., // optional
+  phase1Start: ..., // optional
+  phase2End: ..., // optional
+  phase2Name: ..., // optional
+  phase2Start: ..., // optional
+  phase3End: ..., // optional
+  phase3Name: ..., // optional
+  phase3Start: ..., // optional
+  phase4End: ..., // optional
+  phase4Name: ..., // optional
+  phase4Start: ..., // optional
+  price: ..., // optional
+  probability: ..., // optional
+  rateCardDiscount: ..., 
+  rateCardId: ..., // optional
+  revenue: ..., // optional
+  sfAccount: ..., // optional
+  stage: ..., // optional
+  startDate: ..., 
+  startWeek: ..., // optional
+  title: ..., 
+  totalFees: ..., // optional
+  ultimateParent: ..., // optional
+  updatedAt: ..., 
+  valuePerWeekPhase1: ..., // optional
+  valuePerWeekPhase2: ..., // optional
+  valuePerWeekPhase3: ..., // optional
+  valuePerWeekPhase4: ..., // optional
+  isActive: ..., // optional
+};
+
+// Call the `upsertProjects()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertProjects(upsertProjectsVars);
+// Variables can be defined inline as well.
+const { data } = await upsertProjects({ actualCost: ..., bdbHours: ..., budgetCost: ..., closeDate: ..., contractedInflCost: ..., createdAt: ..., createdDate: ..., dealValueDerisked: ..., durationWeeks: ..., durationWeeksRounded: ..., endDate: ..., endWeek: ..., extraData: ..., feeCalcCurrency: ..., fxLockDate: ..., fxRateGbp: ..., fxRateUsd: ..., gpCheck: ..., gpFullValue: ..., gpFullValuePerDay: ..., gpMarginPct: ..., grossBudget: ..., hardCosts: ..., hub: ..., id: ..., industry: ..., inflProductionCosts: ..., lastFeeCalcUrl: ..., leadSource: ..., mediaCost: ..., newRepeat: ..., office: ..., opportunityNumber: ..., opportunityOwner: ..., opportunityRecordType: ..., originalLeadSource: ..., paidMediaFees: ..., parentAccount: ..., phase1End: ..., phase1Name: ..., phase1Start: ..., phase2End: ..., phase2Name: ..., phase2Start: ..., phase3End: ..., phase3Name: ..., phase3Start: ..., phase4End: ..., phase4Name: ..., phase4Start: ..., price: ..., probability: ..., rateCardDiscount: ..., rateCardId: ..., revenue: ..., sfAccount: ..., stage: ..., startDate: ..., startWeek: ..., title: ..., totalFees: ..., ultimateParent: ..., updatedAt: ..., valuePerWeekPhase1: ..., valuePerWeekPhase2: ..., valuePerWeekPhase3: ..., valuePerWeekPhase4: ..., isActive: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertProjects(dataConnect, upsertProjectsVars);
+
+console.log(data.projects_upsert);
+
+// Or, you can use the `Promise` API.
+upsertProjects(upsertProjectsVars).then((response) => {
+  const data = response.data;
+  console.log(data.projects_upsert);
+});
+```
+
+### Using `UpsertProjects`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertProjectsRef, UpsertProjectsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertProjects` mutation requires an argument of type `UpsertProjectsVariables`:
+const upsertProjectsVars: UpsertProjectsVariables = {
+  actualCost: ..., // optional
+  bdbHours: ..., // optional
+  budgetCost: ..., // optional
+  closeDate: ..., // optional
+  contractedInflCost: ..., // optional
+  createdAt: ..., 
+  createdDate: ..., // optional
+  dealValueDerisked: ..., // optional
+  durationWeeks: ..., // optional
+  durationWeeksRounded: ..., // optional
+  endDate: ..., 
+  endWeek: ..., // optional
+  extraData: ..., // optional
+  feeCalcCurrency: ..., // optional
+  fxLockDate: ..., // optional
+  fxRateGbp: ..., // optional
+  fxRateUsd: ..., // optional
+  gpCheck: ..., // optional
+  gpFullValue: ..., // optional
+  gpFullValuePerDay: ..., // optional
+  gpMarginPct: ..., // optional
+  grossBudget: ..., // optional
+  hardCosts: ..., // optional
+  hub: ..., // optional
+  id: ..., 
+  industry: ..., // optional
+  inflProductionCosts: ..., // optional
+  lastFeeCalcUrl: ..., // optional
+  leadSource: ..., // optional
+  mediaCost: ..., // optional
+  newRepeat: ..., // optional
+  office: ..., // optional
+  opportunityNumber: ..., // optional
+  opportunityOwner: ..., // optional
+  opportunityRecordType: ..., // optional
+  originalLeadSource: ..., // optional
+  paidMediaFees: ..., // optional
+  parentAccount: ..., // optional
+  phase1End: ..., // optional
+  phase1Name: ..., // optional
+  phase1Start: ..., // optional
+  phase2End: ..., // optional
+  phase2Name: ..., // optional
+  phase2Start: ..., // optional
+  phase3End: ..., // optional
+  phase3Name: ..., // optional
+  phase3Start: ..., // optional
+  phase4End: ..., // optional
+  phase4Name: ..., // optional
+  phase4Start: ..., // optional
+  price: ..., // optional
+  probability: ..., // optional
+  rateCardDiscount: ..., 
+  rateCardId: ..., // optional
+  revenue: ..., // optional
+  sfAccount: ..., // optional
+  stage: ..., // optional
+  startDate: ..., 
+  startWeek: ..., // optional
+  title: ..., 
+  totalFees: ..., // optional
+  ultimateParent: ..., // optional
+  updatedAt: ..., 
+  valuePerWeekPhase1: ..., // optional
+  valuePerWeekPhase2: ..., // optional
+  valuePerWeekPhase3: ..., // optional
+  valuePerWeekPhase4: ..., // optional
+  isActive: ..., // optional
+};
+
+// Call the `upsertProjectsRef()` function to get a reference to the mutation.
+const ref = upsertProjectsRef(upsertProjectsVars);
+// Variables can be defined inline as well.
+const ref = upsertProjectsRef({ actualCost: ..., bdbHours: ..., budgetCost: ..., closeDate: ..., contractedInflCost: ..., createdAt: ..., createdDate: ..., dealValueDerisked: ..., durationWeeks: ..., durationWeeksRounded: ..., endDate: ..., endWeek: ..., extraData: ..., feeCalcCurrency: ..., fxLockDate: ..., fxRateGbp: ..., fxRateUsd: ..., gpCheck: ..., gpFullValue: ..., gpFullValuePerDay: ..., gpMarginPct: ..., grossBudget: ..., hardCosts: ..., hub: ..., id: ..., industry: ..., inflProductionCosts: ..., lastFeeCalcUrl: ..., leadSource: ..., mediaCost: ..., newRepeat: ..., office: ..., opportunityNumber: ..., opportunityOwner: ..., opportunityRecordType: ..., originalLeadSource: ..., paidMediaFees: ..., parentAccount: ..., phase1End: ..., phase1Name: ..., phase1Start: ..., phase2End: ..., phase2Name: ..., phase2Start: ..., phase3End: ..., phase3Name: ..., phase3Start: ..., phase4End: ..., phase4Name: ..., phase4Start: ..., price: ..., probability: ..., rateCardDiscount: ..., rateCardId: ..., revenue: ..., sfAccount: ..., stage: ..., startDate: ..., startWeek: ..., title: ..., totalFees: ..., ultimateParent: ..., updatedAt: ..., valuePerWeekPhase1: ..., valuePerWeekPhase2: ..., valuePerWeekPhase3: ..., valuePerWeekPhase4: ..., isActive: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertProjectsRef(dataConnect, upsertProjectsVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.projects_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.projects_upsert);
 });
 ```
 
@@ -3073,6 +5315,7 @@ export interface InsertRateCardsVariables {
   id: UUIDString;
   name: string;
   roleId?: UUIDString | null;
+  isActive?: boolean | null;
 }
 ```
 ### Return Type
@@ -3098,13 +5341,14 @@ const insertRateCardsVars: InsertRateCardsVariables = {
   id: ..., 
   name: ..., 
   roleId: ..., // optional
+  isActive: ..., // optional
 };
 
 // Call the `insertRateCards()` function to execute the mutation.
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await insertRateCards(insertRateCardsVars);
 // Variables can be defined inline as well.
-const { data } = await insertRateCards({ createdAt: ..., currency: ..., hourlyRate: ..., id: ..., name: ..., roleId: ..., });
+const { data } = await insertRateCards({ createdAt: ..., currency: ..., hourlyRate: ..., id: ..., name: ..., roleId: ..., isActive: ..., });
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -3133,12 +5377,13 @@ const insertRateCardsVars: InsertRateCardsVariables = {
   id: ..., 
   name: ..., 
   roleId: ..., // optional
+  isActive: ..., // optional
 };
 
 // Call the `insertRateCardsRef()` function to get a reference to the mutation.
 const ref = insertRateCardsRef(insertRateCardsVars);
 // Variables can be defined inline as well.
-const ref = insertRateCardsRef({ createdAt: ..., currency: ..., hourlyRate: ..., id: ..., name: ..., roleId: ..., });
+const ref = insertRateCardsRef({ createdAt: ..., currency: ..., hourlyRate: ..., id: ..., name: ..., roleId: ..., isActive: ..., });
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -3154,6 +5399,133 @@ console.log(data.rateCards_insert);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.rateCards_insert);
+});
+```
+
+## UpsertRateCards
+You can execute the `UpsertRateCards` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertRateCards(vars: UpsertRateCardsVariables): MutationPromise<UpsertRateCardsData, UpsertRateCardsVariables>;
+
+interface UpsertRateCardsRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertRateCardsVariables): MutationRef<UpsertRateCardsData, UpsertRateCardsVariables>;
+}
+export const upsertRateCardsRef: UpsertRateCardsRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertRateCards(dc: DataConnect, vars: UpsertRateCardsVariables): MutationPromise<UpsertRateCardsData, UpsertRateCardsVariables>;
+
+interface UpsertRateCardsRef {
+  ...
+  (dc: DataConnect, vars: UpsertRateCardsVariables): MutationRef<UpsertRateCardsData, UpsertRateCardsVariables>;
+}
+export const upsertRateCardsRef: UpsertRateCardsRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertRateCardsRef:
+```typescript
+const name = upsertRateCardsRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertRateCards` mutation requires an argument of type `UpsertRateCardsVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertRateCardsVariables {
+  createdAt: DateString;
+  currency: string;
+  hourlyRate: number;
+  id: UUIDString;
+  name: string;
+  roleId?: UUIDString | null;
+  isActive?: boolean | null;
+}
+```
+### Return Type
+Recall that executing the `UpsertRateCards` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertRateCardsData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertRateCardsData {
+  rateCards_upsert: RateCards_Key;
+}
+```
+### Using `UpsertRateCards`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertRateCards, UpsertRateCardsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertRateCards` mutation requires an argument of type `UpsertRateCardsVariables`:
+const upsertRateCardsVars: UpsertRateCardsVariables = {
+  createdAt: ..., 
+  currency: ..., 
+  hourlyRate: ..., 
+  id: ..., 
+  name: ..., 
+  roleId: ..., // optional
+  isActive: ..., // optional
+};
+
+// Call the `upsertRateCards()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertRateCards(upsertRateCardsVars);
+// Variables can be defined inline as well.
+const { data } = await upsertRateCards({ createdAt: ..., currency: ..., hourlyRate: ..., id: ..., name: ..., roleId: ..., isActive: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertRateCards(dataConnect, upsertRateCardsVars);
+
+console.log(data.rateCards_upsert);
+
+// Or, you can use the `Promise` API.
+upsertRateCards(upsertRateCardsVars).then((response) => {
+  const data = response.data;
+  console.log(data.rateCards_upsert);
+});
+```
+
+### Using `UpsertRateCards`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertRateCardsRef, UpsertRateCardsVariables } from '@dataconnect/generated-server';
+
+// The `UpsertRateCards` mutation requires an argument of type `UpsertRateCardsVariables`:
+const upsertRateCardsVars: UpsertRateCardsVariables = {
+  createdAt: ..., 
+  currency: ..., 
+  hourlyRate: ..., 
+  id: ..., 
+  name: ..., 
+  roleId: ..., // optional
+  isActive: ..., // optional
+};
+
+// Call the `upsertRateCardsRef()` function to get a reference to the mutation.
+const ref = upsertRateCardsRef(upsertRateCardsVars);
+// Variables can be defined inline as well.
+const ref = upsertRateCardsRef({ createdAt: ..., currency: ..., hourlyRate: ..., id: ..., name: ..., roleId: ..., isActive: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertRateCardsRef(dataConnect, upsertRateCardsVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.rateCards_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.rateCards_upsert);
 });
 ```
 
@@ -3195,6 +5567,7 @@ export interface InsertRolesVariables {
   createdAt: DateString;
   id: UUIDString;
   name: string;
+  isActive?: boolean | null;
 }
 ```
 ### Return Type
@@ -3218,13 +5591,14 @@ const insertRolesVars: InsertRolesVariables = {
   createdAt: ..., 
   id: ..., 
   name: ..., 
+  isActive: ..., // optional
 };
 
 // Call the `insertRoles()` function to execute the mutation.
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await insertRoles(insertRolesVars);
 // Variables can be defined inline as well.
-const { data } = await insertRoles({ billableCapacityHours: ..., createdAt: ..., id: ..., name: ..., });
+const { data } = await insertRoles({ billableCapacityHours: ..., createdAt: ..., id: ..., name: ..., isActive: ..., });
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -3251,12 +5625,13 @@ const insertRolesVars: InsertRolesVariables = {
   createdAt: ..., 
   id: ..., 
   name: ..., 
+  isActive: ..., // optional
 };
 
 // Call the `insertRolesRef()` function to get a reference to the mutation.
 const ref = insertRolesRef(insertRolesVars);
 // Variables can be defined inline as well.
-const ref = insertRolesRef({ billableCapacityHours: ..., createdAt: ..., id: ..., name: ..., });
+const ref = insertRolesRef({ billableCapacityHours: ..., createdAt: ..., id: ..., name: ..., isActive: ..., });
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -3272,6 +5647,127 @@ console.log(data.roles_insert);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.roles_insert);
+});
+```
+
+## UpsertRoles
+You can execute the `UpsertRoles` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertRoles(vars: UpsertRolesVariables): MutationPromise<UpsertRolesData, UpsertRolesVariables>;
+
+interface UpsertRolesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertRolesVariables): MutationRef<UpsertRolesData, UpsertRolesVariables>;
+}
+export const upsertRolesRef: UpsertRolesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertRoles(dc: DataConnect, vars: UpsertRolesVariables): MutationPromise<UpsertRolesData, UpsertRolesVariables>;
+
+interface UpsertRolesRef {
+  ...
+  (dc: DataConnect, vars: UpsertRolesVariables): MutationRef<UpsertRolesData, UpsertRolesVariables>;
+}
+export const upsertRolesRef: UpsertRolesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertRolesRef:
+```typescript
+const name = upsertRolesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertRoles` mutation requires an argument of type `UpsertRolesVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertRolesVariables {
+  billableCapacityHours: number;
+  createdAt: DateString;
+  id: UUIDString;
+  name: string;
+  isActive?: boolean | null;
+}
+```
+### Return Type
+Recall that executing the `UpsertRoles` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertRolesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertRolesData {
+  roles_upsert: Roles_Key;
+}
+```
+### Using `UpsertRoles`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertRoles, UpsertRolesVariables } from '@dataconnect/generated-server';
+
+// The `UpsertRoles` mutation requires an argument of type `UpsertRolesVariables`:
+const upsertRolesVars: UpsertRolesVariables = {
+  billableCapacityHours: ..., 
+  createdAt: ..., 
+  id: ..., 
+  name: ..., 
+  isActive: ..., // optional
+};
+
+// Call the `upsertRoles()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertRoles(upsertRolesVars);
+// Variables can be defined inline as well.
+const { data } = await upsertRoles({ billableCapacityHours: ..., createdAt: ..., id: ..., name: ..., isActive: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertRoles(dataConnect, upsertRolesVars);
+
+console.log(data.roles_upsert);
+
+// Or, you can use the `Promise` API.
+upsertRoles(upsertRolesVars).then((response) => {
+  const data = response.data;
+  console.log(data.roles_upsert);
+});
+```
+
+### Using `UpsertRoles`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertRolesRef, UpsertRolesVariables } from '@dataconnect/generated-server';
+
+// The `UpsertRoles` mutation requires an argument of type `UpsertRolesVariables`:
+const upsertRolesVars: UpsertRolesVariables = {
+  billableCapacityHours: ..., 
+  createdAt: ..., 
+  id: ..., 
+  name: ..., 
+  isActive: ..., // optional
+};
+
+// Call the `upsertRolesRef()` function to get a reference to the mutation.
+const ref = upsertRolesRef(upsertRolesVars);
+// Variables can be defined inline as well.
+const ref = upsertRolesRef({ billableCapacityHours: ..., createdAt: ..., id: ..., name: ..., isActive: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertRolesRef(dataConnect, upsertRolesVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.roles_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.roles_upsert);
 });
 ```
 
@@ -3408,6 +5904,142 @@ console.log(data.timeEntries_insert);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.timeEntries_insert);
+});
+```
+
+## UpsertTimeEntries
+You can execute the `UpsertTimeEntries` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertTimeEntries(vars: UpsertTimeEntriesVariables): MutationPromise<UpsertTimeEntriesData, UpsertTimeEntriesVariables>;
+
+interface UpsertTimeEntriesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertTimeEntriesVariables): MutationRef<UpsertTimeEntriesData, UpsertTimeEntriesVariables>;
+}
+export const upsertTimeEntriesRef: UpsertTimeEntriesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertTimeEntries(dc: DataConnect, vars: UpsertTimeEntriesVariables): MutationPromise<UpsertTimeEntriesData, UpsertTimeEntriesVariables>;
+
+interface UpsertTimeEntriesRef {
+  ...
+  (dc: DataConnect, vars: UpsertTimeEntriesVariables): MutationRef<UpsertTimeEntriesData, UpsertTimeEntriesVariables>;
+}
+export const upsertTimeEntriesRef: UpsertTimeEntriesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertTimeEntriesRef:
+```typescript
+const name = upsertTimeEntriesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertTimeEntries` mutation requires an argument of type `UpsertTimeEntriesVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertTimeEntriesVariables {
+  createdAt: DateString;
+  date: DateString;
+  hours: number;
+  id: UUIDString;
+  notes?: string | null;
+  personId?: UUIDString | null;
+  personName?: string | null;
+  projectCode?: string | null;
+  projectId?: UUIDString | null;
+  projectName?: string | null;
+}
+```
+### Return Type
+Recall that executing the `UpsertTimeEntries` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertTimeEntriesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertTimeEntriesData {
+  timeEntries_upsert: TimeEntries_Key;
+}
+```
+### Using `UpsertTimeEntries`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertTimeEntries, UpsertTimeEntriesVariables } from '@dataconnect/generated-server';
+
+// The `UpsertTimeEntries` mutation requires an argument of type `UpsertTimeEntriesVariables`:
+const upsertTimeEntriesVars: UpsertTimeEntriesVariables = {
+  createdAt: ..., 
+  date: ..., 
+  hours: ..., 
+  id: ..., 
+  notes: ..., // optional
+  personId: ..., // optional
+  personName: ..., // optional
+  projectCode: ..., // optional
+  projectId: ..., // optional
+  projectName: ..., // optional
+};
+
+// Call the `upsertTimeEntries()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertTimeEntries(upsertTimeEntriesVars);
+// Variables can be defined inline as well.
+const { data } = await upsertTimeEntries({ createdAt: ..., date: ..., hours: ..., id: ..., notes: ..., personId: ..., personName: ..., projectCode: ..., projectId: ..., projectName: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertTimeEntries(dataConnect, upsertTimeEntriesVars);
+
+console.log(data.timeEntries_upsert);
+
+// Or, you can use the `Promise` API.
+upsertTimeEntries(upsertTimeEntriesVars).then((response) => {
+  const data = response.data;
+  console.log(data.timeEntries_upsert);
+});
+```
+
+### Using `UpsertTimeEntries`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertTimeEntriesRef, UpsertTimeEntriesVariables } from '@dataconnect/generated-server';
+
+// The `UpsertTimeEntries` mutation requires an argument of type `UpsertTimeEntriesVariables`:
+const upsertTimeEntriesVars: UpsertTimeEntriesVariables = {
+  createdAt: ..., 
+  date: ..., 
+  hours: ..., 
+  id: ..., 
+  notes: ..., // optional
+  personId: ..., // optional
+  personName: ..., // optional
+  projectCode: ..., // optional
+  projectId: ..., // optional
+  projectName: ..., // optional
+};
+
+// Call the `upsertTimeEntriesRef()` function to get a reference to the mutation.
+const ref = upsertTimeEntriesRef(upsertTimeEntriesVars);
+// Variables can be defined inline as well.
+const ref = upsertTimeEntriesRef({ createdAt: ..., date: ..., hours: ..., id: ..., notes: ..., personId: ..., personName: ..., projectCode: ..., projectId: ..., projectName: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertTimeEntriesRef(dataConnect, upsertTimeEntriesVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.timeEntries_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.timeEntries_upsert);
 });
 ```
 
@@ -3744,6 +6376,206 @@ console.log(data.appUsers_delete);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.appUsers_delete);
+});
+```
+
+## DeleteTimeEntriesByDate
+You can execute the `DeleteTimeEntriesByDate` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+deleteTimeEntriesByDate(vars: DeleteTimeEntriesByDateVariables): MutationPromise<DeleteTimeEntriesByDateData, DeleteTimeEntriesByDateVariables>;
+
+interface DeleteTimeEntriesByDateRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteTimeEntriesByDateVariables): MutationRef<DeleteTimeEntriesByDateData, DeleteTimeEntriesByDateVariables>;
+}
+export const deleteTimeEntriesByDateRef: DeleteTimeEntriesByDateRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+deleteTimeEntriesByDate(dc: DataConnect, vars: DeleteTimeEntriesByDateVariables): MutationPromise<DeleteTimeEntriesByDateData, DeleteTimeEntriesByDateVariables>;
+
+interface DeleteTimeEntriesByDateRef {
+  ...
+  (dc: DataConnect, vars: DeleteTimeEntriesByDateVariables): MutationRef<DeleteTimeEntriesByDateData, DeleteTimeEntriesByDateVariables>;
+}
+export const deleteTimeEntriesByDateRef: DeleteTimeEntriesByDateRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the deleteTimeEntriesByDateRef:
+```typescript
+const name = deleteTimeEntriesByDateRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `DeleteTimeEntriesByDate` mutation requires an argument of type `DeleteTimeEntriesByDateVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface DeleteTimeEntriesByDateVariables {
+  fromDate: DateString;
+}
+```
+### Return Type
+Recall that executing the `DeleteTimeEntriesByDate` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `DeleteTimeEntriesByDateData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface DeleteTimeEntriesByDateData {
+  timeEntries_deleteMany: number;
+}
+```
+### Using `DeleteTimeEntriesByDate`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, deleteTimeEntriesByDate, DeleteTimeEntriesByDateVariables } from '@dataconnect/generated-server';
+
+// The `DeleteTimeEntriesByDate` mutation requires an argument of type `DeleteTimeEntriesByDateVariables`:
+const deleteTimeEntriesByDateVars: DeleteTimeEntriesByDateVariables = {
+  fromDate: ..., 
+};
+
+// Call the `deleteTimeEntriesByDate()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await deleteTimeEntriesByDate(deleteTimeEntriesByDateVars);
+// Variables can be defined inline as well.
+const { data } = await deleteTimeEntriesByDate({ fromDate: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await deleteTimeEntriesByDate(dataConnect, deleteTimeEntriesByDateVars);
+
+console.log(data.timeEntries_deleteMany);
+
+// Or, you can use the `Promise` API.
+deleteTimeEntriesByDate(deleteTimeEntriesByDateVars).then((response) => {
+  const data = response.data;
+  console.log(data.timeEntries_deleteMany);
+});
+```
+
+### Using `DeleteTimeEntriesByDate`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, deleteTimeEntriesByDateRef, DeleteTimeEntriesByDateVariables } from '@dataconnect/generated-server';
+
+// The `DeleteTimeEntriesByDate` mutation requires an argument of type `DeleteTimeEntriesByDateVariables`:
+const deleteTimeEntriesByDateVars: DeleteTimeEntriesByDateVariables = {
+  fromDate: ..., 
+};
+
+// Call the `deleteTimeEntriesByDateRef()` function to get a reference to the mutation.
+const ref = deleteTimeEntriesByDateRef(deleteTimeEntriesByDateVars);
+// Variables can be defined inline as well.
+const ref = deleteTimeEntriesByDateRef({ fromDate: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = deleteTimeEntriesByDateRef(dataConnect, deleteTimeEntriesByDateVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.timeEntries_deleteMany);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.timeEntries_deleteMany);
+});
+```
+
+## DeleteAllTimeEntries
+You can execute the `DeleteAllTimeEntries` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+deleteAllTimeEntries(): MutationPromise<DeleteAllTimeEntriesData, undefined>;
+
+interface DeleteAllTimeEntriesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (): MutationRef<DeleteAllTimeEntriesData, undefined>;
+}
+export const deleteAllTimeEntriesRef: DeleteAllTimeEntriesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+deleteAllTimeEntries(dc: DataConnect): MutationPromise<DeleteAllTimeEntriesData, undefined>;
+
+interface DeleteAllTimeEntriesRef {
+  ...
+  (dc: DataConnect): MutationRef<DeleteAllTimeEntriesData, undefined>;
+}
+export const deleteAllTimeEntriesRef: DeleteAllTimeEntriesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the deleteAllTimeEntriesRef:
+```typescript
+const name = deleteAllTimeEntriesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `DeleteAllTimeEntries` mutation has no variables.
+### Return Type
+Recall that executing the `DeleteAllTimeEntries` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `DeleteAllTimeEntriesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface DeleteAllTimeEntriesData {
+  timeEntries_deleteMany: number;
+}
+```
+### Using `DeleteAllTimeEntries`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, deleteAllTimeEntries } from '@dataconnect/generated-server';
+
+
+// Call the `deleteAllTimeEntries()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await deleteAllTimeEntries();
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await deleteAllTimeEntries(dataConnect);
+
+console.log(data.timeEntries_deleteMany);
+
+// Or, you can use the `Promise` API.
+deleteAllTimeEntries().then((response) => {
+  const data = response.data;
+  console.log(data.timeEntries_deleteMany);
+});
+```
+
+### Using `DeleteAllTimeEntries`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, deleteAllTimeEntriesRef } from '@dataconnect/generated-server';
+
+
+// Call the `deleteAllTimeEntriesRef()` function to get a reference to the mutation.
+const ref = deleteAllTimeEntriesRef();
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = deleteAllTimeEntriesRef(dataConnect);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.timeEntries_deleteMany);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.timeEntries_deleteMany);
 });
 ```
 
