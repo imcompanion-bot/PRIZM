@@ -42,6 +42,15 @@ interface UtilisationTabProps {
   showFormer: boolean;
 }
 
+const matchesOffice = (office: string | null, filter: "Global" | "UK" | "US") => {
+  if (filter === "Global") return true;
+  if (!office) return false;
+  const o = office.toUpperCase();
+  if (filter === "UK") return o === "UK" || o === "UNITED KINGDOM" || o === "COMPANION";
+  if (filter === "US") return o === "US" || o === "UNITED STATES";
+  return false;
+};
+
 const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: UtilisationTabProps) => {
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [selectedPerson, setSelectedPerson] = useState<{
@@ -224,7 +233,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
     }>();
 
     for (const person of people) {
-      if (officeFilter !== "Global" && person.office !== officeFilter) continue;
+      if (!matchesOffice(person.office, officeFilter)) continue;
       const team = (person.team || "").toLowerCase().trim();
       if (!allowedTeams.has(team)) continue;
 

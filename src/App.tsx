@@ -22,8 +22,16 @@ import ScopingToolPage from "./pages/ScopingToolPage";
 import ClientPortfolioPage from "./pages/ClientPortfolioPage";
 import FeeCalculatorPage from "./pages/FeeCalculatorPage";
 import NotFound from "./pages/NotFound";
+import { resumeGlobalImportIfNeeded } from "./components/settings/TimesheetsImport";
 
 const queryClient = new QueryClient();
+
+const ImportResumeInitializer = () => {
+  useEffect(() => {
+    resumeGlobalImportIfNeeded(queryClient);
+  }, []);
+  return null;
+};
 
 const LAST_ROUTE_KEY = "app:last-route";
 
@@ -52,6 +60,7 @@ const RoutePersistence = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <ImportResumeInitializer />
     <AnalyticsProvider>
       <TooltipProvider>
         <AuthProvider>

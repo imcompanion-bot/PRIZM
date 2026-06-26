@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,164 @@ import { Upload, AlertTriangle, Clock, FileSpreadsheet, Loader2 } from "lucide-r
 import { toast } from "sonner";
 import { format, parse, formatDistanceToNow, isValid } from "date-fns";
 import Papa from "papaparse";
+
+interface ImportProgress {
+  current: number;
+  total: number;
+}
+
+const DB_NAME = "timesheets_import_db";
+const DB_VERSION = 1;
+const STORE_NAME = "import_queue";
+
+const getDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const saveImportQueue = async (entries: any[], fromDate: string | null, currentIndex: number) => {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    store.put({ entries, fromDate, currentIndex }, "active_queue");
+  } catch (e) {
+    console.error("Failed to save import queue to IndexedDB:", e);
+  }
+};
+
+export const getImportQueue = async (): Promise<{ entries: any[]; fromDate: string | null; currentIndex: number } | null> => {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const store = tx.objectStore(STORE_NAME);
+    return new Promise((resolve) => {
+      const request = store.get("active_queue");
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+};
+
+export const clearImportQueue = async () => {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    store.delete("active_queue");
+  } catch (e) {
+    console.error("Failed to clear import queue:", e);
+  }
+};
+
+let globalProgress: ImportProgress | null = null;
+let globalIsImporting = false;
+let globalError: string | null = null;
+const progressListeners = new Set<(state: { progress: ImportProgress | null; isImporting: boolean; error: string | null }) => void>();
+
+const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
+  e.preventDefault();
+  e.returnValue = "An import is currently running. Refreshing or closing the tab will abort the current process (it will attempt to resume on reload).";
+  return e.returnValue;
+};
+
+const updateGlobalImportState = (isImporting: boolean, progress: ImportProgress | null, error: string | null = null) => {
+  globalIsImporting = isImporting;
+  globalProgress = progress;
+  globalError = error;
+  
+  if (isImporting && progress) {
+    const percent = Math.round((progress.current / progress.total) * 100);
+    toast.loading(`Importing timesheets: ${progress.current.toLocaleString()} / ${progress.total.toLocaleString()} (${percent}%)`, { id: 'import-toast' });
+    window.addEventListener("beforeunload", beforeUnloadHandler);
+  } else if (!isImporting) {
+    toast.dismiss('import-toast');
+    window.removeEventListener("beforeunload", beforeUnloadHandler);
+  }
+
+  progressListeners.forEach(listener => listener({ progress: globalProgress, isImporting: globalIsImporting, error: globalError }));
+};
+
+export const resumeGlobalImportIfNeeded = async (queryClient: any) => {
+  const savedQueue = await getImportQueue();
+  if (!savedQueue) return;
+
+  const { entries, fromDate, currentIndex } = savedQueue;
+  if (currentIndex >= entries.length) {
+    await clearImportQueue();
+    return;
+  }
+
+  console.log(`Resuming timesheets import from index ${currentIndex} of ${entries.length}...`);
+  
+  const { 
+    insertTimeEntries 
+  } = await import("@/dataconnect-generated");
+
+  updateGlobalImportState(true, { current: currentIndex, total: entries.length });
+
+  // Run in background
+  (async () => {
+    try {
+      const CONCURRENCY_LIMIT = 75;
+      for (let i = currentIndex; i < entries.length; i += CONCURRENCY_LIMIT) {
+        const batch = entries.slice(i, i + CONCURRENCY_LIMIT);
+        
+        await Promise.all(batch.map(async (entry) => {
+           return insertTimeEntries({
+             createdAt: format(new Date(), 'yyyy-MM-dd'),
+             date: entry.date,
+             hours: entry.hours,
+             id: crypto.randomUUID(),
+             notes: entry.notes,
+             personId: entry.person_id,
+             personName: entry.fallback_person_name,
+             projectCode: entry.fallback_opportunity_number,
+             projectId: entry.project_id,
+             projectName: entry.fallback_project_name
+           });
+        }));
+        
+        const nextIndex = Math.min(i + CONCURRENCY_LIMIT, entries.length);
+        updateGlobalImportState(true, { current: nextIndex, total: entries.length });
+        await saveImportQueue(entries, fromDate, nextIndex);
+      }
+
+      await recordImport("timesheets", entries.length, queryClient);
+
+      queryClient.invalidateQueries({ queryKey: ["time_entries"] });
+      queryClient.invalidateQueries({ queryKey: ["time_entries_all"] });
+      queryClient.invalidateQueries({ queryKey: ["project_hours"] });
+      queryClient.invalidateQueries({ queryKey: ["timesheets_timeframe"] });
+      queryClient.invalidateQueries({ queryKey: ["profitability_project_costs"] });
+      queryClient.invalidateQueries({ queryKey: ["profitability_monthly_costs"] });
+      queryClient.invalidateQueries({ queryKey: ["profitability_hours_by_role"] });
+      queryClient.invalidateQueries({ queryKey: ["profitability_costs_by_role"] });
+      queryClient.invalidateQueries({ queryKey: ["profitability_project_person_hours"] });
+      queryClient.invalidateQueries({ queryKey: ["profitability_project_person_project_hours"] });
+      queryClient.invalidateQueries({ queryKey: ["utilisation_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["utilisation_summary_monthly"] });
+
+      await clearImportQueue();
+      updateGlobalImportState(false, null);
+      toast.success(`Successfully completed resumed import of ${entries.length} timesheets`);
+    } catch (err: any) {
+      console.error("Resumed import failed:", err);
+      updateGlobalImportState(false, null, err.message || "Import failed");
+    }
+  })();
+};
 
 const tryParseDate = (val: string): string | null => {
   if (!val?.trim()) return null;
@@ -54,7 +212,24 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
     }
   });
 
-  const [importProgress, setImportProgress] = useState<{ current: number, total: number } | null>(null);
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(globalProgress);
+  const [isPending, setIsPending] = useState(globalIsImporting);
+
+  useEffect(() => {
+    const listener = (state: { progress: ImportProgress | null; isImporting: boolean; error: string | null }) => {
+      setImportProgress(state.progress);
+      setIsPending(state.isImporting);
+      if (state.error) {
+        toast.error(state.error);
+      }
+    };
+    progressListeners.add(listener);
+    setImportProgress(globalProgress);
+    setIsPending(globalIsImporting);
+    return () => {
+      progressListeners.delete(listener);
+    };
+  }, []);
 
   const importEntries = useMutation({
     mutationFn: async ({ entries, fromDate }: { entries: any[]; fromDate: string | null }) => {
@@ -65,61 +240,68 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
         insertTimeEntries 
       } = await import("@/dataconnect-generated");
 
-      if (fromDate) {
-        await deleteTimeEntriesByDate({ fromDate });
-      } else {
-        await deleteAllTimeEntries();
-      }
+      updateGlobalImportState(true, { current: 0, total: entries.length });
+      await saveImportQueue(entries, fromDate, 0);
 
-      // To prevent RESOURCE_EXHAUSTED connection pool limits on Data Connect,
-      // we batch requests at a very low concurrency (e.g. 15 parallel requests max)
-      const CONCURRENCY_LIMIT = 15;
-      
-      for (let i = 0; i < entries.length; i += CONCURRENCY_LIMIT) {
-        const batch = entries.slice(i, i + CONCURRENCY_LIMIT);
+      try {
+        if (fromDate) {
+          await deleteTimeEntriesByDate({ fromDate });
+        } else {
+          await deleteAllTimeEntries();
+        }
+
+        // To prevent RESOURCE_EXHAUSTED connection pool limits on Data Connect,
+        // we batch requests at a moderate concurrency (75 parallel requests max)
+        const CONCURRENCY_LIMIT = 75;
         
-        await Promise.all(batch.map(async (entry) => {
-           return insertTimeEntries({
-             createdAt: format(new Date(), 'yyyy-MM-dd'),
-             date: entry.date,
-             hours: entry.hours,
-             id: crypto.randomUUID(),
-             notes: entry.notes,
-             personId: entry.person_id,
-             personName: entry.fallback_person_name,
-             projectCode: entry.fallback_opportunity_number,
-             projectId: entry.project_id,
-             projectName: entry.fallback_project_name
-           });
-        }));
-        
-        setImportProgress({ current: Math.min(i + CONCURRENCY_LIMIT, entries.length), total: entries.length });
+        for (let i = 0; i < entries.length; i += CONCURRENCY_LIMIT) {
+          const batch = entries.slice(i, i + CONCURRENCY_LIMIT);
+          
+          await Promise.all(batch.map(async (entry) => {
+             return insertTimeEntries({
+               createdAt: format(new Date(), 'yyyy-MM-dd'),
+               date: entry.date,
+               hours: entry.hours,
+               id: crypto.randomUUID(),
+               notes: entry.notes,
+               personId: entry.person_id,
+               personName: entry.fallback_person_name,
+               projectCode: entry.fallback_opportunity_number,
+               projectId: entry.project_id,
+               projectName: entry.fallback_project_name
+             });
+          }));
+          
+          const nextIndex = Math.min(i + CONCURRENCY_LIMIT, entries.length);
+          updateGlobalImportState(true, { current: nextIndex, total: entries.length });
+          await saveImportQueue(entries, fromDate, nextIndex);
+        }
+
+        await recordImport("timesheets", entries.length, queryClient);
+
+        // Invalidate profitability and utilisation aggregations
+        queryClient.invalidateQueries({ queryKey: ["time_entries"] });
+        queryClient.invalidateQueries({ queryKey: ["time_entries_all"] });
+        queryClient.invalidateQueries({ queryKey: ["project_hours"] });
+        queryClient.invalidateQueries({ queryKey: ["timesheets_timeframe"] });
+        queryClient.invalidateQueries({ queryKey: ["profitability_project_costs"] });
+        queryClient.invalidateQueries({ queryKey: ["profitability_monthly_costs"] });
+        queryClient.invalidateQueries({ queryKey: ["profitability_hours_by_role"] });
+        queryClient.invalidateQueries({ queryKey: ["profitability_costs_by_role"] });
+        queryClient.invalidateQueries({ queryKey: ["profitability_project_person_hours"] });
+        queryClient.invalidateQueries({ queryKey: ["profitability_project_person_project_hours"] });
+        queryClient.invalidateQueries({ queryKey: ["utilisation_summary"] });
+        queryClient.invalidateQueries({ queryKey: ["utilisation_summary_monthly"] });
+
+        await clearImportQueue();
+        updateGlobalImportState(false, null);
+        toast.success(`Successfully imported ${entries.length} timesheets`);
+      } catch (err: any) {
+        console.error("Import error:", err);
+        updateGlobalImportState(false, null, err.message || "Import failed");
+        throw err;
       }
-    },
-    onSuccess: (_, { entries }) => {
-      queryClient.invalidateQueries({ queryKey: ["time_entries"] });
-      queryClient.invalidateQueries({ queryKey: ["time_entries_all"] });
-      queryClient.invalidateQueries({ queryKey: ["project_hours"] });
-      queryClient.invalidateQueries({ queryKey: ["timesheets_timeframe"] });
-      
-      // Invalidate profitability and utilisation aggregations
-      queryClient.invalidateQueries({ queryKey: ["profitability_project_costs"] });
-      queryClient.invalidateQueries({ queryKey: ["profitability_monthly_costs"] });
-      queryClient.invalidateQueries({ queryKey: ["profitability_hours_by_role"] });
-      queryClient.invalidateQueries({ queryKey: ["profitability_costs_by_role"] });
-      queryClient.invalidateQueries({ queryKey: ["profitability_project_person_hours"] });
-      queryClient.invalidateQueries({ queryKey: ["profitability_project_person_project_hours"] });
-      queryClient.invalidateQueries({ queryKey: ["utilisation_summary"] });
-      queryClient.invalidateQueries({ queryKey: ["utilisation_summary_monthly"] });
-      
-      recordImport("timesheets", entries.length, queryClient);
-      toast.success(`Successfully imported ${entries.length} timesheets`);
-      setImportProgress(null);
-    },
-    onError: (e: Error) => {
-      toast.error(e.message);
-      setImportProgress(null);
-    },
+    }
   });
 
   const processCsvData = async (lines: string[][]) => {
@@ -137,25 +319,28 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
     const col = {
       date: findCol("date"),
       hours: findCol("hours"),
-      notes: findCol("notes"),
+      notes: findCol("notes", "task"),
       project_name: findCol("project_name", "project name", "project"),
       project_code: findCol("project_code", "project code", "code"),
       person_name: findCol("person_name", "person name", "name"),
+      first_name: findCol("first_name", "first name"),
+      last_name: findCol("last_name", "last name"),
       office: findCol("office"),
       role: findCol("role"),
       project_title: findCol("project_title", "project title"),
       opportunity_number: findCol("opportunity_number", "opportunity number", "opp")
     };
 
-    if (col.date === -1 || col.hours === -1 || col.person_name === -1) {
-      toast.error("Missing required columns: date, hours, person_name");
+    const hasPersonName = col.person_name !== -1 || (col.first_name !== -1 && col.last_name !== -1);
+    if (col.date === -1 || col.hours === -1 || !hasPersonName) {
+      toast.error("Missing required columns: date, hours, person_name (or first_name & last_name)");
       return;
     }
 
     const { data: allProjects } = await supabase.from("projects").select("id, opportunity_number, title");
     const { data: allPeople } = await supabase.from("people").select("id, name, code, role_id, employment_start_date");
 
-    const projectMapByCode = new Map((allProjects || []).filter(p => p.opportunity_number).map(p => [p.opportunity_number!.toLowerCase().trim(), p.id]));
+    const projectMapByCode = new Map((allProjects || []).filter(p => p.opportunity_number).map(p => [p.opportunity_number!.toLowerCase().trim().replace(/^0+/, ""), p.id]));
     const projectMapByName = new Map((allProjects || []).filter(p => p.title).map(p => [p.title.toLowerCase().trim(), p.id]));
 
     const stripDiacritics = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -211,10 +396,21 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
       const hVal = parseFloat(cells[col.hours]?.replace(/[^\d.-]/g, ''));
       if (isNaN(hVal) || hVal <= 0) continue;
 
-      const fullName = cleanStr(cells[col.person_name] || "");
+      let fullName = "";
+      let fName = "";
+      let lName = "";
+      
+      if (col.first_name !== -1 && col.last_name !== -1) {
+        fName = cleanStr(cells[col.first_name] || "");
+        lName = cleanStr(cells[col.last_name] || "");
+        fullName = `${fName} ${lName}`.trim();
+      } else if (col.person_name !== -1) {
+        fullName = cleanStr(cells[col.person_name] || "");
+        fName = fullName.split(" ")[0] || "";
+        lName = fullName.split(" ").slice(1).join(" ") || "";
+      }
+
       if (!fullName) { errors.push(`Row ${i+1}: missing name`); continue; }
-      const fName = fullName.split(" ")[0] || "";
-      const lName = fullName.split(" ").slice(1).join(" ") || "";
 
       const pIds = getPersonIds(fName, lName, parsedDate);
       const personId = pIds.length > 0 ? pIds[0] : null;
@@ -222,11 +418,11 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
       let projectId = null;
       if (col.project_code !== -1) {
         const code = cleanStr(cells[col.project_code] || "");
-        if (code) projectId = projectMapByCode.get(code.toLowerCase());
+        if (code) projectId = projectMapByCode.get(code.toLowerCase().replace(/^0+/, ""));
       }
       if (!projectId && col.opportunity_number !== -1) {
         const opp = cleanStr(cells[col.opportunity_number] || "");
-        if (opp) projectId = projectMapByCode.get(opp.toLowerCase());
+        if (opp) projectId = projectMapByCode.get(opp.toLowerCase().replace(/^0+/, ""));
       }
       if (!projectId && col.project_title !== -1) {
         const pname = cleanStr(cells[col.project_title] || "");
@@ -251,9 +447,15 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
         task: null,
         notes: notes,
         is_billable: isBillable,
-        fallback_person_name: !personId ? `${fName} ${lName}` : null,
-        fallback_project_name: !projectId && col.project_name !== -1 ? cleanStr(cells[col.project_name] || "") : null,
-        fallback_opportunity_number: !projectId && col.opportunity_number !== -1 ? cleanStr(cells[col.opportunity_number] || "") : null,
+        fallback_person_name: !personId ? fullName : null,
+        fallback_project_name: !projectId
+          ? (col.project_name !== -1 ? cleanStr(cells[col.project_name] || "")
+             : col.project_title !== -1 ? cleanStr(cells[col.project_title] || "") : null)
+          : null,
+        fallback_opportunity_number: !projectId
+          ? (col.project_code !== -1 ? cleanStr(cells[col.project_code] || "")
+             : col.opportunity_number !== -1 ? cleanStr(cells[col.opportunity_number] || "") : null)
+          : null,
       });
     }
 
@@ -264,16 +466,8 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
     if (!entries.length) { toast.error("No valid entries found in file"); return; }
     
     // Use the earliest date found in the file as the overwrite point
-    toast.loading(`Replacing timesheets from ${format(new Date(earliestDate!), "dd MMM yyyy")} onwards...`, { id: 'import-toast' });
-    
-    importEntries.mutate(
-      { entries, fromDate: earliestDate },
-      {
-        onSettled: () => {
-          toast.dismiss('import-toast');
-        }
-      }
-    );
+    updateGlobalImportState(true, { current: 0, total: entries.length });
+    importEntries.mutate({ entries, fromDate: earliestDate });
   };
 
   const handleFileUpload = (file: File) => {
@@ -369,7 +563,7 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
           className={`
             relative border-2 border-dashed rounded-xl p-10 transition-colors flex flex-col items-center justify-center gap-4 text-center cursor-pointer
             ${isDragging ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-muted/50'}
-            ${(parsing || importEntries.isPending) ? 'opacity-50 pointer-events-none' : ''}
+            ${(parsing || isPending) ? 'opacity-50 pointer-events-none' : ''}
           `}
           onClick={() => {
             const el = document.getElementById("csv-upload-input");
@@ -388,7 +582,7 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
           />
           
           <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-            {parsing || importEntries.isPending ? (
+            {parsing || isPending ? (
               <Loader2 className="h-6 w-6 text-primary animate-spin" />
             ) : (
               <FileSpreadsheet className="h-6 w-6 text-primary" />
@@ -398,8 +592,8 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
           <div>
             <p className="text-sm font-medium">
               {parsing ? "Parsing CSV..." : 
-               importProgress ? `Importing Timesheets (${importProgress.current} / ${importProgress.total})...` : 
-               importEntries.isPending ? "Importing Timesheets..." : "Click or drag Harvest CSV here"}
+               importProgress ? `Importing Timesheets (${importProgress.current.toLocaleString()} / ${importProgress.total.toLocaleString()})...` : 
+               isPending ? "Importing Timesheets..." : "Click or drag Harvest CSV here"}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Supports standard Harvest detailed time reports

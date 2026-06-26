@@ -68,6 +68,30 @@ export interface DeleteAppUserVariables {
   id: UUIDString;
 }
 
+export interface DeleteBillabilityRuleConditionsByRuleData {
+  billabilityRuleConditions_deleteMany: number;
+}
+
+export interface DeleteBillabilityRuleConditionsByRuleVariables {
+  ruleId: UUIDString;
+}
+
+export interface DeleteBillabilityRuleConditionsData {
+  billabilityRuleConditions_delete?: BillabilityRuleConditions_Key | null;
+}
+
+export interface DeleteBillabilityRuleConditionsVariables {
+  id: UUIDString;
+}
+
+export interface DeleteBillabilityRulesData {
+  billabilityRules_delete?: BillabilityRules_Key | null;
+}
+
+export interface DeleteBillabilityRulesVariables {
+  id: UUIDString;
+}
+
 export interface DeleteTimeEntriesByDateData {
   timeEntries_deleteMany: number;
 }
@@ -133,8 +157,13 @@ export interface GetTimeEntriesByDateRangeData {
     id: UUIDString;
     date: DateString;
     hours: number;
+    notes?: string | null;
+    createdAt: DateString;
     project_id?: UUIDString | null;
     person_id?: UUIDString | null;
+    personName?: string | null;
+    projectName?: string | null;
+    projectCode?: string | null;
   } & TimeEntries_Key)[];
 }
 
@@ -434,6 +463,29 @@ export interface ListAppUsersData {
   } & AppUsers_Key)[];
 }
 
+export interface ListBillabilityRuleConditionsData {
+  billabilityRuleConditionss: ({
+    id: UUIDString;
+    field: string;
+    logic_operator: string;
+    operator: string;
+    rule_id: UUIDString;
+    value: string;
+    createdAt: DateString;
+  } & BillabilityRuleConditions_Key)[];
+}
+
+export interface ListBillabilityRulesData {
+  billabilityRuless: ({
+    id: UUIDString;
+    is_billable: boolean;
+    logic_operator: string;
+    name: string;
+    priority: number;
+    createdAt: DateString;
+  } & BillabilityRules_Key)[];
+}
+
 export interface ListDataImportsData {
   dataImportss: ({
     dataset: string;
@@ -503,6 +555,7 @@ export interface ListProjectsData {
     opportunity_record_type?: string | null;
     stage?: string | null;
     isActive?: boolean | null;
+    revenue?: number | null;
   } & Projects_Key)[];
 }
 
@@ -1296,6 +1349,42 @@ export const deleteAllTimeEntriesRef: DeleteAllTimeEntriesRef;
 export function deleteAllTimeEntries(): MutationPromise<DeleteAllTimeEntriesData, undefined>;
 export function deleteAllTimeEntries(dc: DataConnect): MutationPromise<DeleteAllTimeEntriesData, undefined>;
 
+interface DeleteBillabilityRulesRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteBillabilityRulesVariables): MutationRef<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: DeleteBillabilityRulesVariables): MutationRef<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+  operationName: string;
+}
+export const deleteBillabilityRulesRef: DeleteBillabilityRulesRef;
+
+export function deleteBillabilityRules(vars: DeleteBillabilityRulesVariables): MutationPromise<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+export function deleteBillabilityRules(dc: DataConnect, vars: DeleteBillabilityRulesVariables): MutationPromise<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+
+interface DeleteBillabilityRuleConditionsRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteBillabilityRuleConditionsVariables): MutationRef<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: DeleteBillabilityRuleConditionsVariables): MutationRef<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+  operationName: string;
+}
+export const deleteBillabilityRuleConditionsRef: DeleteBillabilityRuleConditionsRef;
+
+export function deleteBillabilityRuleConditions(vars: DeleteBillabilityRuleConditionsVariables): MutationPromise<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+export function deleteBillabilityRuleConditions(dc: DataConnect, vars: DeleteBillabilityRuleConditionsVariables): MutationPromise<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+
+interface DeleteBillabilityRuleConditionsByRuleRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteBillabilityRuleConditionsByRuleVariables): MutationRef<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: DeleteBillabilityRuleConditionsByRuleVariables): MutationRef<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+  operationName: string;
+}
+export const deleteBillabilityRuleConditionsByRuleRef: DeleteBillabilityRuleConditionsByRuleRef;
+
+export function deleteBillabilityRuleConditionsByRule(vars: DeleteBillabilityRuleConditionsByRuleVariables): MutationPromise<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+export function deleteBillabilityRuleConditionsByRule(dc: DataConnect, vars: DeleteBillabilityRuleConditionsByRuleVariables): MutationPromise<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+
 interface ListProjectsRef {
   /* Allow users to create refs without passing in DataConnect */
   (): QueryRef<ListProjectsData, undefined>;
@@ -1499,4 +1588,28 @@ export const listProjectScopesRef: ListProjectScopesRef;
 
 export function listProjectScopes(options?: ExecuteQueryOptions): QueryPromise<ListProjectScopesData, undefined>;
 export function listProjectScopes(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListProjectScopesData, undefined>;
+
+interface ListBillabilityRulesRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<ListBillabilityRulesData, undefined>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect): QueryRef<ListBillabilityRulesData, undefined>;
+  operationName: string;
+}
+export const listBillabilityRulesRef: ListBillabilityRulesRef;
+
+export function listBillabilityRules(options?: ExecuteQueryOptions): QueryPromise<ListBillabilityRulesData, undefined>;
+export function listBillabilityRules(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListBillabilityRulesData, undefined>;
+
+interface ListBillabilityRuleConditionsRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<ListBillabilityRuleConditionsData, undefined>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect): QueryRef<ListBillabilityRuleConditionsData, undefined>;
+  operationName: string;
+}
+export const listBillabilityRuleConditionsRef: ListBillabilityRuleConditionsRef;
+
+export function listBillabilityRuleConditions(options?: ExecuteQueryOptions): QueryPromise<ListBillabilityRuleConditionsData, undefined>;
+export function listBillabilityRuleConditions(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListBillabilityRuleConditionsData, undefined>;
 

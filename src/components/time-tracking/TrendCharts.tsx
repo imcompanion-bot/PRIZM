@@ -29,6 +29,15 @@ interface TrendChartsProps {
   showFormer: boolean;
 }
 
+const matchesOffice = (office: string | null, filter: "Global" | "UK" | "US") => {
+  if (filter === "Global") return true;
+  if (!office) return false;
+  const o = office.toUpperCase();
+  if (filter === "UK") return o === "UK" || o === "UNITED KINGDOM" || o === "COMPANION";
+  if (filter === "US") return o === "US" || o === "UNITED STATES";
+  return false;
+};
+
 const TrendCharts = ({ startDate, endDate, officeFilter, showFormer }: TrendChartsProps) => {
   const { data: people = [] } = useQuery({
     queryKey: ["people_with_roles"],
@@ -115,7 +124,7 @@ const TrendCharts = ({ startDate, endDate, officeFilter, showFormer }: TrendChar
   // Filter people by office + team + showFormer
   const filteredPeople = useMemo(() => {
     return people.filter((p: any) => {
-      if (officeFilter !== "Global" && p.office !== officeFilter) return false;
+      if (!matchesOffice(p.office, officeFilter)) return false;
       const team = (p.team || "").toLowerCase().trim();
       if (!allowedTeams.has(team)) return false;
       if (!showFormer) {

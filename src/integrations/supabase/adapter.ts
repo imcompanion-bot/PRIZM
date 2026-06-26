@@ -1,9 +1,21 @@
 import { 
   listRoles, listProjects, listPeople, getAllTimeEntries, 
   listProjectPhases, listAllocations, listDataImports, listRateCards,
-  listProjectScopes
+  listProjectScopes, listBillabilityRules, listBillabilityRuleConditions,
+  insertBillabilityRules, upsertBillabilityRules, deleteBillabilityRules,
+  insertBillabilityRuleConditions, upsertBillabilityRuleConditions, deleteBillabilityRuleConditions, deleteBillabilityRuleConditionsByRule
 } from "@/dataconnect-generated";
 import * as aggregations from "../../lib/aggregations";
+
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+};
 
 class SupabaseQueryBuilder {
   table: string;
@@ -11,6 +23,8 @@ class SupabaseQueryBuilder {
   orders: any[] = [];
   isSingle = false;
   rangeParams?: { from: number; to: number };
+  op: 'select' | 'insert' | 'upsert' | 'update' | 'delete' = 'select';
+  writePayload: any = null;
   
   constructor(table: string) {
     this.table = table;
@@ -38,6 +52,11 @@ class SupabaseQueryBuilder {
     return this;
   }
 
+  neq(col: string, val: any) {
+    this.filters[col] = { neq: val };
+    return this;
+  }
+
   not(col: string, op: string, val: any) {
     this.filters[col] = { not: { op, val } };
     return this;
@@ -58,35 +77,159 @@ class SupabaseQueryBuilder {
     return this;
   }
 
-  async upsert(data: any, opts?: any) {
-    return { data: null, error: null };
+  insert(data: any) {
+    this.op = 'insert';
+    this.writePayload = data;
+    return this;
   }
-  
-  async insert(data: any) {
-    return { data: null, error: null };
+
+  upsert(data: any) {
+    this.op = 'upsert';
+    this.writePayload = data;
+    return this;
   }
-  
+
+  update(data: any) {
+    this.op = 'update';
+    this.writePayload = data;
+    return this;
+  }
+
   delete() {
-    return {
-      in: async (col: string, vals: any[]) => {
-        return { data: null, error: null };
-      },
-      eq: async (col: string, val: any) => {
-        return { data: null, error: null };
-      },
-      neq: async (col: string, val: any) => {
-        return { data: null, error: null };
-      }
-    };
+    this.op = 'delete';
+    return this;
   }
 
   async then(resolve: any, reject: any) {
     try {
+      // 1. Handle Writes
+      if (this.op === 'insert') {
+        if (this.table === 'billability_rules') {
+          const payload = Array.isArray(this.writePayload) ? this.writePayload[0] : this.writePayload;
+          const newId = payload.id || generateUUID();
+          const createdAtStr = new Date().toISOString().split('T')[0];
+          await insertBillabilityRules({
+            id: newId,
+            name: payload.name || '',
+            isBillable: payload.is_billable !== false,
+            priority: Number(payload.priority) || 0,
+            logicOperator: payload.logic_operator || 'and',
+            createdAt: createdAtStr
+          });
+          const inserted = {
+            id: newId,
+            name: payload.name || '',
+            is_billable: payload.is_billable !== false,
+            priority: Number(payload.priority) || 0,
+            logic_operator: payload.logic_operator || 'and',
+            created_at: new Date().toISOString()
+          };
+          resolve({ data: this.isSingle ? inserted : [inserted], error: null });
+          return;
+        }
+
+        if (this.table === 'billability_rule_conditions') {
+          const rows = Array.isArray(this.writePayload) ? this.writePayload : [this.writePayload];
+          const insertedRows = [];
+          for (const r of rows) {
+            const newId = r.id || generateUUID();
+            const createdAtStr = new Date().toISOString().split('T')[0];
+            await insertBillabilityRuleConditions({
+              id: newId,
+              ruleId: r.rule_id,
+              field: r.field,
+              operator: r.operator,
+              value: r.value || '',
+              logicOperator: r.logic_operator || 'and',
+              createdAt: createdAtStr
+            });
+            insertedRows.push({
+              id: newId,
+              rule_id: r.rule_id,
+              field: r.field,
+              operator: r.operator,
+              value: r.value || '',
+              logic_operator: r.logic_operator || 'and',
+              created_at: new Date().toISOString()
+            });
+          }
+          resolve({ data: this.isSingle ? insertedRows[0] : insertedRows, error: null });
+          return;
+        }
+
+        // Fallback stub for insert on other tables
+        resolve({ data: Array.isArray(this.writePayload) ? [] : {}, error: null });
+        return;
+      }
+
+      if (this.op === 'upsert') {
+        resolve({ data: null, error: null });
+        return;
+      }
+
+      if (this.op === 'update') {
+        if (this.table === 'billability_rules') {
+          const targetId = this.filters.id;
+          if (!targetId) throw new Error("Update requires an id filter");
+          
+          const res = await listBillabilityRules();
+          const existing = (res.data.billabilityRuless || []).find(r => r.id === targetId);
+          if (!existing) throw new Error(`Rule ${targetId} not found`);
+
+          const payload = this.writePayload || {};
+          const merged = {
+            id: targetId,
+            name: payload.name !== undefined ? payload.name : existing.name,
+            isBillable: payload.is_billable !== undefined ? payload.is_billable : existing.isBillable,
+            priority: payload.priority !== undefined ? Number(payload.priority) : existing.priority,
+            logicOperator: payload.logic_operator !== undefined ? payload.logic_operator : (existing.logicOperator || 'and'),
+            createdAt: existing.createdAt || new Date().toISOString().split('T')[0]
+          };
+          await upsertBillabilityRules(merged);
+          resolve({ data: null, error: null });
+          return;
+        }
+
+        resolve({ data: null, error: null });
+        return;
+      }
+
+      if (this.op === 'delete') {
+        if (this.table === 'billability_rules') {
+          const targetId = this.filters.id;
+          if (!targetId) throw new Error("Delete requires an id filter");
+          
+          await deleteBillabilityRuleConditionsByRule({ ruleId: targetId });
+          await deleteBillabilityRules({ id: targetId });
+          resolve({ data: null, error: null });
+          return;
+        }
+
+        if (this.table === 'billability_rule_conditions') {
+          const ruleId = this.filters.rule_id;
+          const id = this.filters.id;
+          if (ruleId) {
+            await deleteBillabilityRuleConditionsByRule({ ruleId });
+          } else if (id) {
+            await deleteBillabilityRuleConditions({ id });
+          }
+          resolve({ data: null, error: null });
+          return;
+        }
+
+        resolve({ data: null, error: null });
+        return;
+      }
+
+      // 2. Handle Reads
       let data: any[] = [];
       
       if (this.table === 'roles') {
         const res = await listRoles();
-        data = res.data.roless;
+        data = (res.data.roless || []).map((r: any) => ({
+          ...r,
+          billable_capacity_hours: r.billable_capacity_hours !== undefined ? r.billable_capacity_hours / 5 : 7.5
+        }));
       } else if (this.table === 'projects') {
         const res = await listProjects();
         const projects = res.data.projectss || [];
@@ -115,7 +258,10 @@ class SupabaseQueryBuilder {
         const people = res.data.peoples || [];
         
         const rolesRes = await listRoles();
-        const allRoles = rolesRes.data.roless || [];
+        const allRoles = (rolesRes.data.roless || []).map((r: any) => ({
+          ...r,
+          billable_capacity_hours: r.billable_capacity_hours !== undefined ? r.billable_capacity_hours / 5 : 7.5
+        }));
         
         data = people.map((p: any) => {
           const role = allRoles.find((r: any) => r.id === p.role_id);
@@ -148,6 +294,12 @@ class SupabaseQueryBuilder {
       } else if (this.table === 'data_imports') {
         const res = await listDataImports();
         data = res.data.dataImportss;
+      } else if (this.table === 'billability_rules') {
+        const res = await listBillabilityRules();
+        data = res.data.billabilityRuless;
+      } else if (this.table === 'billability_rule_conditions') {
+        const res = await listBillabilityRuleConditions();
+        data = res.data.billabilityRuleConditionss;
       } else {
         data = [];
       }

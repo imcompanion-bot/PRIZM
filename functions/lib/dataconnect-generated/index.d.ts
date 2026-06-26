@@ -56,12 +56,39 @@ export interface DataImports_Key {
   __typename?: 'DataImports_Key';
 }
 
+export interface DeleteAllTimeEntriesData {
+  timeEntries_deleteMany: number;
+}
+
 export interface DeleteAppUserData {
   appUsers_delete?: AppUsers_Key | null;
 }
 
 export interface DeleteAppUserVariables {
   id: UUIDString;
+}
+
+export interface DeleteTimeEntriesByDateData {
+  timeEntries_deleteMany: number;
+}
+
+export interface DeleteTimeEntriesByDateVariables {
+  fromDate: DateString;
+}
+
+export interface GetAllTimeEntriesData {
+  timeEntriess: ({
+    id: UUIDString;
+    date: DateString;
+    hours: number;
+    notes?: string | null;
+    createdAt: DateString;
+    project_id?: UUIDString | null;
+    person_id?: UUIDString | null;
+    personName?: string | null;
+    projectName?: string | null;
+    projectCode?: string | null;
+  } & TimeEntries_Key)[];
 }
 
 export interface GetAppUserByEmailData {
@@ -78,6 +105,18 @@ export interface GetAppUserByEmailVariables {
   email: string;
 }
 
+export interface GetNewestTimeEntryData {
+  timeEntriess: ({
+    date: DateString;
+  })[];
+}
+
+export interface GetOldestTimeEntryData {
+  timeEntriess: ({
+    date: DateString;
+  })[];
+}
+
 export interface GetProjectData {
   projects?: {
     id: UUIDString;
@@ -87,6 +126,23 @@ export interface GetProjectData {
 
 export interface GetProjectVariables {
   id: UUIDString;
+}
+
+export interface GetTimeEntriesByDateRangeData {
+  timeEntriess: ({
+    id: UUIDString;
+    date: DateString;
+    hours: number;
+    notes?: string | null;
+    project_id?: UUIDString | null;
+    person_id?: UUIDString | null;
+    project_name?: string | null;
+  } & TimeEntries_Key)[];
+}
+
+export interface GetTimeEntriesByDateRangeVariables {
+  startDate: DateString;
+  endDate: DateString;
 }
 
 export interface InsertAllocationsData {
@@ -380,6 +436,29 @@ export interface ListAppUsersData {
   } & AppUsers_Key)[];
 }
 
+export interface ListBillabilityRuleConditionsData {
+  billabilityRuleConditionss: ({
+    id: UUIDString;
+    field: string;
+    logic_operator: string;
+    operator: string;
+    rule_id: UUIDString;
+    value: string;
+    createdAt: DateString;
+  } & BillabilityRuleConditions_Key)[];
+}
+
+export interface ListBillabilityRulesData {
+  billabilityRuless: ({
+    id: UUIDString;
+    is_billable: boolean;
+    logic_operator: string;
+    name: string;
+    priority: number;
+    createdAt: DateString;
+  } & BillabilityRules_Key)[];
+}
+
 export interface ListDataImportsData {
   dataImportss: ({
     dataset: string;
@@ -416,6 +495,16 @@ export interface ListProjectPhasesData {
   } & ProjectPhases_Key)[];
 }
 
+export interface ListProjectScopesData {
+  projectScopess: ({
+    id: UUIDString;
+    project_id?: UUIDString | null;
+    role_id?: UUIDString | null;
+    scoped_hours: number;
+    phase_percentages?: unknown | null;
+  } & ProjectScopes_Key)[];
+}
+
 export interface ListProjectsData {
   projectss: ({
     id: UUIDString;
@@ -438,6 +527,8 @@ export interface ListProjectsData {
     extra_data?: unknown | null;
     opportunity_record_type?: string | null;
     stage?: string | null;
+    isActive?: boolean | null;
+    revenue?: number | null;
   } & Projects_Key)[];
 }
 
@@ -1207,6 +1298,30 @@ export const deleteAppUserRef: DeleteAppUserRef;
 export function deleteAppUser(vars: DeleteAppUserVariables): MutationPromise<DeleteAppUserData, DeleteAppUserVariables>;
 export function deleteAppUser(dc: DataConnect, vars: DeleteAppUserVariables): MutationPromise<DeleteAppUserData, DeleteAppUserVariables>;
 
+interface DeleteTimeEntriesByDateRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteTimeEntriesByDateVariables): MutationRef<DeleteTimeEntriesByDateData, DeleteTimeEntriesByDateVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: DeleteTimeEntriesByDateVariables): MutationRef<DeleteTimeEntriesByDateData, DeleteTimeEntriesByDateVariables>;
+  operationName: string;
+}
+export const deleteTimeEntriesByDateRef: DeleteTimeEntriesByDateRef;
+
+export function deleteTimeEntriesByDate(vars: DeleteTimeEntriesByDateVariables): MutationPromise<DeleteTimeEntriesByDateData, DeleteTimeEntriesByDateVariables>;
+export function deleteTimeEntriesByDate(dc: DataConnect, vars: DeleteTimeEntriesByDateVariables): MutationPromise<DeleteTimeEntriesByDateData, DeleteTimeEntriesByDateVariables>;
+
+interface DeleteAllTimeEntriesRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (): MutationRef<DeleteAllTimeEntriesData, undefined>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect): MutationRef<DeleteAllTimeEntriesData, undefined>;
+  operationName: string;
+}
+export const deleteAllTimeEntriesRef: DeleteAllTimeEntriesRef;
+
+export function deleteAllTimeEntries(): MutationPromise<DeleteAllTimeEntriesData, undefined>;
+export function deleteAllTimeEntries(dc: DataConnect): MutationPromise<DeleteAllTimeEntriesData, undefined>;
+
 interface ListProjectsRef {
   /* Allow users to create refs without passing in DataConnect */
   (): QueryRef<ListProjectsData, undefined>;
@@ -1350,4 +1465,88 @@ export const listAppUsersRef: ListAppUsersRef;
 
 export function listAppUsers(options?: ExecuteQueryOptions): QueryPromise<ListAppUsersData, undefined>;
 export function listAppUsers(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListAppUsersData, undefined>;
+
+interface GetOldestTimeEntryRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<GetOldestTimeEntryData, undefined>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect): QueryRef<GetOldestTimeEntryData, undefined>;
+  operationName: string;
+}
+export const getOldestTimeEntryRef: GetOldestTimeEntryRef;
+
+export function getOldestTimeEntry(options?: ExecuteQueryOptions): QueryPromise<GetOldestTimeEntryData, undefined>;
+export function getOldestTimeEntry(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<GetOldestTimeEntryData, undefined>;
+
+interface GetNewestTimeEntryRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<GetNewestTimeEntryData, undefined>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect): QueryRef<GetNewestTimeEntryData, undefined>;
+  operationName: string;
+}
+export const getNewestTimeEntryRef: GetNewestTimeEntryRef;
+
+export function getNewestTimeEntry(options?: ExecuteQueryOptions): QueryPromise<GetNewestTimeEntryData, undefined>;
+export function getNewestTimeEntry(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<GetNewestTimeEntryData, undefined>;
+
+interface GetTimeEntriesByDateRangeRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetTimeEntriesByDateRangeVariables): QueryRef<GetTimeEntriesByDateRangeData, GetTimeEntriesByDateRangeVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: GetTimeEntriesByDateRangeVariables): QueryRef<GetTimeEntriesByDateRangeData, GetTimeEntriesByDateRangeVariables>;
+  operationName: string;
+}
+export const getTimeEntriesByDateRangeRef: GetTimeEntriesByDateRangeRef;
+
+export function getTimeEntriesByDateRange(vars: GetTimeEntriesByDateRangeVariables, options?: ExecuteQueryOptions): QueryPromise<GetTimeEntriesByDateRangeData, GetTimeEntriesByDateRangeVariables>;
+export function getTimeEntriesByDateRange(dc: DataConnect, vars: GetTimeEntriesByDateRangeVariables, options?: ExecuteQueryOptions): QueryPromise<GetTimeEntriesByDateRangeData, GetTimeEntriesByDateRangeVariables>;
+
+interface GetAllTimeEntriesRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<GetAllTimeEntriesData, undefined>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect): QueryRef<GetAllTimeEntriesData, undefined>;
+  operationName: string;
+}
+export const getAllTimeEntriesRef: GetAllTimeEntriesRef;
+
+export function getAllTimeEntries(options?: ExecuteQueryOptions): QueryPromise<GetAllTimeEntriesData, undefined>;
+export function getAllTimeEntries(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<GetAllTimeEntriesData, undefined>;
+
+interface ListProjectScopesRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<ListProjectScopesData, undefined>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect): QueryRef<ListProjectScopesData, undefined>;
+  operationName: string;
+}
+export const listProjectScopesRef: ListProjectScopesRef;
+
+export function listProjectScopes(options?: ExecuteQueryOptions): QueryPromise<ListProjectScopesData, undefined>;
+export function listProjectScopes(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListProjectScopesData, undefined>;
+
+interface ListBillabilityRulesRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<ListBillabilityRulesData, undefined>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect): QueryRef<ListBillabilityRulesData, undefined>;
+  operationName: string;
+}
+export const listBillabilityRulesRef: ListBillabilityRulesRef;
+
+export function listBillabilityRules(options?: ExecuteQueryOptions): QueryPromise<ListBillabilityRulesData, undefined>;
+export function listBillabilityRules(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListBillabilityRulesData, undefined>;
+
+interface ListBillabilityRuleConditionsRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<ListBillabilityRuleConditionsData, undefined>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect): QueryRef<ListBillabilityRuleConditionsData, undefined>;
+  operationName: string;
+}
+export const listBillabilityRuleConditionsRef: ListBillabilityRuleConditionsRef;
+
+export function listBillabilityRuleConditions(options?: ExecuteQueryOptions): QueryPromise<ListBillabilityRuleConditionsData, undefined>;
+export function listBillabilityRuleConditions(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListBillabilityRuleConditionsData, undefined>;
 

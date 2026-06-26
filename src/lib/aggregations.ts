@@ -30,11 +30,47 @@ export async function getProjectCostsMonthly(startDate: string, endDate: string)
   return Object.values(results);
 }
 
+let _cachedLeaveProjectIdsPromise: Promise<Set<string>> | null = null;
+let _cachedLeaveProjectsTime = 0;
+
+export async function getLeaveProjectIds(): Promise<Set<string>> {
+  const now = Date.now();
+  if (_cachedLeaveProjectIdsPromise && (now - _cachedLeaveProjectsTime < 10000)) {
+    return _cachedLeaveProjectIdsPromise;
+  }
+  
+  _cachedLeaveProjectsTime = now;
+  _cachedLeaveProjectIdsPromise = (async () => {
+    const { listProjects } = await import("@/dataconnect-generated");
+    const res = await listProjects();
+    const projects = res.data.projectss || [];
+    const leaveRegex = /(leave|holiday|sick|bank holiday|office closed|non-working day)/i;
+    const leaveSet = new Set<string>();
+    for (const p of projects) {
+      const title = p.title || "";
+      const oppNum = p.opportunity_number || "";
+      if (leaveRegex.test(title) && (!oppNum || oppNum.trim() === "")) {
+        leaveSet.add(p.id);
+      }
+    }
+    return leaveSet;
+  })().catch(e => {
+    _cachedLeaveProjectIdsPromise = null;
+    throw e;
+  });
+  
+  return _cachedLeaveProjectIdsPromise;
+}
+
 export async function getUtilisationSummary(startDate: string, endDate: string) {
-  const { data } = await getTimeEntriesByDateRange({ startDate, endDate });
-  const entries = data.timeEntriess || [];
+  const [entriesRes, leaveProjectIds] = await Promise.all([
+    getTimeEntriesByDateRange({ startDate, endDate }),
+    getLeaveProjectIds()
+  ]);
+  const entries = entriesRes.data.timeEntriess || [];
   
   const results: any = {};
+  const leaveRegex = /(leave|holiday|sick|bank holiday|office closed|non-working day)/i;
   for (const entry of entries) {
     const key = `${entry.person_id}_${entry.project_id}`;
     if (!results[key]) {
@@ -45,17 +81,31 @@ export async function getUtilisationSummary(startDate: string, endDate: string) 
         leave_hours: 0
       };
     }
-    results[key].total_hours += entry.hours || 0;
+    const hrs = entry.hours || 0;
+    const projName = entry.project_name || (entry as any).projectName;
+    const isLeave = (
+      (entry.project_id && leaveProjectIds.has(entry.project_id)) ||
+      (!entry.project_id && projName && leaveRegex.test(projName)) ||
+      (entry.notes && leaveRegex.test(entry.notes))
+    );
+    results[key].total_hours += hrs;
+    if (isLeave) {
+      results[key].leave_hours += hrs;
+    }
   }
   
   return Object.values(results);
 }
 
 export async function getUtilisationSummaryMonthly(startDate: string, endDate: string) {
-  const { data } = await getTimeEntriesByDateRange({ startDate, endDate });
-  const entries = data.timeEntriess || [];
+  const [entriesRes, leaveProjectIds] = await Promise.all([
+    getTimeEntriesByDateRange({ startDate, endDate }),
+    getLeaveProjectIds()
+  ]);
+  const entries = entriesRes.data.timeEntriess || [];
   
   const results: any = {};
+  const leaveRegex = /(leave|holiday|sick|bank holiday|office closed|non-working day)/i;
   for (const entry of entries) {
     const month = entry.date.substring(0, 7) + '-01';
     const key = `${entry.person_id}_${month}_${entry.project_id}`;
@@ -68,7 +118,17 @@ export async function getUtilisationSummaryMonthly(startDate: string, endDate: s
         leave_hours: 0
       };
     }
-    results[key].total_hours += entry.hours || 0;
+    const hrs = entry.hours || 0;
+    const projName = entry.project_name || (entry as any).projectName;
+    const isLeave = (
+      (entry.project_id && leaveProjectIds.has(entry.project_id)) ||
+      (!entry.project_id && projName && leaveRegex.test(projName)) ||
+      (entry.notes && leaveRegex.test(entry.notes))
+    );
+    results[key].total_hours += hrs;
+    if (isLeave) {
+      results[key].leave_hours += hrs;
+    }
   }
   return Object.values(results);
 }

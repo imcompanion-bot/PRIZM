@@ -143,3 +143,16 @@ mutation DeleteTimeEntriesByDate($fromDate: Date!) @auth(level: PUBLIC) {
 mutation DeleteAllTimeEntries @auth(level: PUBLIC) {
   timeEntries_deleteMany(all: true)
 }
+
+mutation DeleteBillabilityRules($id: UUID!) @auth(level: PUBLIC) {
+  billabilityRules_delete(id: $id)
+}
+
+mutation DeleteBillabilityRuleConditions($id: UUID!) @auth(level: PUBLIC) {
+  billabilityRuleConditions_delete(id: $id)
+}
+
+mutation DeleteBillabilityRuleConditionsByRule($ruleId: UUID!) @auth(level: PUBLIC) {
+  billabilityRuleConditions_deleteMany(where: { ruleId: { eq: $ruleId } })
+}
+

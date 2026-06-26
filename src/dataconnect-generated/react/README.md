@@ -34,6 +34,8 @@ You can also follow the instructions from the [Data Connect documentation](https
   - [*GetTimeEntriesByDateRange*](#gettimeentriesbydaterange)
   - [*GetAllTimeEntries*](#getalltimeentries)
   - [*ListProjectScopes*](#listprojectscopes)
+  - [*ListBillabilityRules*](#listbillabilityrules)
+  - [*ListBillabilityRuleConditions*](#listbillabilityruleconditions)
 - [**Mutations**](#mutations)
   - [*InsertAllocations*](#insertallocations)
   - [*UpsertAllocations*](#upsertallocations)
@@ -70,6 +72,9 @@ You can also follow the instructions from the [Data Connect documentation](https
   - [*DeleteAppUser*](#deleteappuser)
   - [*DeleteTimeEntriesByDate*](#deletetimeentriesbydate)
   - [*DeleteAllTimeEntries*](#deletealltimeentries)
+  - [*DeleteBillabilityRules*](#deletebillabilityrules)
+  - [*DeleteBillabilityRuleConditions*](#deletebillabilityruleconditions)
+  - [*DeleteBillabilityRuleConditionsByRule*](#deletebillabilityruleconditionsbyrule)
 
 # TanStack Query Firebase & TanStack React Query
 This SDK provides [React](https://react.dev/) hooks generated specific to your application, for the operations found in the connector `example`. These hooks are generated using [TanStack Query Firebase](https://react-query-firebase.invertase.dev/) by our partners at Invertase, a library built on top of [TanStack React Query v5](https://tanstack.com/query/v5/docs/framework/react/overview).
@@ -204,6 +209,7 @@ export interface ListProjectsData {
     opportunity_record_type?: string | null;
     stage?: string | null;
     isActive?: boolean | null;
+    revenue?: number | null;
   } & Projects_Key)[];
 }
 ```
@@ -1292,8 +1298,13 @@ export interface GetTimeEntriesByDateRangeData {
     id: UUIDString;
     date: DateString;
     hours: number;
+    notes?: string | null;
+    createdAt: DateString;
     project_id?: UUIDString | null;
     person_id?: UUIDString | null;
+    personName?: string | null;
+    projectName?: string | null;
+    projectCode?: string | null;
   } & TimeEntries_Key)[];
 }
 ```
@@ -1500,6 +1511,159 @@ export default function ListProjectScopesComponent() {
   // If the Query is successful, you can access the data returned using the `UseQueryResult.data` field.
   if (query.isSuccess) {
     console.log(query.data.projectScopess);
+  }
+  return <div>Query execution {query.isSuccess ? 'successful' : 'failed'}!</div>;
+}
+```
+
+## ListBillabilityRules
+You can execute the `ListBillabilityRules` Query using the following Query hook function, which is defined in [dataconnect-generated/react/index.d.ts](./index.d.ts):
+
+```javascript
+useListBillabilityRules(dc: DataConnect, options?: useDataConnectQueryOptions<ListBillabilityRulesData>): UseDataConnectQueryResult<ListBillabilityRulesData, undefined>;
+```
+You can also pass in a `DataConnect` instance to the Query hook function.
+```javascript
+useListBillabilityRules(options?: useDataConnectQueryOptions<ListBillabilityRulesData>): UseDataConnectQueryResult<ListBillabilityRulesData, undefined>;
+```
+
+### Variables
+The `ListBillabilityRules` Query has no variables.
+### Return Type
+Recall that calling the `ListBillabilityRules` Query hook function returns a `UseQueryResult` object. This object holds the state of your Query, including whether the Query is loading, has completed, or has succeeded/failed, and any data returned by the Query, among other things.
+
+To check the status of a Query, use the `UseQueryResult.status` field. You can also check for pending / success / error status using the `UseQueryResult.isPending`, `UseQueryResult.isSuccess`, and `UseQueryResult.isError` fields.
+
+To access the data returned by a Query, use the `UseQueryResult.data` field. The data for the `ListBillabilityRules` Query is of type `ListBillabilityRulesData`, which is defined in [dataconnect-generated/index.d.ts](../index.d.ts). It has the following fields:
+```javascript
+export interface ListBillabilityRulesData {
+  billabilityRuless: ({
+    id: UUIDString;
+    is_billable: boolean;
+    logic_operator: string;
+    name: string;
+    priority: number;
+    createdAt: DateString;
+  } & BillabilityRules_Key)[];
+}
+```
+
+To learn more about the `UseQueryResult` object, see the [TanStack React Query documentation](https://tanstack.com/query/v5/docs/framework/react/reference/useQuery).
+
+### Using `ListBillabilityRules`'s Query hook function
+
+```javascript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig } from '@dataconnect/generated';
+import { useListBillabilityRules } from '@dataconnect/generated/react'
+
+export default function ListBillabilityRulesComponent() {
+  // You don't have to do anything to "execute" the Query.
+  // Call the Query hook function to get a `UseQueryResult` object which holds the state of your Query.
+  const query = useListBillabilityRules();
+
+  // You can also pass in a `DataConnect` instance to the Query hook function.
+  const dataConnect = getDataConnect(connectorConfig);
+  const query = useListBillabilityRules(dataConnect);
+
+  // You can also pass in a `useDataConnectQueryOptions` object to the Query hook function.
+  const options = { staleTime: 5 * 1000 };
+  const query = useListBillabilityRules(options);
+
+  // You can also pass both a `DataConnect` instance and a `useDataConnectQueryOptions` object.
+  const dataConnect = getDataConnect(connectorConfig);
+  const options = { staleTime: 5 * 1000 };
+  const query = useListBillabilityRules(dataConnect, options);
+
+  // Then, you can render your component dynamically based on the status of the Query.
+  if (query.isPending) {
+    return <div>Loading...</div>;
+  }
+
+  if (query.isError) {
+    return <div>Error: {query.error.message}</div>;
+  }
+
+  // If the Query is successful, you can access the data returned using the `UseQueryResult.data` field.
+  if (query.isSuccess) {
+    console.log(query.data.billabilityRuless);
+  }
+  return <div>Query execution {query.isSuccess ? 'successful' : 'failed'}!</div>;
+}
+```
+
+## ListBillabilityRuleConditions
+You can execute the `ListBillabilityRuleConditions` Query using the following Query hook function, which is defined in [dataconnect-generated/react/index.d.ts](./index.d.ts):
+
+```javascript
+useListBillabilityRuleConditions(dc: DataConnect, options?: useDataConnectQueryOptions<ListBillabilityRuleConditionsData>): UseDataConnectQueryResult<ListBillabilityRuleConditionsData, undefined>;
+```
+You can also pass in a `DataConnect` instance to the Query hook function.
+```javascript
+useListBillabilityRuleConditions(options?: useDataConnectQueryOptions<ListBillabilityRuleConditionsData>): UseDataConnectQueryResult<ListBillabilityRuleConditionsData, undefined>;
+```
+
+### Variables
+The `ListBillabilityRuleConditions` Query has no variables.
+### Return Type
+Recall that calling the `ListBillabilityRuleConditions` Query hook function returns a `UseQueryResult` object. This object holds the state of your Query, including whether the Query is loading, has completed, or has succeeded/failed, and any data returned by the Query, among other things.
+
+To check the status of a Query, use the `UseQueryResult.status` field. You can also check for pending / success / error status using the `UseQueryResult.isPending`, `UseQueryResult.isSuccess`, and `UseQueryResult.isError` fields.
+
+To access the data returned by a Query, use the `UseQueryResult.data` field. The data for the `ListBillabilityRuleConditions` Query is of type `ListBillabilityRuleConditionsData`, which is defined in [dataconnect-generated/index.d.ts](../index.d.ts). It has the following fields:
+```javascript
+export interface ListBillabilityRuleConditionsData {
+  billabilityRuleConditionss: ({
+    id: UUIDString;
+    field: string;
+    logic_operator: string;
+    operator: string;
+    rule_id: UUIDString;
+    value: string;
+    createdAt: DateString;
+  } & BillabilityRuleConditions_Key)[];
+}
+```
+
+To learn more about the `UseQueryResult` object, see the [TanStack React Query documentation](https://tanstack.com/query/v5/docs/framework/react/reference/useQuery).
+
+### Using `ListBillabilityRuleConditions`'s Query hook function
+
+```javascript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig } from '@dataconnect/generated';
+import { useListBillabilityRuleConditions } from '@dataconnect/generated/react'
+
+export default function ListBillabilityRuleConditionsComponent() {
+  // You don't have to do anything to "execute" the Query.
+  // Call the Query hook function to get a `UseQueryResult` object which holds the state of your Query.
+  const query = useListBillabilityRuleConditions();
+
+  // You can also pass in a `DataConnect` instance to the Query hook function.
+  const dataConnect = getDataConnect(connectorConfig);
+  const query = useListBillabilityRuleConditions(dataConnect);
+
+  // You can also pass in a `useDataConnectQueryOptions` object to the Query hook function.
+  const options = { staleTime: 5 * 1000 };
+  const query = useListBillabilityRuleConditions(options);
+
+  // You can also pass both a `DataConnect` instance and a `useDataConnectQueryOptions` object.
+  const dataConnect = getDataConnect(connectorConfig);
+  const options = { staleTime: 5 * 1000 };
+  const query = useListBillabilityRuleConditions(dataConnect, options);
+
+  // Then, you can render your component dynamically based on the status of the Query.
+  if (query.isPending) {
+    return <div>Loading...</div>;
+  }
+
+  if (query.isError) {
+    return <div>Error: {query.error.message}</div>;
+  }
+
+  // If the Query is successful, you can access the data returned using the `UseQueryResult.data` field.
+  if (query.isSuccess) {
+    console.log(query.data.billabilityRuleConditionss);
   }
   return <div>Query execution {query.isSuccess ? 'successful' : 'failed'}!</div>;
 }
@@ -5418,6 +5582,288 @@ export default function DeleteAllTimeEntriesComponent() {
   // If the Mutation is successful, you can access the data returned using the `UseMutationResult.data` field.
   if (mutation.isSuccess) {
     console.log(mutation.data.timeEntries_deleteMany);
+  }
+  return <div>Mutation execution {mutation.isSuccess ? 'successful' : 'failed'}!</div>;
+}
+```
+
+## DeleteBillabilityRules
+You can execute the `DeleteBillabilityRules` Mutation using the `UseMutationResult` object returned by the following Mutation hook function (which is defined in [dataconnect-generated/react/index.d.ts](./index.d.ts)):
+```javascript
+useDeleteBillabilityRules(options?: useDataConnectMutationOptions<DeleteBillabilityRulesData, FirebaseError, DeleteBillabilityRulesVariables>): UseDataConnectMutationResult<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+```
+You can also pass in a `DataConnect` instance to the Mutation hook function.
+```javascript
+useDeleteBillabilityRules(dc: DataConnect, options?: useDataConnectMutationOptions<DeleteBillabilityRulesData, FirebaseError, DeleteBillabilityRulesVariables>): UseDataConnectMutationResult<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+```
+
+### Variables
+The `DeleteBillabilityRules` Mutation requires an argument of type `DeleteBillabilityRulesVariables`, which is defined in [dataconnect-generated/index.d.ts](../index.d.ts). It has the following fields:
+
+```javascript
+export interface DeleteBillabilityRulesVariables {
+  id: UUIDString;
+}
+```
+### Return Type
+Recall that calling the `DeleteBillabilityRules` Mutation hook function returns a `UseMutationResult` object. This object holds the state of your Mutation, including whether the Mutation is loading, has completed, or has succeeded/failed, among other things.
+
+To check the status of a Mutation, use the `UseMutationResult.status` field. You can also check for pending / success / error status using the `UseMutationResult.isPending`, `UseMutationResult.isSuccess`, and `UseMutationResult.isError` fields.
+
+To execute the Mutation, call `UseMutationResult.mutate()`. This function executes the Mutation, but does not return the data from the Mutation.
+
+To access the data returned by a Mutation, use the `UseMutationResult.data` field. The data for the `DeleteBillabilityRules` Mutation is of type `DeleteBillabilityRulesData`, which is defined in [dataconnect-generated/index.d.ts](../index.d.ts). It has the following fields:
+```javascript
+export interface DeleteBillabilityRulesData {
+  billabilityRules_delete?: BillabilityRules_Key | null;
+}
+```
+
+To learn more about the `UseMutationResult` object, see the [TanStack React Query documentation](https://tanstack.com/query/v5/docs/framework/react/reference/useMutation).
+
+### Using `DeleteBillabilityRules`'s Mutation hook function
+
+```javascript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, DeleteBillabilityRulesVariables } from '@dataconnect/generated';
+import { useDeleteBillabilityRules } from '@dataconnect/generated/react'
+
+export default function DeleteBillabilityRulesComponent() {
+  // Call the Mutation hook function to get a `UseMutationResult` object which holds the state of your Mutation.
+  const mutation = useDeleteBillabilityRules();
+
+  // You can also pass in a `DataConnect` instance to the Mutation hook function.
+  const dataConnect = getDataConnect(connectorConfig);
+  const mutation = useDeleteBillabilityRules(dataConnect);
+
+  // You can also pass in a `useDataConnectMutationOptions` object to the Mutation hook function.
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  const mutation = useDeleteBillabilityRules(options);
+
+  // You can also pass both a `DataConnect` instance and a `useDataConnectMutationOptions` object.
+  const dataConnect = getDataConnect(connectorConfig);
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  const mutation = useDeleteBillabilityRules(dataConnect, options);
+
+  // After calling the Mutation hook function, you must call `UseMutationResult.mutate()` to execute the Mutation.
+  // The `useDeleteBillabilityRules` Mutation requires an argument of type `DeleteBillabilityRulesVariables`:
+  const deleteBillabilityRulesVars: DeleteBillabilityRulesVariables = {
+    id: ..., 
+  };
+  mutation.mutate(deleteBillabilityRulesVars);
+  // Variables can be defined inline as well.
+  mutation.mutate({ id: ..., });
+
+  // You can also pass in a `useDataConnectMutationOptions` object to `UseMutationResult.mutate()`.
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  mutation.mutate(deleteBillabilityRulesVars, options);
+
+  // Then, you can render your component dynamically based on the status of the Mutation.
+  if (mutation.isPending) {
+    return <div>Loading...</div>;
+  }
+
+  if (mutation.isError) {
+    return <div>Error: {mutation.error.message}</div>;
+  }
+
+  // If the Mutation is successful, you can access the data returned using the `UseMutationResult.data` field.
+  if (mutation.isSuccess) {
+    console.log(mutation.data.billabilityRules_delete);
+  }
+  return <div>Mutation execution {mutation.isSuccess ? 'successful' : 'failed'}!</div>;
+}
+```
+
+## DeleteBillabilityRuleConditions
+You can execute the `DeleteBillabilityRuleConditions` Mutation using the `UseMutationResult` object returned by the following Mutation hook function (which is defined in [dataconnect-generated/react/index.d.ts](./index.d.ts)):
+```javascript
+useDeleteBillabilityRuleConditions(options?: useDataConnectMutationOptions<DeleteBillabilityRuleConditionsData, FirebaseError, DeleteBillabilityRuleConditionsVariables>): UseDataConnectMutationResult<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+```
+You can also pass in a `DataConnect` instance to the Mutation hook function.
+```javascript
+useDeleteBillabilityRuleConditions(dc: DataConnect, options?: useDataConnectMutationOptions<DeleteBillabilityRuleConditionsData, FirebaseError, DeleteBillabilityRuleConditionsVariables>): UseDataConnectMutationResult<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+```
+
+### Variables
+The `DeleteBillabilityRuleConditions` Mutation requires an argument of type `DeleteBillabilityRuleConditionsVariables`, which is defined in [dataconnect-generated/index.d.ts](../index.d.ts). It has the following fields:
+
+```javascript
+export interface DeleteBillabilityRuleConditionsVariables {
+  id: UUIDString;
+}
+```
+### Return Type
+Recall that calling the `DeleteBillabilityRuleConditions` Mutation hook function returns a `UseMutationResult` object. This object holds the state of your Mutation, including whether the Mutation is loading, has completed, or has succeeded/failed, among other things.
+
+To check the status of a Mutation, use the `UseMutationResult.status` field. You can also check for pending / success / error status using the `UseMutationResult.isPending`, `UseMutationResult.isSuccess`, and `UseMutationResult.isError` fields.
+
+To execute the Mutation, call `UseMutationResult.mutate()`. This function executes the Mutation, but does not return the data from the Mutation.
+
+To access the data returned by a Mutation, use the `UseMutationResult.data` field. The data for the `DeleteBillabilityRuleConditions` Mutation is of type `DeleteBillabilityRuleConditionsData`, which is defined in [dataconnect-generated/index.d.ts](../index.d.ts). It has the following fields:
+```javascript
+export interface DeleteBillabilityRuleConditionsData {
+  billabilityRuleConditions_delete?: BillabilityRuleConditions_Key | null;
+}
+```
+
+To learn more about the `UseMutationResult` object, see the [TanStack React Query documentation](https://tanstack.com/query/v5/docs/framework/react/reference/useMutation).
+
+### Using `DeleteBillabilityRuleConditions`'s Mutation hook function
+
+```javascript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, DeleteBillabilityRuleConditionsVariables } from '@dataconnect/generated';
+import { useDeleteBillabilityRuleConditions } from '@dataconnect/generated/react'
+
+export default function DeleteBillabilityRuleConditionsComponent() {
+  // Call the Mutation hook function to get a `UseMutationResult` object which holds the state of your Mutation.
+  const mutation = useDeleteBillabilityRuleConditions();
+
+  // You can also pass in a `DataConnect` instance to the Mutation hook function.
+  const dataConnect = getDataConnect(connectorConfig);
+  const mutation = useDeleteBillabilityRuleConditions(dataConnect);
+
+  // You can also pass in a `useDataConnectMutationOptions` object to the Mutation hook function.
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  const mutation = useDeleteBillabilityRuleConditions(options);
+
+  // You can also pass both a `DataConnect` instance and a `useDataConnectMutationOptions` object.
+  const dataConnect = getDataConnect(connectorConfig);
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  const mutation = useDeleteBillabilityRuleConditions(dataConnect, options);
+
+  // After calling the Mutation hook function, you must call `UseMutationResult.mutate()` to execute the Mutation.
+  // The `useDeleteBillabilityRuleConditions` Mutation requires an argument of type `DeleteBillabilityRuleConditionsVariables`:
+  const deleteBillabilityRuleConditionsVars: DeleteBillabilityRuleConditionsVariables = {
+    id: ..., 
+  };
+  mutation.mutate(deleteBillabilityRuleConditionsVars);
+  // Variables can be defined inline as well.
+  mutation.mutate({ id: ..., });
+
+  // You can also pass in a `useDataConnectMutationOptions` object to `UseMutationResult.mutate()`.
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  mutation.mutate(deleteBillabilityRuleConditionsVars, options);
+
+  // Then, you can render your component dynamically based on the status of the Mutation.
+  if (mutation.isPending) {
+    return <div>Loading...</div>;
+  }
+
+  if (mutation.isError) {
+    return <div>Error: {mutation.error.message}</div>;
+  }
+
+  // If the Mutation is successful, you can access the data returned using the `UseMutationResult.data` field.
+  if (mutation.isSuccess) {
+    console.log(mutation.data.billabilityRuleConditions_delete);
+  }
+  return <div>Mutation execution {mutation.isSuccess ? 'successful' : 'failed'}!</div>;
+}
+```
+
+## DeleteBillabilityRuleConditionsByRule
+You can execute the `DeleteBillabilityRuleConditionsByRule` Mutation using the `UseMutationResult` object returned by the following Mutation hook function (which is defined in [dataconnect-generated/react/index.d.ts](./index.d.ts)):
+```javascript
+useDeleteBillabilityRuleConditionsByRule(options?: useDataConnectMutationOptions<DeleteBillabilityRuleConditionsByRuleData, FirebaseError, DeleteBillabilityRuleConditionsByRuleVariables>): UseDataConnectMutationResult<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+```
+You can also pass in a `DataConnect` instance to the Mutation hook function.
+```javascript
+useDeleteBillabilityRuleConditionsByRule(dc: DataConnect, options?: useDataConnectMutationOptions<DeleteBillabilityRuleConditionsByRuleData, FirebaseError, DeleteBillabilityRuleConditionsByRuleVariables>): UseDataConnectMutationResult<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+```
+
+### Variables
+The `DeleteBillabilityRuleConditionsByRule` Mutation requires an argument of type `DeleteBillabilityRuleConditionsByRuleVariables`, which is defined in [dataconnect-generated/index.d.ts](../index.d.ts). It has the following fields:
+
+```javascript
+export interface DeleteBillabilityRuleConditionsByRuleVariables {
+  ruleId: UUIDString;
+}
+```
+### Return Type
+Recall that calling the `DeleteBillabilityRuleConditionsByRule` Mutation hook function returns a `UseMutationResult` object. This object holds the state of your Mutation, including whether the Mutation is loading, has completed, or has succeeded/failed, among other things.
+
+To check the status of a Mutation, use the `UseMutationResult.status` field. You can also check for pending / success / error status using the `UseMutationResult.isPending`, `UseMutationResult.isSuccess`, and `UseMutationResult.isError` fields.
+
+To execute the Mutation, call `UseMutationResult.mutate()`. This function executes the Mutation, but does not return the data from the Mutation.
+
+To access the data returned by a Mutation, use the `UseMutationResult.data` field. The data for the `DeleteBillabilityRuleConditionsByRule` Mutation is of type `DeleteBillabilityRuleConditionsByRuleData`, which is defined in [dataconnect-generated/index.d.ts](../index.d.ts). It has the following fields:
+```javascript
+export interface DeleteBillabilityRuleConditionsByRuleData {
+  billabilityRuleConditions_deleteMany: number;
+}
+```
+
+To learn more about the `UseMutationResult` object, see the [TanStack React Query documentation](https://tanstack.com/query/v5/docs/framework/react/reference/useMutation).
+
+### Using `DeleteBillabilityRuleConditionsByRule`'s Mutation hook function
+
+```javascript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, DeleteBillabilityRuleConditionsByRuleVariables } from '@dataconnect/generated';
+import { useDeleteBillabilityRuleConditionsByRule } from '@dataconnect/generated/react'
+
+export default function DeleteBillabilityRuleConditionsByRuleComponent() {
+  // Call the Mutation hook function to get a `UseMutationResult` object which holds the state of your Mutation.
+  const mutation = useDeleteBillabilityRuleConditionsByRule();
+
+  // You can also pass in a `DataConnect` instance to the Mutation hook function.
+  const dataConnect = getDataConnect(connectorConfig);
+  const mutation = useDeleteBillabilityRuleConditionsByRule(dataConnect);
+
+  // You can also pass in a `useDataConnectMutationOptions` object to the Mutation hook function.
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  const mutation = useDeleteBillabilityRuleConditionsByRule(options);
+
+  // You can also pass both a `DataConnect` instance and a `useDataConnectMutationOptions` object.
+  const dataConnect = getDataConnect(connectorConfig);
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  const mutation = useDeleteBillabilityRuleConditionsByRule(dataConnect, options);
+
+  // After calling the Mutation hook function, you must call `UseMutationResult.mutate()` to execute the Mutation.
+  // The `useDeleteBillabilityRuleConditionsByRule` Mutation requires an argument of type `DeleteBillabilityRuleConditionsByRuleVariables`:
+  const deleteBillabilityRuleConditionsByRuleVars: DeleteBillabilityRuleConditionsByRuleVariables = {
+    ruleId: ..., 
+  };
+  mutation.mutate(deleteBillabilityRuleConditionsByRuleVars);
+  // Variables can be defined inline as well.
+  mutation.mutate({ ruleId: ..., });
+
+  // You can also pass in a `useDataConnectMutationOptions` object to `UseMutationResult.mutate()`.
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  mutation.mutate(deleteBillabilityRuleConditionsByRuleVars, options);
+
+  // Then, you can render your component dynamically based on the status of the Mutation.
+  if (mutation.isPending) {
+    return <div>Loading...</div>;
+  }
+
+  if (mutation.isError) {
+    return <div>Error: {mutation.error.message}</div>;
+  }
+
+  // If the Mutation is successful, you can access the data returned using the `UseMutationResult.data` field.
+  if (mutation.isSuccess) {
+    console.log(mutation.data.billabilityRuleConditions_deleteMany);
   }
   return <div>Mutation execution {mutation.isSuccess ? 'successful' : 'failed'}!</div>;
 }

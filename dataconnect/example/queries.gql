@@ -21,6 +21,7 @@ query ListProjects @auth(level: PUBLIC) {
     opportunity_record_type: opportunityRecordType
     stage
     isActive
+    revenue
   }
 }
 
@@ -134,9 +135,12 @@ query GetNewestTimeEntry @auth(level: PUBLIC) {
 
 query GetTimeEntriesByDateRange($startDate: Date!, $endDate: Date!) @auth(level: PUBLIC) {
   timeEntriess(where: { date: { ge: $startDate, le: $endDate } }, limit: 50000) {
-    id date hours
+    id date hours notes createdAt
     project_id: projectId
     person_id: personId
+    personName
+    projectName
+    projectCode
   }
 }
 
@@ -156,6 +160,29 @@ query ListProjectScopes @auth(level: PUBLIC) {
     role_id: roleId
     scoped_hours: scopedHours
     phase_percentages: phasePercentages
+  }
+}
+
+query ListBillabilityRules @auth(level: PUBLIC) {
+  billabilityRuless(limit: 10000, orderBy: [{priority: ASC}]) {
+    id
+    is_billable: isBillable
+    logic_operator: logicOperator
+    name
+    priority
+    createdAt
+  }
+}
+
+query ListBillabilityRuleConditions @auth(level: PUBLIC) {
+  billabilityRuleConditionss(limit: 10000) {
+    id
+    field
+    logic_operator: logicOperator
+    operator
+    rule_id: ruleId
+    value
+    createdAt
   }
 }
 

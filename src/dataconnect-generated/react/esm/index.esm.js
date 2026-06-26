@@ -1,4 +1,4 @@
-import { insertAllocationsRef, upsertAllocationsRef, insertBillabilityRuleConditionsRef, upsertBillabilityRuleConditionsRef, insertBillabilityRulesRef, upsertBillabilityRulesRef, insertClientTeamAllocationsRef, upsertClientTeamAllocationsRef, insertDailyAllocationsRef, upsertDailyAllocationsRef, insertDataImportsRef, upsertDataImportsRef, insertPeopleRef, upsertPeopleRef, insertPhaseAllocationsRef, upsertPhaseAllocationsRef, insertProjectMonthlyRevenueRef, upsertProjectMonthlyRevenueRef, insertProjectPhasesRef, upsertProjectPhasesRef, insertProjectScopesRef, upsertProjectScopesRef, insertProjectsRef, upsertProjectsRef, insertRateCardsRef, upsertRateCardsRef, insertRolesRef, upsertRolesRef, insertTimeEntriesRef, upsertTimeEntriesRef, createAppUserRef, updateAppUserRef, deleteAppUserRef, deleteTimeEntriesByDateRef, deleteAllTimeEntriesRef, listProjectsRef, getProjectRef, listPeopleRef, listRolesRef, listRateCardsRef, listTimeEntriesRef, listTimeEntriesByProjectRef, listProjectPhasesRef, listAllocationsRef, listDataImportsRef, getAppUserByEmailRef, listAppUsersRef, getOldestTimeEntryRef, getNewestTimeEntryRef, getTimeEntriesByDateRangeRef, getAllTimeEntriesRef, listProjectScopesRef, connectorConfig } from '../../esm/index.esm.js';
+import { insertAllocationsRef, upsertAllocationsRef, insertBillabilityRuleConditionsRef, upsertBillabilityRuleConditionsRef, insertBillabilityRulesRef, upsertBillabilityRulesRef, insertClientTeamAllocationsRef, upsertClientTeamAllocationsRef, insertDailyAllocationsRef, upsertDailyAllocationsRef, insertDataImportsRef, upsertDataImportsRef, insertPeopleRef, upsertPeopleRef, insertPhaseAllocationsRef, upsertPhaseAllocationsRef, insertProjectMonthlyRevenueRef, upsertProjectMonthlyRevenueRef, insertProjectPhasesRef, upsertProjectPhasesRef, insertProjectScopesRef, upsertProjectScopesRef, insertProjectsRef, upsertProjectsRef, insertRateCardsRef, upsertRateCardsRef, insertRolesRef, upsertRolesRef, insertTimeEntriesRef, upsertTimeEntriesRef, createAppUserRef, updateAppUserRef, deleteAppUserRef, deleteTimeEntriesByDateRef, deleteAllTimeEntriesRef, deleteBillabilityRulesRef, deleteBillabilityRuleConditionsRef, deleteBillabilityRuleConditionsByRuleRef, listProjectsRef, getProjectRef, listPeopleRef, listRolesRef, listRateCardsRef, listTimeEntriesRef, listTimeEntriesByProjectRef, listProjectPhasesRef, listAllocationsRef, listDataImportsRef, getAppUserByEmailRef, listAppUsersRef, getOldestTimeEntryRef, getNewestTimeEntryRef, getTimeEntriesByDateRangeRef, getAllTimeEntriesRef, listProjectScopesRef, listBillabilityRulesRef, listBillabilityRuleConditionsRef, connectorConfig } from '../../esm/index.esm.js';
 import { validateArgs, CallerSdkTypeEnum } from 'firebase/data-connect';
 import { useDataConnectQuery, useDataConnectMutation, validateReactArgs } from '@tanstack-query-firebase/react/data-connect';
 
@@ -282,6 +282,30 @@ export function useDeleteAllTimeEntries(dcOrOptions, options) {
   return useDataConnectMutation(refFactory, inputOpts, CallerSdkTypeEnum.GeneratedReact);
 }
 
+export function useDeleteBillabilityRules(dcOrOptions, options) {
+  const { dc: dcInstance, vars: inputOpts } = validateArgs(connectorConfig, dcOrOptions, options);
+  function refFactory(vars) {
+    return deleteBillabilityRulesRef(dcInstance, vars);
+  }
+  return useDataConnectMutation(refFactory, inputOpts, CallerSdkTypeEnum.GeneratedReact);
+}
+
+export function useDeleteBillabilityRuleConditions(dcOrOptions, options) {
+  const { dc: dcInstance, vars: inputOpts } = validateArgs(connectorConfig, dcOrOptions, options);
+  function refFactory(vars) {
+    return deleteBillabilityRuleConditionsRef(dcInstance, vars);
+  }
+  return useDataConnectMutation(refFactory, inputOpts, CallerSdkTypeEnum.GeneratedReact);
+}
+
+export function useDeleteBillabilityRuleConditionsByRule(dcOrOptions, options) {
+  const { dc: dcInstance, vars: inputOpts } = validateArgs(connectorConfig, dcOrOptions, options);
+  function refFactory(vars) {
+    return deleteBillabilityRuleConditionsByRuleRef(dcInstance, vars);
+  }
+  return useDataConnectMutation(refFactory, inputOpts, CallerSdkTypeEnum.GeneratedReact);
+}
+
 
 export function useListProjects(dcOrOptions, options) {
   const { dc: dcInstance, options: inputOpts } = validateReactArgs(connectorConfig, dcOrOptions, options);
@@ -382,5 +406,17 @@ export function useGetAllTimeEntries(dcOrOptions, options) {
 export function useListProjectScopes(dcOrOptions, options) {
   const { dc: dcInstance, options: inputOpts } = validateReactArgs(connectorConfig, dcOrOptions, options);
   const ref = listProjectScopesRef(dcInstance);
+  return useDataConnectQuery(ref, inputOpts, CallerSdkTypeEnum.GeneratedReact);
+}
+
+export function useListBillabilityRules(dcOrOptions, options) {
+  const { dc: dcInstance, options: inputOpts } = validateReactArgs(connectorConfig, dcOrOptions, options);
+  const ref = listBillabilityRulesRef(dcInstance);
+  return useDataConnectQuery(ref, inputOpts, CallerSdkTypeEnum.GeneratedReact);
+}
+
+export function useListBillabilityRuleConditions(dcOrOptions, options) {
+  const { dc: dcInstance, options: inputOpts } = validateReactArgs(connectorConfig, dcOrOptions, options);
+  const ref = listBillabilityRuleConditionsRef(dcInstance);
   return useDataConnectQuery(ref, inputOpts, CallerSdkTypeEnum.GeneratedReact);
 }

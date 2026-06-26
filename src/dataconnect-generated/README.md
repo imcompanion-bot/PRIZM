@@ -27,6 +27,8 @@ This README will guide you through the process of using the generated JavaScript
   - [*GetTimeEntriesByDateRange*](#gettimeentriesbydaterange)
   - [*GetAllTimeEntries*](#getalltimeentries)
   - [*ListProjectScopes*](#listprojectscopes)
+  - [*ListBillabilityRules*](#listbillabilityrules)
+  - [*ListBillabilityRuleConditions*](#listbillabilityruleconditions)
 - [**Mutations**](#mutations)
   - [*InsertAllocations*](#insertallocations)
   - [*UpsertAllocations*](#upsertallocations)
@@ -63,6 +65,9 @@ This README will guide you through the process of using the generated JavaScript
   - [*DeleteAppUser*](#deleteappuser)
   - [*DeleteTimeEntriesByDate*](#deletetimeentriesbydate)
   - [*DeleteAllTimeEntries*](#deletealltimeentries)
+  - [*DeleteBillabilityRules*](#deletebillabilityrules)
+  - [*DeleteBillabilityRuleConditions*](#deletebillabilityruleconditions)
+  - [*DeleteBillabilityRuleConditionsByRule*](#deletebillabilityruleconditionsbyrule)
 
 # Accessing the connector
 A connector is a collection of Queries and Mutations. One SDK is generated for each connector - this SDK is generated for the connector `example`. You can find more information about connectors in the [Data Connect documentation](https://firebase.google.com/docs/data-connect#how-does).
@@ -168,6 +173,7 @@ export interface ListProjectsData {
     opportunity_record_type?: string | null;
     stage?: string | null;
     isActive?: boolean | null;
+    revenue?: number | null;
   } & Projects_Key)[];
 }
 ```
@@ -1579,8 +1585,13 @@ export interface GetTimeEntriesByDateRangeData {
     id: UUIDString;
     date: DateString;
     hours: number;
+    notes?: string | null;
+    createdAt: DateString;
     project_id?: UUIDString | null;
     person_id?: UUIDString | null;
+    personName?: string | null;
+    projectName?: string | null;
+    projectCode?: string | null;
   } & TimeEntries_Key)[];
 }
 ```
@@ -1845,6 +1856,203 @@ console.log(data.projectScopess);
 executeQuery(ref).then((response) => {
   const data = response.data;
   console.log(data.projectScopess);
+});
+```
+
+## ListBillabilityRules
+You can execute the `ListBillabilityRules` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+listBillabilityRules(options?: ExecuteQueryOptions): QueryPromise<ListBillabilityRulesData, undefined>;
+
+interface ListBillabilityRulesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<ListBillabilityRulesData, undefined>;
+}
+export const listBillabilityRulesRef: ListBillabilityRulesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+listBillabilityRules(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListBillabilityRulesData, undefined>;
+
+interface ListBillabilityRulesRef {
+  ...
+  (dc: DataConnect): QueryRef<ListBillabilityRulesData, undefined>;
+}
+export const listBillabilityRulesRef: ListBillabilityRulesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the listBillabilityRulesRef:
+```typescript
+const name = listBillabilityRulesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `ListBillabilityRules` query has no variables.
+### Return Type
+Recall that executing the `ListBillabilityRules` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `ListBillabilityRulesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface ListBillabilityRulesData {
+  billabilityRuless: ({
+    id: UUIDString;
+    is_billable: boolean;
+    logic_operator: string;
+    name: string;
+    priority: number;
+    createdAt: DateString;
+  } & BillabilityRules_Key)[];
+}
+```
+### Using `ListBillabilityRules`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, listBillabilityRules } from '@dataconnect/generated';
+
+
+// Call the `listBillabilityRules()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await listBillabilityRules();
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await listBillabilityRules(dataConnect);
+
+console.log(data.billabilityRuless);
+
+// Or, you can use the `Promise` API.
+listBillabilityRules().then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRuless);
+});
+```
+
+### Using `ListBillabilityRules`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, listBillabilityRulesRef } from '@dataconnect/generated';
+
+
+// Call the `listBillabilityRulesRef()` function to get a reference to the query.
+const ref = listBillabilityRulesRef();
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = listBillabilityRulesRef(dataConnect);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.billabilityRuless);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRuless);
+});
+```
+
+## ListBillabilityRuleConditions
+You can execute the `ListBillabilityRuleConditions` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+listBillabilityRuleConditions(options?: ExecuteQueryOptions): QueryPromise<ListBillabilityRuleConditionsData, undefined>;
+
+interface ListBillabilityRuleConditionsRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<ListBillabilityRuleConditionsData, undefined>;
+}
+export const listBillabilityRuleConditionsRef: ListBillabilityRuleConditionsRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+listBillabilityRuleConditions(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListBillabilityRuleConditionsData, undefined>;
+
+interface ListBillabilityRuleConditionsRef {
+  ...
+  (dc: DataConnect): QueryRef<ListBillabilityRuleConditionsData, undefined>;
+}
+export const listBillabilityRuleConditionsRef: ListBillabilityRuleConditionsRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the listBillabilityRuleConditionsRef:
+```typescript
+const name = listBillabilityRuleConditionsRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `ListBillabilityRuleConditions` query has no variables.
+### Return Type
+Recall that executing the `ListBillabilityRuleConditions` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `ListBillabilityRuleConditionsData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface ListBillabilityRuleConditionsData {
+  billabilityRuleConditionss: ({
+    id: UUIDString;
+    field: string;
+    logic_operator: string;
+    operator: string;
+    rule_id: UUIDString;
+    value: string;
+    createdAt: DateString;
+  } & BillabilityRuleConditions_Key)[];
+}
+```
+### Using `ListBillabilityRuleConditions`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, listBillabilityRuleConditions } from '@dataconnect/generated';
+
+
+// Call the `listBillabilityRuleConditions()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await listBillabilityRuleConditions();
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await listBillabilityRuleConditions(dataConnect);
+
+console.log(data.billabilityRuleConditionss);
+
+// Or, you can use the `Promise` API.
+listBillabilityRuleConditions().then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRuleConditionss);
+});
+```
+
+### Using `ListBillabilityRuleConditions`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, listBillabilityRuleConditionsRef } from '@dataconnect/generated';
+
+
+// Call the `listBillabilityRuleConditionsRef()` function to get a reference to the query.
+const ref = listBillabilityRuleConditionsRef();
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = listBillabilityRuleConditionsRef(dataConnect);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.billabilityRuleConditionss);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRuleConditionss);
 });
 ```
 
@@ -6578,6 +6786,333 @@ console.log(data.timeEntries_deleteMany);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.timeEntries_deleteMany);
+});
+```
+
+## DeleteBillabilityRules
+You can execute the `DeleteBillabilityRules` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+deleteBillabilityRules(vars: DeleteBillabilityRulesVariables): MutationPromise<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+
+interface DeleteBillabilityRulesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteBillabilityRulesVariables): MutationRef<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+}
+export const deleteBillabilityRulesRef: DeleteBillabilityRulesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+deleteBillabilityRules(dc: DataConnect, vars: DeleteBillabilityRulesVariables): MutationPromise<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+
+interface DeleteBillabilityRulesRef {
+  ...
+  (dc: DataConnect, vars: DeleteBillabilityRulesVariables): MutationRef<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+}
+export const deleteBillabilityRulesRef: DeleteBillabilityRulesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the deleteBillabilityRulesRef:
+```typescript
+const name = deleteBillabilityRulesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `DeleteBillabilityRules` mutation requires an argument of type `DeleteBillabilityRulesVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface DeleteBillabilityRulesVariables {
+  id: UUIDString;
+}
+```
+### Return Type
+Recall that executing the `DeleteBillabilityRules` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `DeleteBillabilityRulesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface DeleteBillabilityRulesData {
+  billabilityRules_delete?: BillabilityRules_Key | null;
+}
+```
+### Using `DeleteBillabilityRules`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, deleteBillabilityRules, DeleteBillabilityRulesVariables } from '@dataconnect/generated';
+
+// The `DeleteBillabilityRules` mutation requires an argument of type `DeleteBillabilityRulesVariables`:
+const deleteBillabilityRulesVars: DeleteBillabilityRulesVariables = {
+  id: ..., 
+};
+
+// Call the `deleteBillabilityRules()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await deleteBillabilityRules(deleteBillabilityRulesVars);
+// Variables can be defined inline as well.
+const { data } = await deleteBillabilityRules({ id: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await deleteBillabilityRules(dataConnect, deleteBillabilityRulesVars);
+
+console.log(data.billabilityRules_delete);
+
+// Or, you can use the `Promise` API.
+deleteBillabilityRules(deleteBillabilityRulesVars).then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRules_delete);
+});
+```
+
+### Using `DeleteBillabilityRules`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, deleteBillabilityRulesRef, DeleteBillabilityRulesVariables } from '@dataconnect/generated';
+
+// The `DeleteBillabilityRules` mutation requires an argument of type `DeleteBillabilityRulesVariables`:
+const deleteBillabilityRulesVars: DeleteBillabilityRulesVariables = {
+  id: ..., 
+};
+
+// Call the `deleteBillabilityRulesRef()` function to get a reference to the mutation.
+const ref = deleteBillabilityRulesRef(deleteBillabilityRulesVars);
+// Variables can be defined inline as well.
+const ref = deleteBillabilityRulesRef({ id: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = deleteBillabilityRulesRef(dataConnect, deleteBillabilityRulesVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.billabilityRules_delete);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRules_delete);
+});
+```
+
+## DeleteBillabilityRuleConditions
+You can execute the `DeleteBillabilityRuleConditions` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+deleteBillabilityRuleConditions(vars: DeleteBillabilityRuleConditionsVariables): MutationPromise<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+
+interface DeleteBillabilityRuleConditionsRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteBillabilityRuleConditionsVariables): MutationRef<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+}
+export const deleteBillabilityRuleConditionsRef: DeleteBillabilityRuleConditionsRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+deleteBillabilityRuleConditions(dc: DataConnect, vars: DeleteBillabilityRuleConditionsVariables): MutationPromise<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+
+interface DeleteBillabilityRuleConditionsRef {
+  ...
+  (dc: DataConnect, vars: DeleteBillabilityRuleConditionsVariables): MutationRef<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+}
+export const deleteBillabilityRuleConditionsRef: DeleteBillabilityRuleConditionsRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the deleteBillabilityRuleConditionsRef:
+```typescript
+const name = deleteBillabilityRuleConditionsRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `DeleteBillabilityRuleConditions` mutation requires an argument of type `DeleteBillabilityRuleConditionsVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface DeleteBillabilityRuleConditionsVariables {
+  id: UUIDString;
+}
+```
+### Return Type
+Recall that executing the `DeleteBillabilityRuleConditions` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `DeleteBillabilityRuleConditionsData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface DeleteBillabilityRuleConditionsData {
+  billabilityRuleConditions_delete?: BillabilityRuleConditions_Key | null;
+}
+```
+### Using `DeleteBillabilityRuleConditions`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, deleteBillabilityRuleConditions, DeleteBillabilityRuleConditionsVariables } from '@dataconnect/generated';
+
+// The `DeleteBillabilityRuleConditions` mutation requires an argument of type `DeleteBillabilityRuleConditionsVariables`:
+const deleteBillabilityRuleConditionsVars: DeleteBillabilityRuleConditionsVariables = {
+  id: ..., 
+};
+
+// Call the `deleteBillabilityRuleConditions()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await deleteBillabilityRuleConditions(deleteBillabilityRuleConditionsVars);
+// Variables can be defined inline as well.
+const { data } = await deleteBillabilityRuleConditions({ id: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await deleteBillabilityRuleConditions(dataConnect, deleteBillabilityRuleConditionsVars);
+
+console.log(data.billabilityRuleConditions_delete);
+
+// Or, you can use the `Promise` API.
+deleteBillabilityRuleConditions(deleteBillabilityRuleConditionsVars).then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRuleConditions_delete);
+});
+```
+
+### Using `DeleteBillabilityRuleConditions`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, deleteBillabilityRuleConditionsRef, DeleteBillabilityRuleConditionsVariables } from '@dataconnect/generated';
+
+// The `DeleteBillabilityRuleConditions` mutation requires an argument of type `DeleteBillabilityRuleConditionsVariables`:
+const deleteBillabilityRuleConditionsVars: DeleteBillabilityRuleConditionsVariables = {
+  id: ..., 
+};
+
+// Call the `deleteBillabilityRuleConditionsRef()` function to get a reference to the mutation.
+const ref = deleteBillabilityRuleConditionsRef(deleteBillabilityRuleConditionsVars);
+// Variables can be defined inline as well.
+const ref = deleteBillabilityRuleConditionsRef({ id: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = deleteBillabilityRuleConditionsRef(dataConnect, deleteBillabilityRuleConditionsVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.billabilityRuleConditions_delete);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRuleConditions_delete);
+});
+```
+
+## DeleteBillabilityRuleConditionsByRule
+You can execute the `DeleteBillabilityRuleConditionsByRule` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+deleteBillabilityRuleConditionsByRule(vars: DeleteBillabilityRuleConditionsByRuleVariables): MutationPromise<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+
+interface DeleteBillabilityRuleConditionsByRuleRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteBillabilityRuleConditionsByRuleVariables): MutationRef<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+}
+export const deleteBillabilityRuleConditionsByRuleRef: DeleteBillabilityRuleConditionsByRuleRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+deleteBillabilityRuleConditionsByRule(dc: DataConnect, vars: DeleteBillabilityRuleConditionsByRuleVariables): MutationPromise<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+
+interface DeleteBillabilityRuleConditionsByRuleRef {
+  ...
+  (dc: DataConnect, vars: DeleteBillabilityRuleConditionsByRuleVariables): MutationRef<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+}
+export const deleteBillabilityRuleConditionsByRuleRef: DeleteBillabilityRuleConditionsByRuleRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the deleteBillabilityRuleConditionsByRuleRef:
+```typescript
+const name = deleteBillabilityRuleConditionsByRuleRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `DeleteBillabilityRuleConditionsByRule` mutation requires an argument of type `DeleteBillabilityRuleConditionsByRuleVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface DeleteBillabilityRuleConditionsByRuleVariables {
+  ruleId: UUIDString;
+}
+```
+### Return Type
+Recall that executing the `DeleteBillabilityRuleConditionsByRule` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `DeleteBillabilityRuleConditionsByRuleData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface DeleteBillabilityRuleConditionsByRuleData {
+  billabilityRuleConditions_deleteMany: number;
+}
+```
+### Using `DeleteBillabilityRuleConditionsByRule`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, deleteBillabilityRuleConditionsByRule, DeleteBillabilityRuleConditionsByRuleVariables } from '@dataconnect/generated';
+
+// The `DeleteBillabilityRuleConditionsByRule` mutation requires an argument of type `DeleteBillabilityRuleConditionsByRuleVariables`:
+const deleteBillabilityRuleConditionsByRuleVars: DeleteBillabilityRuleConditionsByRuleVariables = {
+  ruleId: ..., 
+};
+
+// Call the `deleteBillabilityRuleConditionsByRule()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await deleteBillabilityRuleConditionsByRule(deleteBillabilityRuleConditionsByRuleVars);
+// Variables can be defined inline as well.
+const { data } = await deleteBillabilityRuleConditionsByRule({ ruleId: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await deleteBillabilityRuleConditionsByRule(dataConnect, deleteBillabilityRuleConditionsByRuleVars);
+
+console.log(data.billabilityRuleConditions_deleteMany);
+
+// Or, you can use the `Promise` API.
+deleteBillabilityRuleConditionsByRule(deleteBillabilityRuleConditionsByRuleVars).then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRuleConditions_deleteMany);
+});
+```
+
+### Using `DeleteBillabilityRuleConditionsByRule`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, deleteBillabilityRuleConditionsByRuleRef, DeleteBillabilityRuleConditionsByRuleVariables } from '@dataconnect/generated';
+
+// The `DeleteBillabilityRuleConditionsByRule` mutation requires an argument of type `DeleteBillabilityRuleConditionsByRuleVariables`:
+const deleteBillabilityRuleConditionsByRuleVars: DeleteBillabilityRuleConditionsByRuleVariables = {
+  ruleId: ..., 
+};
+
+// Call the `deleteBillabilityRuleConditionsByRuleRef()` function to get a reference to the mutation.
+const ref = deleteBillabilityRuleConditionsByRuleRef(deleteBillabilityRuleConditionsByRuleVars);
+// Variables can be defined inline as well.
+const ref = deleteBillabilityRuleConditionsByRuleRef({ ruleId: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = deleteBillabilityRuleConditionsByRuleRef(dataConnect, deleteBillabilityRuleConditionsByRuleVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.billabilityRuleConditions_deleteMany);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.billabilityRuleConditions_deleteMany);
 });
 ```
 

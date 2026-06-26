@@ -430,6 +430,42 @@ export function deleteAllTimeEntries(dc) {
   return executeMutation(deleteAllTimeEntriesRef(dcInstance, inputVars));
 }
 
+export const deleteBillabilityRulesRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'DeleteBillabilityRules', inputVars);
+}
+deleteBillabilityRulesRef.operationName = 'DeleteBillabilityRules';
+
+export function deleteBillabilityRules(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(deleteBillabilityRulesRef(dcInstance, inputVars));
+}
+
+export const deleteBillabilityRuleConditionsRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'DeleteBillabilityRuleConditions', inputVars);
+}
+deleteBillabilityRuleConditionsRef.operationName = 'DeleteBillabilityRuleConditions';
+
+export function deleteBillabilityRuleConditions(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(deleteBillabilityRuleConditionsRef(dcInstance, inputVars));
+}
+
+export const deleteBillabilityRuleConditionsByRuleRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'DeleteBillabilityRuleConditionsByRule', inputVars);
+}
+deleteBillabilityRuleConditionsByRuleRef.operationName = 'DeleteBillabilityRuleConditionsByRule';
+
+export function deleteBillabilityRuleConditionsByRule(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(deleteBillabilityRuleConditionsByRuleRef(dcInstance, inputVars));
+}
+
 export const listProjectsRef = (dc) => {
   const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
   dcInstance._useGeneratedSdk();
@@ -649,5 +685,31 @@ export function listProjectScopes(dcOrOptions, options) {
   
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
   return executeQuery(listProjectScopesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
+}
+
+export const listBillabilityRulesRef = (dc) => {
+  const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'ListBillabilityRules');
+}
+listBillabilityRulesRef.operationName = 'ListBillabilityRules';
+
+export function listBillabilityRules(dcOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
+  return executeQuery(listBillabilityRulesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
+}
+
+export const listBillabilityRuleConditionsRef = (dc) => {
+  const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'ListBillabilityRuleConditions');
+}
+listBillabilityRuleConditionsRef.operationName = 'ListBillabilityRuleConditions';
+
+export function listBillabilityRuleConditions(dcOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
+  return executeQuery(listBillabilityRuleConditionsRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
 

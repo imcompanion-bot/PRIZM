@@ -1,4 +1,4 @@
-const { insertAllocationsRef, upsertAllocationsRef, insertBillabilityRuleConditionsRef, upsertBillabilityRuleConditionsRef, insertBillabilityRulesRef, upsertBillabilityRulesRef, insertClientTeamAllocationsRef, upsertClientTeamAllocationsRef, insertDailyAllocationsRef, upsertDailyAllocationsRef, insertDataImportsRef, upsertDataImportsRef, insertPeopleRef, upsertPeopleRef, insertPhaseAllocationsRef, upsertPhaseAllocationsRef, insertProjectMonthlyRevenueRef, upsertProjectMonthlyRevenueRef, insertProjectPhasesRef, upsertProjectPhasesRef, insertProjectScopesRef, upsertProjectScopesRef, insertProjectsRef, upsertProjectsRef, insertRateCardsRef, upsertRateCardsRef, insertRolesRef, upsertRolesRef, insertTimeEntriesRef, upsertTimeEntriesRef, createAppUserRef, updateAppUserRef, deleteAppUserRef, deleteTimeEntriesByDateRef, deleteAllTimeEntriesRef, listProjectsRef, getProjectRef, listPeopleRef, listRolesRef, listRateCardsRef, listTimeEntriesRef, listTimeEntriesByProjectRef, listProjectPhasesRef, listAllocationsRef, listDataImportsRef, getAppUserByEmailRef, listAppUsersRef, getOldestTimeEntryRef, getNewestTimeEntryRef, getTimeEntriesByDateRangeRef, getAllTimeEntriesRef, listProjectScopesRef, connectorConfig } = require('../index.cjs.js');
+const { insertAllocationsRef, upsertAllocationsRef, insertBillabilityRuleConditionsRef, upsertBillabilityRuleConditionsRef, insertBillabilityRulesRef, upsertBillabilityRulesRef, insertClientTeamAllocationsRef, upsertClientTeamAllocationsRef, insertDailyAllocationsRef, upsertDailyAllocationsRef, insertDataImportsRef, upsertDataImportsRef, insertPeopleRef, upsertPeopleRef, insertPhaseAllocationsRef, upsertPhaseAllocationsRef, insertProjectMonthlyRevenueRef, upsertProjectMonthlyRevenueRef, insertProjectPhasesRef, upsertProjectPhasesRef, insertProjectScopesRef, upsertProjectScopesRef, insertProjectsRef, upsertProjectsRef, insertRateCardsRef, upsertRateCardsRef, insertRolesRef, upsertRolesRef, insertTimeEntriesRef, upsertTimeEntriesRef, createAppUserRef, updateAppUserRef, deleteAppUserRef, deleteTimeEntriesByDateRef, deleteAllTimeEntriesRef, deleteBillabilityRulesRef, deleteBillabilityRuleConditionsRef, deleteBillabilityRuleConditionsByRuleRef, listProjectsRef, getProjectRef, listPeopleRef, listRolesRef, listRateCardsRef, listTimeEntriesRef, listTimeEntriesByProjectRef, listProjectPhasesRef, listAllocationsRef, listDataImportsRef, getAppUserByEmailRef, listAppUsersRef, getOldestTimeEntryRef, getNewestTimeEntryRef, getTimeEntriesByDateRangeRef, getAllTimeEntriesRef, listProjectScopesRef, listBillabilityRulesRef, listBillabilityRuleConditionsRef, connectorConfig } = require('../index.cjs.js');
 const { validateArgs, CallerSdkTypeEnum } = require('firebase/data-connect');
 const { useDataConnectQuery, useDataConnectMutation, validateReactArgs } = require('@tanstack-query-firebase/react/data-connect');
 
@@ -282,6 +282,30 @@ exports.useDeleteAllTimeEntries = function useDeleteAllTimeEntries(dcOrOptions, 
   return useDataConnectMutation(refFactory, inputOpts, CallerSdkTypeEnum.GeneratedReact);
 }
 
+exports.useDeleteBillabilityRules = function useDeleteBillabilityRules(dcOrOptions, options) {
+  const { dc: dcInstance, vars: inputOpts } = validateArgs(connectorConfig, dcOrOptions, options);
+  function refFactory(vars) {
+    return deleteBillabilityRulesRef(dcInstance, vars);
+  }
+  return useDataConnectMutation(refFactory, inputOpts, CallerSdkTypeEnum.GeneratedReact);
+}
+
+exports.useDeleteBillabilityRuleConditions = function useDeleteBillabilityRuleConditions(dcOrOptions, options) {
+  const { dc: dcInstance, vars: inputOpts } = validateArgs(connectorConfig, dcOrOptions, options);
+  function refFactory(vars) {
+    return deleteBillabilityRuleConditionsRef(dcInstance, vars);
+  }
+  return useDataConnectMutation(refFactory, inputOpts, CallerSdkTypeEnum.GeneratedReact);
+}
+
+exports.useDeleteBillabilityRuleConditionsByRule = function useDeleteBillabilityRuleConditionsByRule(dcOrOptions, options) {
+  const { dc: dcInstance, vars: inputOpts } = validateArgs(connectorConfig, dcOrOptions, options);
+  function refFactory(vars) {
+    return deleteBillabilityRuleConditionsByRuleRef(dcInstance, vars);
+  }
+  return useDataConnectMutation(refFactory, inputOpts, CallerSdkTypeEnum.GeneratedReact);
+}
+
 
 exports.useListProjects = function useListProjects(dcOrOptions, options) {
   const { dc: dcInstance, options: inputOpts } = validateReactArgs(connectorConfig, dcOrOptions, options);
@@ -382,5 +406,17 @@ exports.useGetAllTimeEntries = function useGetAllTimeEntries(dcOrOptions, option
 exports.useListProjectScopes = function useListProjectScopes(dcOrOptions, options) {
   const { dc: dcInstance, options: inputOpts } = validateReactArgs(connectorConfig, dcOrOptions, options);
   const ref = listProjectScopesRef(dcInstance);
+  return useDataConnectQuery(ref, inputOpts, CallerSdkTypeEnum.GeneratedReact);
+}
+
+exports.useListBillabilityRules = function useListBillabilityRules(dcOrOptions, options) {
+  const { dc: dcInstance, options: inputOpts } = validateReactArgs(connectorConfig, dcOrOptions, options);
+  const ref = listBillabilityRulesRef(dcInstance);
+  return useDataConnectQuery(ref, inputOpts, CallerSdkTypeEnum.GeneratedReact);
+}
+
+exports.useListBillabilityRuleConditions = function useListBillabilityRuleConditions(dcOrOptions, options) {
+  const { dc: dcInstance, options: inputOpts } = validateReactArgs(connectorConfig, dcOrOptions, options);
+  const ref = listBillabilityRuleConditionsRef(dcInstance);
   return useDataConnectQuery(ref, inputOpts, CallerSdkTypeEnum.GeneratedReact);
 }

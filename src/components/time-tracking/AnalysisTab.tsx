@@ -116,6 +116,15 @@ const PIE_COLORS_3 = [
   "hsl(205, 52%, 52%)", "hsl(110, 42%, 48%)", "hsl(15, 60%, 55%)", "hsl(245, 40%, 55%)",
 ];
 
+const matchesOffice = (office: string | null, filter: "Global" | "UK" | "US") => {
+  if (filter === "Global") return true;
+  if (!office) return false;
+  const o = office.toUpperCase();
+  if (filter === "UK") return o === "UK" || o === "UNITED KINGDOM" || o === "COMPANION";
+  if (filter === "US") return o === "US" || o === "UNITED STATES";
+  return false;
+};
+
 const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisTabProps) => {
   const { data: people = [] } = useQuery({
     queryKey: ["people_with_roles"],
@@ -386,7 +395,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       const effTeamLower = effective.team.toLowerCase().trim();
       if (effTeamLower === "parental leave") continue; // skip work logged inside a parental-leave window
       if (!allowedTeamsLower.has(effTeamLower)) continue;
-      if (officeFilter !== "Global" && effective.office !== officeFilter) continue;
+      if (!matchesOffice(effective.office, officeFilter)) continue;
 
       const person = { name, team: effective.team, role: effective.role, office: effective.office };
 
@@ -746,7 +755,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
 
     const allowedTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data"]);
     const filtered = people.filter((p: any) => {
-      if (officeFilter !== "Global" && p.office !== officeFilter) return false;
+      if (!matchesOffice(p.office, officeFilter)) return false;
       const team = (p.team || "").toLowerCase().trim();
       return allowedTeams.has(team);
     });
@@ -858,7 +867,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
 
     const allowedTeams2 = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data"]);
     const filtered = people.filter((p: any) => {
-      if (officeFilter !== "Global" && p.office !== officeFilter) return false;
+      if (!matchesOffice(p.office, officeFilter)) return false;
       const team = (p.team || "").toLowerCase().trim();
       return allowedTeams2.has(team);
     });
@@ -1153,7 +1162,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       const deduped = new Map<string, MonthAcc & { roleName: string }>();
 
       for (const person of people as any[]) {
-        if (officeFilter !== "Global" && person.office !== officeFilter) continue;
+        if (!matchesOffice(person.office, officeFilter)) continue;
         const team = (person.team || "").toLowerCase().trim();
         if (!allowedTeams.has(team)) continue;
 
@@ -1479,7 +1488,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
     const deduped = new Map<string, Acc>();
 
     for (const person of people as any[]) {
-      if (officeFilter !== "Global" && person.office !== officeFilter) continue;
+      if (!matchesOffice(person.office, officeFilter)) continue;
       const team = (person.team || "").toLowerCase().trim();
       if (!allowedTeams.has(team)) continue;
       const teamName = (person as any).team || "Unassigned";

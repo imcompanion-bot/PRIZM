@@ -475,6 +475,34 @@ exports.deleteAppUser = function deleteAppUser(dcOrVars, vars) {
 }
 ;
 
+const deleteTimeEntriesByDateRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'DeleteTimeEntriesByDate', inputVars);
+}
+deleteTimeEntriesByDateRef.operationName = 'DeleteTimeEntriesByDate';
+exports.deleteTimeEntriesByDateRef = deleteTimeEntriesByDateRef;
+
+exports.deleteTimeEntriesByDate = function deleteTimeEntriesByDate(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(deleteTimeEntriesByDateRef(dcInstance, inputVars));
+}
+;
+
+const deleteAllTimeEntriesRef = (dc) => {
+  const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'DeleteAllTimeEntries');
+}
+deleteAllTimeEntriesRef.operationName = 'DeleteAllTimeEntries';
+exports.deleteAllTimeEntriesRef = deleteAllTimeEntriesRef;
+
+exports.deleteAllTimeEntries = function deleteAllTimeEntries(dc) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dc, undefined);
+  return executeMutation(deleteAllTimeEntriesRef(dcInstance, inputVars));
+}
+;
+
 const listProjectsRef = (dc) => {
   const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
   dcInstance._useGeneratedSdk();
@@ -652,5 +680,110 @@ exports.listAppUsers = function listAppUsers(dcOrOptions, options) {
   
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
   return executeQuery(listAppUsersRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
+}
+;
+
+const getOldestTimeEntryRef = (dc) => {
+  const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetOldestTimeEntry');
+}
+getOldestTimeEntryRef.operationName = 'GetOldestTimeEntry';
+exports.getOldestTimeEntryRef = getOldestTimeEntryRef;
+
+exports.getOldestTimeEntry = function getOldestTimeEntry(dcOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
+  return executeQuery(getOldestTimeEntryRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
+}
+;
+
+const getNewestTimeEntryRef = (dc) => {
+  const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetNewestTimeEntry');
+}
+getNewestTimeEntryRef.operationName = 'GetNewestTimeEntry';
+exports.getNewestTimeEntryRef = getNewestTimeEntryRef;
+
+exports.getNewestTimeEntry = function getNewestTimeEntry(dcOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
+  return executeQuery(getNewestTimeEntryRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
+}
+;
+
+const getTimeEntriesByDateRangeRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetTimeEntriesByDateRange', inputVars);
+}
+getTimeEntriesByDateRangeRef.operationName = 'GetTimeEntriesByDateRange';
+exports.getTimeEntriesByDateRangeRef = getTimeEntriesByDateRangeRef;
+
+exports.getTimeEntriesByDateRange = function getTimeEntriesByDateRange(dcOrVars, varsOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
+  return executeQuery(getTimeEntriesByDateRangeRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
+}
+;
+
+const getAllTimeEntriesRef = (dc) => {
+  const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetAllTimeEntries');
+}
+getAllTimeEntriesRef.operationName = 'GetAllTimeEntries';
+exports.getAllTimeEntriesRef = getAllTimeEntriesRef;
+
+exports.getAllTimeEntries = function getAllTimeEntries(dcOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
+  return executeQuery(getAllTimeEntriesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
+}
+;
+
+const listProjectScopesRef = (dc) => {
+  const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'ListProjectScopes');
+}
+listProjectScopesRef.operationName = 'ListProjectScopes';
+exports.listProjectScopesRef = listProjectScopesRef;
+
+exports.listProjectScopes = function listProjectScopes(dcOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
+  return executeQuery(listProjectScopesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
+}
+;
+
+const listBillabilityRulesRef = (dc) => {
+  const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'ListBillabilityRules');
+}
+listBillabilityRulesRef.operationName = 'ListBillabilityRules';
+exports.listBillabilityRulesRef = listBillabilityRulesRef;
+
+exports.listBillabilityRules = function listBillabilityRules(dcOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
+  return executeQuery(listBillabilityRulesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
+}
+;
+
+const listBillabilityRuleConditionsRef = (dc) => {
+  const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'ListBillabilityRuleConditions');
+}
+listBillabilityRuleConditionsRef.operationName = 'ListBillabilityRuleConditions';
+exports.listBillabilityRuleConditionsRef = listBillabilityRuleConditionsRef;
+
+exports.listBillabilityRuleConditions = function listBillabilityRuleConditions(dcOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
+  return executeQuery(listBillabilityRuleConditionsRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
 ;

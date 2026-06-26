@@ -176,7 +176,8 @@ export async function runSync() {
     const monthlySalary = parseNumber(row[13]);
     const office = row[14];
 
-    const personId = uuidv5(`person_${name.toLowerCase()}`, NAMESPACE);
+    const personKey = code ? `person_${code.toLowerCase().trim()}` : `person_${name.toLowerCase().trim()}`;
+    const personId = uuidv5(personKey, NAMESPACE);
     const roleId = roleName ? roleIdMap.get(roleName.toLowerCase()) : null;
 
     await upsertPeople({
@@ -205,6 +206,27 @@ export async function runSync() {
 
   // 3. PROJECTS
   logger.info("Syncing Projects...");
+  
+  // Load Scopes first to extract opportunity numbers
+  const titleToOppNumber = new Map<string, string>();
+  try {
+    const scopesResponseForOpp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: "Scopes!A2:C",
+    });
+    const scopesRowsForOpp = scopesResponseForOpp.data.values || [];
+    for (const row of scopesRowsForOpp) {
+      const oppNumber = row[0];
+      const title = row[2];
+      if (oppNumber && title) {
+        titleToOppNumber.set(title.trim(), oppNumber.trim());
+      }
+    }
+    logger.info(`Loaded ${titleToOppNumber.size} title-to-opportunity mappings from Scopes`);
+  } catch (err: any) {
+    logger.error("Failed to load Scopes for opportunity number mapping", err);
+  }
+
   const projectsResponse = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
     range: "Data summary - P&L phased (de-risked)!B5:Z",
@@ -228,6 +250,12 @@ export async function runSync() {
 
     if (!startDate || !endDate) continue;
 
+    const price = parseNumber(row[11]);
+    const oppNumber = titleToOppNumber.get(title.trim()) || null;
+    const oppRecordType = title.toLowerCase().includes("rfp") || title.toLowerCase().includes("rfi")
+      ? "Agency - RFP / RFI"
+      : "Agency - Execution";
+
     await upsertProjects({
       id: projectId,
       title,
@@ -241,7 +269,7 @@ export async function runSync() {
       closeDate,
       startDate,
       endDate,
-      price: parseNumber(row[11]),
+      price,
       budgetCost: parseNumber(row[12]),
       contractedInflCost: parseNumber(row[13]),
       actualCost: parseNumber(row[14]),
@@ -255,6 +283,9 @@ export async function runSync() {
       durationWeeks: parseNumber(row[22]),
       durationWeeksRounded: parseNumber(row[23]),
       rateCardDiscount: 0,
+      opportunityNumber: oppNumber,
+      opportunityRecordType: oppRecordType,
+      revenue: price,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       isActive: true,
@@ -309,7 +340,7 @@ export async function runSync() {
   logger.info(`Sync complete! Roles: ${upsertedRoles}, RateCards: ${upsertedRateCards}, People: ${upsertedPeople}, Projects: ${upsertedProjects}, Scopes: ${upsertedScopes}`);
 }
 
-export const syncCentralDataCron = onSchedule("0 2 * * *", async (event) => {
+export const syncCentralDataCron = onSchedule({ schedule: "0 7 * * *", timeZone: "Europe/London" }, async (event) => {
   await runSync();
 });
 

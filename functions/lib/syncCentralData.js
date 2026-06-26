@@ -185,7 +185,8 @@ async function runSync() {
         const overallEnd = parseDate(row[12]);
         const monthlySalary = parseNumber(row[13]);
         const office = row[14];
-        const personId = (0, uuid_1.v5)(`person_${name.toLowerCase()}`, NAMESPACE);
+        const personKey = code ? `person_${code.toLowerCase().trim()}` : `person_${name.toLowerCase().trim()}`;
+        const personId = (0, uuid_1.v5)(personKey, NAMESPACE);
         const roleId = roleName ? roleIdMap.get(roleName.toLowerCase()) : null;
         await (0, dataconnect_generated_1.upsertPeople)({
             id: personId,
@@ -212,6 +213,26 @@ async function runSync() {
     }
     // 3. PROJECTS
     logger.info("Syncing Projects...");
+    // Load Scopes first to extract opportunity numbers
+    const titleToOppNumber = new Map();
+    try {
+        const scopesResponseForOpp = await sheets.spreadsheets.values.get({
+            spreadsheetId: SHEET_ID,
+            range: "Scopes!A2:C",
+        });
+        const scopesRowsForOpp = scopesResponseForOpp.data.values || [];
+        for (const row of scopesRowsForOpp) {
+            const oppNumber = row[0];
+            const title = row[2];
+            if (oppNumber && title) {
+                titleToOppNumber.set(title.trim(), oppNumber.trim());
+            }
+        }
+        logger.info(`Loaded ${titleToOppNumber.size} title-to-opportunity mappings from Scopes`);
+    }
+    catch (err) {
+        logger.error("Failed to load Scopes for opportunity number mapping", err);
+    }
     const projectsResponse = await sheets.spreadsheets.values.get({
         spreadsheetId: SHEET_ID,
         range: "Data summary - P&L phased (de-risked)!B5:Z",
@@ -231,6 +252,11 @@ async function runSync() {
         const endDate = parseDate(row[10]);
         if (!startDate || !endDate)
             continue;
+        const price = parseNumber(row[11]);
+        const oppNumber = titleToOppNumber.get(title.trim()) || null;
+        const oppRecordType = title.toLowerCase().includes("rfp") || title.toLowerCase().includes("rfi")
+            ? "Agency - RFP / RFI"
+            : "Agency - Execution";
         await (0, dataconnect_generated_1.upsertProjects)({
             id: projectId,
             title,
@@ -244,7 +270,7 @@ async function runSync() {
             closeDate,
             startDate,
             endDate,
-            price: parseNumber(row[11]),
+            price,
             budgetCost: parseNumber(row[12]),
             contractedInflCost: parseNumber(row[13]),
             actualCost: parseNumber(row[14]),
@@ -258,6 +284,9 @@ async function runSync() {
             durationWeeks: parseNumber(row[22]),
             durationWeeksRounded: parseNumber(row[23]),
             rateCardDiscount: 0,
+            opportunityNumber: oppNumber,
+            opportunityRecordType: oppRecordType,
+            revenue: price,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             isActive: true,
@@ -304,7 +333,7 @@ async function runSync() {
     }
     logger.info(`Sync complete! Roles: ${upsertedRoles}, RateCards: ${upsertedRateCards}, People: ${upsertedPeople}, Projects: ${upsertedProjects}, Scopes: ${upsertedScopes}`);
 }
-exports.syncCentralDataCron = (0, scheduler_1.onSchedule)("0 2 * * *", async (event) => {
+exports.syncCentralDataCron = (0, scheduler_1.onSchedule)({ schedule: "0 7 * * *", timeZone: "Europe/London" }, async (event) => {
     await runSync();
 });
 exports.syncCentralDataHttp = (0, https_1.onRequest)({ region: "us-east4", serviceAccount: "pharaoh-54a0e@appspot.gserviceaccount.com", timeoutSeconds: 500, memory: "512MiB" }, async (req, res) => {
