@@ -167,6 +167,8 @@ async function runSync() {
     });
     const peopleRows = peopleResponse.data.values || [];
     let upsertedPeople = 0;
+    const sheetPersonIds = new Set();
+    const nameToCurrentId = new Map();
     for (const row of peopleRows) {
         const name = row[0];
         if (!name)
@@ -210,6 +212,73 @@ async function runSync() {
             isActive: true,
         });
         upsertedPeople++;
+        sheetPersonIds.add(personId);
+        // Map normalized name to the current active/latest contract ID in the sheet
+        const normName = name.toLowerCase().trim();
+        const prevId = nameToCurrentId.get(normName);
+        if (!prevId) {
+            nameToCurrentId.set(normName, personId);
+        }
+        else {
+            // Prefer ongoing contract (no end date) or later end date
+            if (!endDate) {
+                nameToCurrentId.set(normName, personId);
+            }
+        }
+    }
+    // Perform stale records cleanup & relinking
+    logger.info("Performing people cleanup and time entry relinking...");
+    try {
+        const existingPeopleRes = await (0, dataconnect_generated_1.listPeople)();
+        const existingPeople = existingPeopleRes.data.peoples || [];
+        const timeEntriesRes = await (0, dataconnect_generated_1.getAllTimeEntries)();
+        const allTimeEntries = timeEntriesRes.data.timeEntriess || [];
+        for (const p of existingPeople) {
+            if (!sheetPersonIds.has(p.id)) {
+                const normName = p.name.toLowerCase().trim();
+                const targetCurrentId = nameToCurrentId.get(normName);
+                if (targetCurrentId) {
+                    // Relink any time entries to the new ID
+                    const staleEntries = allTimeEntries.filter(e => e.person_id === p.id);
+                    if (staleEntries.length > 0) {
+                        logger.info(`Relinking ${staleEntries.length} time entries from stale ID ${p.id} (${p.name}) to new ID ${targetCurrentId}`);
+                        for (const entry of staleEntries) {
+                            await (0, dataconnect_generated_1.updateTimeEntryPerson)({ id: entry.id, personId: targetCurrentId });
+                        }
+                    }
+                    logger.info(`Deleting stale person record ${p.id} (${p.name}, code: ${p.code})`);
+                    await (0, dataconnect_generated_1.deletePeople)({ id: p.id });
+                }
+                else {
+                    // No replacement found in the sheet (person removed entirely). Mark them as inactive.
+                    logger.info(`Deactivating obsolete person record ${p.id} (${p.name}, code: ${p.code})`);
+                    await (0, dataconnect_generated_1.upsertPeople)({
+                        id: p.id,
+                        name: p.name,
+                        code: p.code,
+                        type: p.type || null,
+                        team: p.team || null,
+                        status: p.status || null,
+                        office: p.office || "Unknown",
+                        ukPercentage: p.uk_percentage || null,
+                        usPercentage: p.us_percentage || null,
+                        imcPercentage: p.imc_percentage || null,
+                        employmentStartDate: p.employment_start_date || null,
+                        employmentEndDate: p.employment_end_date || null,
+                        overallStartDate: p.overall_start_date || null,
+                        overallEndDate: p.overall_end_date || null,
+                        monthlySalary: p.monthly_salary || null,
+                        annualSalary: p.annual_salary || null,
+                        roleId: p.role_id || null,
+                        createdAt: p.created_at || new Date().toISOString(),
+                        isActive: false,
+                    });
+                }
+            }
+        }
+    }
+    catch (err) {
+        logger.error("Failed to run cleanup / relinking in sync script:", err);
     }
     // 3. PROJECTS
     logger.info("Syncing Projects...");

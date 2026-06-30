@@ -466,6 +466,30 @@ export function deleteBillabilityRuleConditionsByRule(dcOrVars, vars) {
   return executeMutation(deleteBillabilityRuleConditionsByRuleRef(dcInstance, inputVars));
 }
 
+export const deletePeopleRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'DeletePeople', inputVars);
+}
+deletePeopleRef.operationName = 'DeletePeople';
+
+export function deletePeople(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(deletePeopleRef(dcInstance, inputVars));
+}
+
+export const updateTimeEntryPersonRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'UpdateTimeEntryPerson', inputVars);
+}
+updateTimeEntryPersonRef.operationName = 'UpdateTimeEntryPerson';
+
+export function updateTimeEntryPerson(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(updateTimeEntryPersonRef(dcInstance, inputVars));
+}
+
 export const listProjectsRef = (dc) => {
   const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
   dcInstance._useGeneratedSdk();

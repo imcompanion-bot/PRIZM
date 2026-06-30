@@ -156,3 +156,11 @@ mutation DeleteBillabilityRuleConditionsByRule($ruleId: UUID!) @auth(level: PUBL
   billabilityRuleConditions_deleteMany(where: { ruleId: { eq: $ruleId } })
 }
 
+mutation DeletePeople($id: UUID!) @auth(level: PUBLIC) {
+  people_delete(id: $id)
+}
+
+mutation UpdateTimeEntryPerson($id: UUID!, $personId: UUID!) @auth(level: PUBLIC) {
+  timeEntries_update(id: $id, data: { personId: $personId })
+}
+

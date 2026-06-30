@@ -117,7 +117,7 @@ export const resumeGlobalImportIfNeeded = async (queryClient: any) => {
   // Run in background
   (async () => {
     try {
-      const CONCURRENCY_LIMIT = 75;
+      const CONCURRENCY_LIMIT = 15;
       for (let i = currentIndex; i < entries.length; i += CONCURRENCY_LIMIT) {
         const batch = entries.slice(i, i + CONCURRENCY_LIMIT);
         
@@ -252,7 +252,7 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
 
         // To prevent RESOURCE_EXHAUSTED connection pool limits on Data Connect,
         // we batch requests at a moderate concurrency (75 parallel requests max)
-        const CONCURRENCY_LIMIT = 75;
+        const CONCURRENCY_LIMIT = 15;
         
         for (let i = 0; i < entries.length; i += CONCURRENCY_LIMIT) {
           const batch = entries.slice(i, i + CONCURRENCY_LIMIT);

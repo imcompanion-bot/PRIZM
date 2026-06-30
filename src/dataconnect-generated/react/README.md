@@ -75,6 +75,8 @@ You can also follow the instructions from the [Data Connect documentation](https
   - [*DeleteBillabilityRules*](#deletebillabilityrules)
   - [*DeleteBillabilityRuleConditions*](#deletebillabilityruleconditions)
   - [*DeleteBillabilityRuleConditionsByRule*](#deletebillabilityruleconditionsbyrule)
+  - [*DeletePeople*](#deletepeople)
+  - [*UpdateTimeEntryPerson*](#updatetimeentryperson)
 
 # TanStack Query Firebase & TanStack React Query
 This SDK provides [React](https://react.dev/) hooks generated specific to your application, for the operations found in the connector `example`. These hooks are generated using [TanStack Query Firebase](https://react-query-firebase.invertase.dev/) by our partners at Invertase, a library built on top of [TanStack React Query v5](https://tanstack.com/query/v5/docs/framework/react/overview).
@@ -370,13 +372,20 @@ export interface ListPeopleData {
     name: string;
     team?: string | null;
     office: string;
+    status?: string | null;
+    type?: string | null;
     role_id?: UUIDString | null;
     overall_start_date?: DateString | null;
     overall_end_date?: DateString | null;
     employment_start_date?: DateString | null;
     employment_end_date?: DateString | null;
-    status?: string | null;
     annual_salary?: number | null;
+    monthly_salary?: number | null;
+    uk_percentage?: number | null;
+    us_percentage?: number | null;
+    imc_percentage?: number | null;
+    created_at: DateString;
+    isActive?: boolean | null;
   } & People_Key)[];
 }
 ```
@@ -5864,6 +5873,196 @@ export default function DeleteBillabilityRuleConditionsByRuleComponent() {
   // If the Mutation is successful, you can access the data returned using the `UseMutationResult.data` field.
   if (mutation.isSuccess) {
     console.log(mutation.data.billabilityRuleConditions_deleteMany);
+  }
+  return <div>Mutation execution {mutation.isSuccess ? 'successful' : 'failed'}!</div>;
+}
+```
+
+## DeletePeople
+You can execute the `DeletePeople` Mutation using the `UseMutationResult` object returned by the following Mutation hook function (which is defined in [dataconnect-generated/react/index.d.ts](./index.d.ts)):
+```javascript
+useDeletePeople(options?: useDataConnectMutationOptions<DeletePeopleData, FirebaseError, DeletePeopleVariables>): UseDataConnectMutationResult<DeletePeopleData, DeletePeopleVariables>;
+```
+You can also pass in a `DataConnect` instance to the Mutation hook function.
+```javascript
+useDeletePeople(dc: DataConnect, options?: useDataConnectMutationOptions<DeletePeopleData, FirebaseError, DeletePeopleVariables>): UseDataConnectMutationResult<DeletePeopleData, DeletePeopleVariables>;
+```
+
+### Variables
+The `DeletePeople` Mutation requires an argument of type `DeletePeopleVariables`, which is defined in [dataconnect-generated/index.d.ts](../index.d.ts). It has the following fields:
+
+```javascript
+export interface DeletePeopleVariables {
+  id: UUIDString;
+}
+```
+### Return Type
+Recall that calling the `DeletePeople` Mutation hook function returns a `UseMutationResult` object. This object holds the state of your Mutation, including whether the Mutation is loading, has completed, or has succeeded/failed, among other things.
+
+To check the status of a Mutation, use the `UseMutationResult.status` field. You can also check for pending / success / error status using the `UseMutationResult.isPending`, `UseMutationResult.isSuccess`, and `UseMutationResult.isError` fields.
+
+To execute the Mutation, call `UseMutationResult.mutate()`. This function executes the Mutation, but does not return the data from the Mutation.
+
+To access the data returned by a Mutation, use the `UseMutationResult.data` field. The data for the `DeletePeople` Mutation is of type `DeletePeopleData`, which is defined in [dataconnect-generated/index.d.ts](../index.d.ts). It has the following fields:
+```javascript
+export interface DeletePeopleData {
+  people_delete?: People_Key | null;
+}
+```
+
+To learn more about the `UseMutationResult` object, see the [TanStack React Query documentation](https://tanstack.com/query/v5/docs/framework/react/reference/useMutation).
+
+### Using `DeletePeople`'s Mutation hook function
+
+```javascript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, DeletePeopleVariables } from '@dataconnect/generated';
+import { useDeletePeople } from '@dataconnect/generated/react'
+
+export default function DeletePeopleComponent() {
+  // Call the Mutation hook function to get a `UseMutationResult` object which holds the state of your Mutation.
+  const mutation = useDeletePeople();
+
+  // You can also pass in a `DataConnect` instance to the Mutation hook function.
+  const dataConnect = getDataConnect(connectorConfig);
+  const mutation = useDeletePeople(dataConnect);
+
+  // You can also pass in a `useDataConnectMutationOptions` object to the Mutation hook function.
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  const mutation = useDeletePeople(options);
+
+  // You can also pass both a `DataConnect` instance and a `useDataConnectMutationOptions` object.
+  const dataConnect = getDataConnect(connectorConfig);
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  const mutation = useDeletePeople(dataConnect, options);
+
+  // After calling the Mutation hook function, you must call `UseMutationResult.mutate()` to execute the Mutation.
+  // The `useDeletePeople` Mutation requires an argument of type `DeletePeopleVariables`:
+  const deletePeopleVars: DeletePeopleVariables = {
+    id: ..., 
+  };
+  mutation.mutate(deletePeopleVars);
+  // Variables can be defined inline as well.
+  mutation.mutate({ id: ..., });
+
+  // You can also pass in a `useDataConnectMutationOptions` object to `UseMutationResult.mutate()`.
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  mutation.mutate(deletePeopleVars, options);
+
+  // Then, you can render your component dynamically based on the status of the Mutation.
+  if (mutation.isPending) {
+    return <div>Loading...</div>;
+  }
+
+  if (mutation.isError) {
+    return <div>Error: {mutation.error.message}</div>;
+  }
+
+  // If the Mutation is successful, you can access the data returned using the `UseMutationResult.data` field.
+  if (mutation.isSuccess) {
+    console.log(mutation.data.people_delete);
+  }
+  return <div>Mutation execution {mutation.isSuccess ? 'successful' : 'failed'}!</div>;
+}
+```
+
+## UpdateTimeEntryPerson
+You can execute the `UpdateTimeEntryPerson` Mutation using the `UseMutationResult` object returned by the following Mutation hook function (which is defined in [dataconnect-generated/react/index.d.ts](./index.d.ts)):
+```javascript
+useUpdateTimeEntryPerson(options?: useDataConnectMutationOptions<UpdateTimeEntryPersonData, FirebaseError, UpdateTimeEntryPersonVariables>): UseDataConnectMutationResult<UpdateTimeEntryPersonData, UpdateTimeEntryPersonVariables>;
+```
+You can also pass in a `DataConnect` instance to the Mutation hook function.
+```javascript
+useUpdateTimeEntryPerson(dc: DataConnect, options?: useDataConnectMutationOptions<UpdateTimeEntryPersonData, FirebaseError, UpdateTimeEntryPersonVariables>): UseDataConnectMutationResult<UpdateTimeEntryPersonData, UpdateTimeEntryPersonVariables>;
+```
+
+### Variables
+The `UpdateTimeEntryPerson` Mutation requires an argument of type `UpdateTimeEntryPersonVariables`, which is defined in [dataconnect-generated/index.d.ts](../index.d.ts). It has the following fields:
+
+```javascript
+export interface UpdateTimeEntryPersonVariables {
+  id: UUIDString;
+  personId: UUIDString;
+}
+```
+### Return Type
+Recall that calling the `UpdateTimeEntryPerson` Mutation hook function returns a `UseMutationResult` object. This object holds the state of your Mutation, including whether the Mutation is loading, has completed, or has succeeded/failed, among other things.
+
+To check the status of a Mutation, use the `UseMutationResult.status` field. You can also check for pending / success / error status using the `UseMutationResult.isPending`, `UseMutationResult.isSuccess`, and `UseMutationResult.isError` fields.
+
+To execute the Mutation, call `UseMutationResult.mutate()`. This function executes the Mutation, but does not return the data from the Mutation.
+
+To access the data returned by a Mutation, use the `UseMutationResult.data` field. The data for the `UpdateTimeEntryPerson` Mutation is of type `UpdateTimeEntryPersonData`, which is defined in [dataconnect-generated/index.d.ts](../index.d.ts). It has the following fields:
+```javascript
+export interface UpdateTimeEntryPersonData {
+  timeEntries_update?: TimeEntries_Key | null;
+}
+```
+
+To learn more about the `UseMutationResult` object, see the [TanStack React Query documentation](https://tanstack.com/query/v5/docs/framework/react/reference/useMutation).
+
+### Using `UpdateTimeEntryPerson`'s Mutation hook function
+
+```javascript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, UpdateTimeEntryPersonVariables } from '@dataconnect/generated';
+import { useUpdateTimeEntryPerson } from '@dataconnect/generated/react'
+
+export default function UpdateTimeEntryPersonComponent() {
+  // Call the Mutation hook function to get a `UseMutationResult` object which holds the state of your Mutation.
+  const mutation = useUpdateTimeEntryPerson();
+
+  // You can also pass in a `DataConnect` instance to the Mutation hook function.
+  const dataConnect = getDataConnect(connectorConfig);
+  const mutation = useUpdateTimeEntryPerson(dataConnect);
+
+  // You can also pass in a `useDataConnectMutationOptions` object to the Mutation hook function.
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  const mutation = useUpdateTimeEntryPerson(options);
+
+  // You can also pass both a `DataConnect` instance and a `useDataConnectMutationOptions` object.
+  const dataConnect = getDataConnect(connectorConfig);
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  const mutation = useUpdateTimeEntryPerson(dataConnect, options);
+
+  // After calling the Mutation hook function, you must call `UseMutationResult.mutate()` to execute the Mutation.
+  // The `useUpdateTimeEntryPerson` Mutation requires an argument of type `UpdateTimeEntryPersonVariables`:
+  const updateTimeEntryPersonVars: UpdateTimeEntryPersonVariables = {
+    id: ..., 
+    personId: ..., 
+  };
+  mutation.mutate(updateTimeEntryPersonVars);
+  // Variables can be defined inline as well.
+  mutation.mutate({ id: ..., personId: ..., });
+
+  // You can also pass in a `useDataConnectMutationOptions` object to `UseMutationResult.mutate()`.
+  const options = {
+    onSuccess: () => { console.log('Mutation succeeded!'); }
+  };
+  mutation.mutate(updateTimeEntryPersonVars, options);
+
+  // Then, you can render your component dynamically based on the status of the Mutation.
+  if (mutation.isPending) {
+    return <div>Loading...</div>;
+  }
+
+  if (mutation.isError) {
+    return <div>Error: {mutation.error.message}</div>;
+  }
+
+  // If the Mutation is successful, you can access the data returned using the `UseMutationResult.data` field.
+  if (mutation.isSuccess) {
+    console.log(mutation.data.timeEntries_update);
   }
   return <div>Mutation execution {mutation.isSuccess ? 'successful' : 'failed'}!</div>;
 }

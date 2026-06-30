@@ -1,4 +1,4 @@
-import { insertAllocationsRef, upsertAllocationsRef, insertBillabilityRuleConditionsRef, upsertBillabilityRuleConditionsRef, insertBillabilityRulesRef, upsertBillabilityRulesRef, insertClientTeamAllocationsRef, upsertClientTeamAllocationsRef, insertDailyAllocationsRef, upsertDailyAllocationsRef, insertDataImportsRef, upsertDataImportsRef, insertPeopleRef, upsertPeopleRef, insertPhaseAllocationsRef, upsertPhaseAllocationsRef, insertProjectMonthlyRevenueRef, upsertProjectMonthlyRevenueRef, insertProjectPhasesRef, upsertProjectPhasesRef, insertProjectScopesRef, upsertProjectScopesRef, insertProjectsRef, upsertProjectsRef, insertRateCardsRef, upsertRateCardsRef, insertRolesRef, upsertRolesRef, insertTimeEntriesRef, upsertTimeEntriesRef, createAppUserRef, updateAppUserRef, deleteAppUserRef, deleteTimeEntriesByDateRef, deleteAllTimeEntriesRef, deleteBillabilityRulesRef, deleteBillabilityRuleConditionsRef, deleteBillabilityRuleConditionsByRuleRef, listProjectsRef, getProjectRef, listPeopleRef, listRolesRef, listRateCardsRef, listTimeEntriesRef, listTimeEntriesByProjectRef, listProjectPhasesRef, listAllocationsRef, listDataImportsRef, getAppUserByEmailRef, listAppUsersRef, getOldestTimeEntryRef, getNewestTimeEntryRef, getTimeEntriesByDateRangeRef, getAllTimeEntriesRef, listProjectScopesRef, listBillabilityRulesRef, listBillabilityRuleConditionsRef, connectorConfig } from '../../esm/index.esm.js';
+import { insertAllocationsRef, upsertAllocationsRef, insertBillabilityRuleConditionsRef, upsertBillabilityRuleConditionsRef, insertBillabilityRulesRef, upsertBillabilityRulesRef, insertClientTeamAllocationsRef, upsertClientTeamAllocationsRef, insertDailyAllocationsRef, upsertDailyAllocationsRef, insertDataImportsRef, upsertDataImportsRef, insertPeopleRef, upsertPeopleRef, insertPhaseAllocationsRef, upsertPhaseAllocationsRef, insertProjectMonthlyRevenueRef, upsertProjectMonthlyRevenueRef, insertProjectPhasesRef, upsertProjectPhasesRef, insertProjectScopesRef, upsertProjectScopesRef, insertProjectsRef, upsertProjectsRef, insertRateCardsRef, upsertRateCardsRef, insertRolesRef, upsertRolesRef, insertTimeEntriesRef, upsertTimeEntriesRef, createAppUserRef, updateAppUserRef, deleteAppUserRef, deleteTimeEntriesByDateRef, deleteAllTimeEntriesRef, deleteBillabilityRulesRef, deleteBillabilityRuleConditionsRef, deleteBillabilityRuleConditionsByRuleRef, deletePeopleRef, updateTimeEntryPersonRef, listProjectsRef, getProjectRef, listPeopleRef, listRolesRef, listRateCardsRef, listTimeEntriesRef, listTimeEntriesByProjectRef, listProjectPhasesRef, listAllocationsRef, listDataImportsRef, getAppUserByEmailRef, listAppUsersRef, getOldestTimeEntryRef, getNewestTimeEntryRef, getTimeEntriesByDateRangeRef, getAllTimeEntriesRef, listProjectScopesRef, listBillabilityRulesRef, listBillabilityRuleConditionsRef, connectorConfig } from '../../esm/index.esm.js';
 import { validateArgs, CallerSdkTypeEnum } from 'firebase/data-connect';
 import { useDataConnectQuery, useDataConnectMutation, validateReactArgs } from '@tanstack-query-firebase/react/data-connect';
 
@@ -302,6 +302,22 @@ export function useDeleteBillabilityRuleConditionsByRule(dcOrOptions, options) {
   const { dc: dcInstance, vars: inputOpts } = validateArgs(connectorConfig, dcOrOptions, options);
   function refFactory(vars) {
     return deleteBillabilityRuleConditionsByRuleRef(dcInstance, vars);
+  }
+  return useDataConnectMutation(refFactory, inputOpts, CallerSdkTypeEnum.GeneratedReact);
+}
+
+export function useDeletePeople(dcOrOptions, options) {
+  const { dc: dcInstance, vars: inputOpts } = validateArgs(connectorConfig, dcOrOptions, options);
+  function refFactory(vars) {
+    return deletePeopleRef(dcInstance, vars);
+  }
+  return useDataConnectMutation(refFactory, inputOpts, CallerSdkTypeEnum.GeneratedReact);
+}
+
+export function useUpdateTimeEntryPerson(dcOrOptions, options) {
+  const { dc: dcInstance, vars: inputOpts } = validateArgs(connectorConfig, dcOrOptions, options);
+  function refFactory(vars) {
+    return updateTimeEntryPersonRef(dcInstance, vars);
   }
   return useDataConnectMutation(refFactory, inputOpts, CallerSdkTypeEnum.GeneratedReact);
 }

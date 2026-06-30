@@ -503,6 +503,76 @@ exports.deleteAllTimeEntries = function deleteAllTimeEntries(dc) {
 }
 ;
 
+const deleteBillabilityRulesRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'DeleteBillabilityRules', inputVars);
+}
+deleteBillabilityRulesRef.operationName = 'DeleteBillabilityRules';
+exports.deleteBillabilityRulesRef = deleteBillabilityRulesRef;
+
+exports.deleteBillabilityRules = function deleteBillabilityRules(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(deleteBillabilityRulesRef(dcInstance, inputVars));
+}
+;
+
+const deleteBillabilityRuleConditionsRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'DeleteBillabilityRuleConditions', inputVars);
+}
+deleteBillabilityRuleConditionsRef.operationName = 'DeleteBillabilityRuleConditions';
+exports.deleteBillabilityRuleConditionsRef = deleteBillabilityRuleConditionsRef;
+
+exports.deleteBillabilityRuleConditions = function deleteBillabilityRuleConditions(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(deleteBillabilityRuleConditionsRef(dcInstance, inputVars));
+}
+;
+
+const deleteBillabilityRuleConditionsByRuleRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'DeleteBillabilityRuleConditionsByRule', inputVars);
+}
+deleteBillabilityRuleConditionsByRuleRef.operationName = 'DeleteBillabilityRuleConditionsByRule';
+exports.deleteBillabilityRuleConditionsByRuleRef = deleteBillabilityRuleConditionsByRuleRef;
+
+exports.deleteBillabilityRuleConditionsByRule = function deleteBillabilityRuleConditionsByRule(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(deleteBillabilityRuleConditionsByRuleRef(dcInstance, inputVars));
+}
+;
+
+const deletePeopleRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'DeletePeople', inputVars);
+}
+deletePeopleRef.operationName = 'DeletePeople';
+exports.deletePeopleRef = deletePeopleRef;
+
+exports.deletePeople = function deletePeople(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(deletePeopleRef(dcInstance, inputVars));
+}
+;
+
+const updateTimeEntryPersonRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'UpdateTimeEntryPerson', inputVars);
+}
+updateTimeEntryPersonRef.operationName = 'UpdateTimeEntryPerson';
+exports.updateTimeEntryPersonRef = updateTimeEntryPersonRef;
+
+exports.updateTimeEntryPerson = function updateTimeEntryPerson(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(updateTimeEntryPersonRef(dcInstance, inputVars));
+}
+;
+
 const listProjectsRef = (dc) => {
   const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
   dcInstance._useGeneratedSdk();

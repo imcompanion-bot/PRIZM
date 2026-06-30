@@ -33,14 +33,19 @@ query GetProject($id: UUID!) @auth(level: PUBLIC) {
 
 query ListPeople @auth(level: PUBLIC) {
   peoples(limit: 10000) {
-    id code name team office
+    id code name team office status type
     role_id: roleId
     overall_start_date: overallStartDate
     overall_end_date: overallEndDate
     employment_start_date: employmentStartDate
     employment_end_date: employmentEndDate
-    status
     annual_salary: annualSalary
+    monthly_salary: monthlySalary
+    uk_percentage: ukPercentage
+    us_percentage: usPercentage
+    imc_percentage: imcPercentage
+    created_at: createdAt
+    isActive
   }
 }
 

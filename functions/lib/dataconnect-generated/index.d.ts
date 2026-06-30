@@ -68,6 +68,38 @@ export interface DeleteAppUserVariables {
   id: UUIDString;
 }
 
+export interface DeleteBillabilityRuleConditionsByRuleData {
+  billabilityRuleConditions_deleteMany: number;
+}
+
+export interface DeleteBillabilityRuleConditionsByRuleVariables {
+  ruleId: UUIDString;
+}
+
+export interface DeleteBillabilityRuleConditionsData {
+  billabilityRuleConditions_delete?: BillabilityRuleConditions_Key | null;
+}
+
+export interface DeleteBillabilityRuleConditionsVariables {
+  id: UUIDString;
+}
+
+export interface DeleteBillabilityRulesData {
+  billabilityRules_delete?: BillabilityRules_Key | null;
+}
+
+export interface DeleteBillabilityRulesVariables {
+  id: UUIDString;
+}
+
+export interface DeletePeopleData {
+  people_delete?: People_Key | null;
+}
+
+export interface DeletePeopleVariables {
+  id: UUIDString;
+}
+
 export interface DeleteTimeEntriesByDateData {
   timeEntries_deleteMany: number;
 }
@@ -134,9 +166,12 @@ export interface GetTimeEntriesByDateRangeData {
     date: DateString;
     hours: number;
     notes?: string | null;
+    createdAt: DateString;
     project_id?: UUIDString | null;
     person_id?: UUIDString | null;
-    project_name?: string | null;
+    personName?: string | null;
+    projectName?: string | null;
+    projectCode?: string | null;
   } & TimeEntries_Key)[];
 }
 
@@ -474,13 +509,20 @@ export interface ListPeopleData {
     name: string;
     team?: string | null;
     office: string;
+    status?: string | null;
+    type?: string | null;
     role_id?: UUIDString | null;
     overall_start_date?: DateString | null;
     overall_end_date?: DateString | null;
     employment_start_date?: DateString | null;
     employment_end_date?: DateString | null;
-    status?: string | null;
     annual_salary?: number | null;
+    monthly_salary?: number | null;
+    uk_percentage?: number | null;
+    us_percentage?: number | null;
+    imc_percentage?: number | null;
+    created_at: DateString;
+    isActive?: boolean | null;
   } & People_Key)[];
 }
 
@@ -628,6 +670,15 @@ export interface UpdateAppUserData {
 export interface UpdateAppUserVariables {
   id: UUIDString;
   role: string;
+}
+
+export interface UpdateTimeEntryPersonData {
+  timeEntries_update?: TimeEntries_Key | null;
+}
+
+export interface UpdateTimeEntryPersonVariables {
+  id: UUIDString;
+  personId: UUIDString;
 }
 
 export interface UpsertAllocationsData {
@@ -1321,6 +1372,66 @@ export const deleteAllTimeEntriesRef: DeleteAllTimeEntriesRef;
 
 export function deleteAllTimeEntries(): MutationPromise<DeleteAllTimeEntriesData, undefined>;
 export function deleteAllTimeEntries(dc: DataConnect): MutationPromise<DeleteAllTimeEntriesData, undefined>;
+
+interface DeleteBillabilityRulesRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteBillabilityRulesVariables): MutationRef<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: DeleteBillabilityRulesVariables): MutationRef<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+  operationName: string;
+}
+export const deleteBillabilityRulesRef: DeleteBillabilityRulesRef;
+
+export function deleteBillabilityRules(vars: DeleteBillabilityRulesVariables): MutationPromise<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+export function deleteBillabilityRules(dc: DataConnect, vars: DeleteBillabilityRulesVariables): MutationPromise<DeleteBillabilityRulesData, DeleteBillabilityRulesVariables>;
+
+interface DeleteBillabilityRuleConditionsRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteBillabilityRuleConditionsVariables): MutationRef<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: DeleteBillabilityRuleConditionsVariables): MutationRef<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+  operationName: string;
+}
+export const deleteBillabilityRuleConditionsRef: DeleteBillabilityRuleConditionsRef;
+
+export function deleteBillabilityRuleConditions(vars: DeleteBillabilityRuleConditionsVariables): MutationPromise<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+export function deleteBillabilityRuleConditions(dc: DataConnect, vars: DeleteBillabilityRuleConditionsVariables): MutationPromise<DeleteBillabilityRuleConditionsData, DeleteBillabilityRuleConditionsVariables>;
+
+interface DeleteBillabilityRuleConditionsByRuleRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteBillabilityRuleConditionsByRuleVariables): MutationRef<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: DeleteBillabilityRuleConditionsByRuleVariables): MutationRef<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+  operationName: string;
+}
+export const deleteBillabilityRuleConditionsByRuleRef: DeleteBillabilityRuleConditionsByRuleRef;
+
+export function deleteBillabilityRuleConditionsByRule(vars: DeleteBillabilityRuleConditionsByRuleVariables): MutationPromise<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+export function deleteBillabilityRuleConditionsByRule(dc: DataConnect, vars: DeleteBillabilityRuleConditionsByRuleVariables): MutationPromise<DeleteBillabilityRuleConditionsByRuleData, DeleteBillabilityRuleConditionsByRuleVariables>;
+
+interface DeletePeopleRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeletePeopleVariables): MutationRef<DeletePeopleData, DeletePeopleVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: DeletePeopleVariables): MutationRef<DeletePeopleData, DeletePeopleVariables>;
+  operationName: string;
+}
+export const deletePeopleRef: DeletePeopleRef;
+
+export function deletePeople(vars: DeletePeopleVariables): MutationPromise<DeletePeopleData, DeletePeopleVariables>;
+export function deletePeople(dc: DataConnect, vars: DeletePeopleVariables): MutationPromise<DeletePeopleData, DeletePeopleVariables>;
+
+interface UpdateTimeEntryPersonRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpdateTimeEntryPersonVariables): MutationRef<UpdateTimeEntryPersonData, UpdateTimeEntryPersonVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: UpdateTimeEntryPersonVariables): MutationRef<UpdateTimeEntryPersonData, UpdateTimeEntryPersonVariables>;
+  operationName: string;
+}
+export const updateTimeEntryPersonRef: UpdateTimeEntryPersonRef;
+
+export function updateTimeEntryPerson(vars: UpdateTimeEntryPersonVariables): MutationPromise<UpdateTimeEntryPersonData, UpdateTimeEntryPersonVariables>;
+export function updateTimeEntryPerson(dc: DataConnect, vars: UpdateTimeEntryPersonVariables): MutationPromise<UpdateTimeEntryPersonData, UpdateTimeEntryPersonVariables>;
 
 interface ListProjectsRef {
   /* Allow users to create refs without passing in DataConnect */
