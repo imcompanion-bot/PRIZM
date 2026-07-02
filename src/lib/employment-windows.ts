@@ -1,4 +1,5 @@
-import { eachDayOfInterval, isWeekend } from "date-fns";
+import { eachDayOfInterval, isWeekend, startOfMonth, endOfMonth, isAfter, isBefore } from "date-fns";
+import { getDailyCapacity } from "@/lib/calculations";
 
 /**
  * Period-aware employment resolution.
@@ -71,7 +72,7 @@ export function buildEmploymentWindows(
       role: p.roles?.name || "",
       roleId: p.role_id || null,
       office: p.office || "",
-      capacityPerDay: Number(p.roles?.billable_capacity_hours) || 7.5,
+      capacityPerDay: p.roles?.billable_capacity_hours ? getDailyCapacity(Number(p.roles.billable_capacity_hours)) : 7.5,
       annualSalary: p.annual_salary != null ? Number(p.annual_salary) : null,
       personId: p.id,
     };

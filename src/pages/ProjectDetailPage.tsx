@@ -16,7 +16,7 @@ import { format, differenceInDays, eachDayOfInterval, isWeekend } from "date-fns
 import { cn } from "@/lib/utils";
 import { ProjectPhasesTab } from "@/components/project/ProjectPhasesTab";
 import { ProjectAISummary } from "@/components/project/ProjectAISummary";
-import { formatCurrency, formatHours, calculateInternalCostPerHour } from "@/lib/calculations";
+import { formatCurrency, formatHours, calculateInternalCostPerHour, getDailyCapacity } from "@/lib/calculations";
 
 const ProjectDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -292,13 +292,21 @@ const ProjectDetailPage = () => {
   const budgetedCostByRole: Record<string, number> = {};
   const budgetedInternalCost = (project?.project_scopes || []).reduce((sum: number, scope: any) => {
     const roleId = scope.role_id;
-    const rolePeople = people.filter((p) => p.role_id === roleId && p.annual_salary);
+    const now = new Date();
+    const rolePeople = people.filter((p) => {
+      if (p.role_id !== roleId || !p.annual_salary) return false;
+      const end = p.overall_end_date ? new Date(p.overall_end_date) : null;
+      return !end || end >= now;
+    });
+    
     if (rolePeople.length === 0) return sum;
+    
     const avgCostPerHour = rolePeople.reduce((s, p) => {
       const cap = p.roles?.billable_capacity_hours;
       const cost = calculateInternalCostPerHour(p.annual_salary!, cap);
       return s + convertCostToProjectCurrency(cost, p.office);
     }, 0) / rolePeople.length;
+    
     budgetedCostByRole[roleId] = avgCostPerHour;
     return sum + scope.scoped_hours * avgCostPerHour;
   }, 0);
@@ -587,7 +595,7 @@ const ProjectDetailPage = () => {
                     lastEntry: null,
                     employmentStart: person?.overall_start_date || person?.employment_start_date || null,
                     employmentEnd: person?.overall_end_date || person?.employment_end_date || null,
-                    capacityPerDay: scope.roles?.billable_capacity_hours || 7.5,
+                    capacityPerDay: scope.roles?.billable_capacity_hours ? getDailyCapacity(scope.roles.billable_capacity_hours) : 7.5,
                   };
                 }
                 personMap[pid].allocatedHours += alloc.allocated_hours || 0;
@@ -606,7 +614,7 @@ const ProjectDetailPage = () => {
                   lastEntry: null,
                   employmentStart: person?.overall_start_date || person?.employment_start_date || null,
                   employmentEnd: person?.overall_end_date || person?.employment_end_date || null,
-                  capacityPerDay: te.people?.roles?.billable_capacity_hours || 7.5,
+                  capacityPerDay: te.people?.roles?.billable_capacity_hours ? getDailyCapacity(te.people.roles.billable_capacity_hours) : 7.5,
                 };
               }
               personMap[pid].loggedHours += te.hours;

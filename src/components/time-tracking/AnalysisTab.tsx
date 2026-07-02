@@ -21,6 +21,7 @@ import {
   BILLABILITY_PROJECTS_QUERY_KEY,
   BILLABILITY_PROJECT_IDS_QUERY_KEY,
 } from "@/lib/billability";
+import { getDailyCapacity } from "@/lib/calculations";
 import {
   BarChart,
   Bar,
@@ -781,7 +782,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
     for (const person of filtered) {
       const role = (person as any).roles;
       const roleName = role?.name || "Unknown";
-      const billableCapacity = role?.billable_capacity_hours ?? HOURS_PER_DAY;
+      const billableCapacity = role?.billable_capacity_hours != null ? getDailyCapacity(role.billable_capacity_hours) : 7.5;
       const empStart = person.employment_start_date ? new Date(person.employment_start_date)
         : person.overall_start_date ? new Date(person.overall_start_date) : null;
       const empEnd = person.employment_end_date ? new Date(person.employment_end_date)
@@ -896,7 +897,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
 
     for (const person of filtered) {
       const role = (person as any).roles;
-      const billableCapacity = role?.billable_capacity_hours ?? HOURS_PER_DAY;
+      const billableCapacity = role?.billable_capacity_hours != null ? getDailyCapacity(role.billable_capacity_hours) : 7.5;
       const team = (person as any).team || "Unassigned";
       const empStart = person.employment_start_date ? new Date(person.employment_start_date)
         : person.overall_start_date ? new Date(person.overall_start_date) : null;
@@ -1179,7 +1180,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
         if (effectiveStart > effectiveEnd) continue;
 
         const role = (person as any).roles;
-        const billableCapacityHrs = role?.billable_capacity_hours ?? HOURS_PER_DAY;
+        const billableCapacityHrs = role?.billable_capacity_hours != null ? getDailyCapacity(role.billable_capacity_hours) : 7.5;
         const roleName = role?.name || "Unknown";
         const normName = person.name.trim().toLowerCase();
         const dedupKey = `${normName}::${person.team || "Unassigned"}`;
@@ -1506,7 +1507,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       if (effStart > effEnd) continue;
 
       const role = (person as any).roles;
-      const billableCapacityHrs = role?.billable_capacity_hours ?? HOURS_PER_DAY;
+      const billableCapacityHrs = role?.billable_capacity_hours != null ? getDailyCapacity(role.billable_capacity_hours) : 7.5;
       const normName = person.name.trim().toLowerCase();
       const leaveIntervals = parentalLeaveMap.get(normName);
       const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : null;

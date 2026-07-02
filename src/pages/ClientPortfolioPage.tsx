@@ -7,13 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, Check, ChevronsUpDown, Info } from "lucide-react";
+import { Info, Download, Filter, Target, CalendarDays, ExternalLink, Activity } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { format, parseISO, startOfMonth, addMonths, subMonths, endOfMonth, isAfter, eachDayOfInterval, isWeekend } from "date-fns";
-import { calculateInternalCostPerHour, formatCurrency } from "@/lib/calculations";
+import { formatCurrency, calculateInternalCostPerHour, formatCurrencyFixed, getDailyCapacity } from "@/lib/calculations";
 import { ClientTeamBuilder } from "@/components/client-portfolio/ClientTeamBuilder";
 import type { DateRange } from "react-day-picker";
 
@@ -243,7 +243,7 @@ const ClientPortfolioPage = () => {
   // Build role billable capacity (hours/day) map
   const roleBillableCapacity = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const r of roles) map[r.id] = Number(r.billable_capacity_hours) || 7.5;
+    for (const r of roles) map[r.id] = r.billable_capacity_hours ? getDailyCapacity(Number(r.billable_capacity_hours)) : 7.5;
     return map;
   }, [roles]);
 

@@ -414,8 +414,13 @@ const ProfitabilityPage = () => {
 
   const companyRoleCostStats = useMemo(() => {
     const map: Record<string, { gbpSum: number; usdSum: number; count: number }> = {};
+    const now = new Date();
     for (const person of people) {
       if (!person.role_id || !person.annual_salary || person.annual_salary <= 0) continue;
+      
+      const end = person.overall_end_date ? new Date(person.overall_end_date) : null;
+      if (end && end < now) continue;
+      
       const cap = person.roles?.billable_capacity_hours;
       const costPerHour = calculateInternalCostPerHour(Number(person.annual_salary), cap);
       if (!map[person.role_id]) map[person.role_id] = { gbpSum: 0, usdSum: 0, count: 0 };

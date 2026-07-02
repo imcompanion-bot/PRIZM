@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { calculateInternalCostPerHour } from "@/lib/calculations";
+import { calculateInternalCostPerHour, getDailyCapacity } from "@/lib/calculations";
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -174,7 +174,7 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
       return (data || []).map((p: any) => ({
         roleName: p.roles?.name || "",
         salary: Number(p.annual_salary) || 0,
-        billableCapacity: Number(p.roles?.billable_capacity_hours) || 7.5,
+        billableCapacity: p.roles?.billable_capacity_hours ? getDailyCapacity(Number(p.roles.billable_capacity_hours)) : 7.5,
       }));
     },
   });

@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { getDailyCapacity } from "@/lib/calculations";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -363,11 +364,12 @@ export function PhasingTab({ state, currencySymbol, appliedRecs = [] }: PhasingT
   const roleCapacityMap = useMemo(() => {
     const m: Record<string, number> = {};
     for (const r of rolesData || []) {
-      // billable_capacity_hours is stored as hours/day (e.g. 6.0 for 80%)
-      m[r.name] = r.billable_capacity_hours;
+      // billable_capacity_hours is often stored as hours/week (e.g. 30.0 for 80%)
+      m[r.name] = r.billable_capacity_hours ? getDailyCapacity(r.billable_capacity_hours) : 7.5;
     }
     return m;
   }, [rolesData]);
+
 
   // Map phase name -> duration in weeks for capacity calc
   const phaseWeeksMap = useMemo(() => {

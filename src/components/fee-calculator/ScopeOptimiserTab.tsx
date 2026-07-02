@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { calculateInternalCostPerHour, WORKING_HOURS_PER_YEAR } from "@/lib/calculations";
+import { calculateInternalCostPerHour, WORKING_HOURS_PER_YEAR, getDailyCapacity } from "@/lib/calculations";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -226,7 +226,7 @@ export function ScopeOptimiserTab({ state, currencySymbol: sym, appliedRecs, onA
       return (data || []).map((p: any) => ({
         roleName: p.roles?.name || "",
         salary: Number(p.annual_salary) || 0,
-        billableCapacity: Number(p.roles?.billable_capacity_hours) || 7.5,
+        billableCapacity: p.roles?.billable_capacity_hours ? getDailyCapacity(Number(p.roles.billable_capacity_hours)) : 7.5,
       }));
     },
   });

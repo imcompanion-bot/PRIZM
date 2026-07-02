@@ -1,10 +1,11 @@
-import { useMemo, useEffect, useState, useRef } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { eachWeekOfInterval, startOfWeek, endOfWeek, format, eachDayOfInterval, isWeekend, differenceInWeeks, differenceInDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertTriangle, Clock } from "lucide-react";
 import { isInParentalLeaveWindow, buildEmploymentWindows } from "@/lib/employment-windows";
+import { getDailyCapacity } from "@/lib/calculations";
 
 interface TimeEntry {
   person_id: string;
@@ -174,7 +175,7 @@ export function TimesheetReviewDialog({ open, onOpenChange, timeEntries, flagged
                 id: p.id,
                 name: p.name,
                 role: (p.roles as any)?.name || "Unknown",
-                capacity: (p.roles as any)?.billable_capacity_hours || 7.5,
+                capacity: (p.roles as any)?.billable_capacity_hours ? getDailyCapacity((p.roles as any).billable_capacity_hours) : 7.5,
                 employmentStart: p.overall_start_date || p.employment_start_date,
                 employmentEnd: p.overall_end_date || p.employment_end_date,
               });
@@ -230,7 +231,7 @@ export function TimesheetReviewDialog({ open, onOpenChange, timeEntries, flagged
           personId: te.person_id,
           name: te.people.name,
           role: te.people.roles?.name || "Unknown",
-          capacity: te.people.roles?.billable_capacity_hours || 7.5,
+          capacity: te.people.roles?.billable_capacity_hours ? getDailyCapacity(te.people.roles.billable_capacity_hours) : 7.5,
         };
       }
     });
