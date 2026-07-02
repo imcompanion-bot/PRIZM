@@ -1,0 +1,27 @@
+const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+
+const envStr = fs.readFileSync('.env', 'utf8');
+const env = {};
+envStr.split('\n').forEach(line => {
+  const i = line.indexOf('=');
+  if (i > 0) {
+    const k = line.slice(0, i).trim();
+    let v = line.slice(i + 1).trim();
+    if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
+    env[k] = v;
+  }
+});
+
+const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_PUBLISHABLE_KEY);
+
+async function run() {
+  const { data: raw } = await supabase.from('time_entries')
+    .select('hours')
+    .eq('person_id', '1ab5a9f7-de59-5d91-b2ce-b762c8cf9392')
+    .gte('date', '2026-05-01')
+    .lte('date', '2026-05-31');
+    
+  console.log(`Christina's Total Entries for May NOW: ${raw.reduce((a,b)=>a+Number(b.hours), 0)} hrs`);
+}
+run();
