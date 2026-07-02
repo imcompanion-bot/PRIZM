@@ -105,9 +105,7 @@ function HeatmapCell({ hours, expected, employed }: { hours: number; expected: n
             </span>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs">
-          {hours}h / {expected}h expected (Ratio: {(ratio * 100).toFixed(1)}%)
-        </TooltipContent>
+        <TooltipContent side="top" className="text-xs">{hours}h / {expected}h expected</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

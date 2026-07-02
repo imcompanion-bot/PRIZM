@@ -63,7 +63,6 @@ function getUtilisationColorClass(utilisation: number, expected: number) {
 }
 
 const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: UtilisationTabProps) => {
-  console.log("!!! UTILISATION TAB MOUNTED !!! VERSION 2.0 !!!");
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [selectedPerson, setSelectedPerson] = useState<{
     id: string; personIds: string[]; name: string; role: string;
@@ -841,7 +840,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
                 <TableHead className="text-right">Expected (h)</TableHead>
                 <TableHead className="text-right">Actual (h)</TableHead>
                 <TableHead className="text-right">Billable (h)</TableHead>
-                <TableHead className="w-[140px] pl-6 text-red-600 font-bold uppercase">Completeness (NEW CALC)</TableHead>
+                <TableHead className="w-[140px] pl-6">Completeness</TableHead>
                 <TableHead className="w-[120px]">Utilisation</TableHead>
               </TableRow>
             </TableHeader>
@@ -911,7 +910,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
                             empEnd: latestEnd,
                           });
                         }}>
-                          <TableCell className="pl-10 text-red-600 font-bold">
+                          <TableCell className="pl-10">
                             {m.name}
                             {m.hasEnded && <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0">Former</Badge>}
                           </TableCell>
