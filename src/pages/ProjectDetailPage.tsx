@@ -263,9 +263,9 @@ const ProjectDetailPage = () => {
     return null;
   };
 
-  const agencyFeePrice = project?.price ?? getExtraNum(project, "total price", "price gbp/usd", "price");
+  const agencyFeePrice = project?.price ?? project?.revenue ?? getExtraNum(project, "total price", "price gbp/usd", "price");
   const agencyFeeMediaCost = project?.media_cost ?? getExtraNum(project, "media cost", "cost - paid media budget") ?? 0;
-  const agencyFeeGrossBudget = project?.gross_budget ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+  const agencyFeeGrossBudget = project?.gross_budget ?? project?.budget_cost ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
   const agencyFee = agencyFeePrice !== null ? agencyFeePrice - agencyFeeMediaCost - agencyFeeGrossBudget : null;
 
   // Budgeted fee from rate card (kept for internal budgeting)

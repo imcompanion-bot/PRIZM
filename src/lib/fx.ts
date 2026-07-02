@@ -92,3 +92,25 @@ export async function getBatchProjectFxRates(
   }
   return result;
 }
+
+/**
+ * Fetch and average GBP→USD rates for all months in a range.
+ * Returns a map of "YYYY-MM-01" -> average rate.
+ */
+export async function getMonthlyBatchFxRates(startDate: string, endDate: string): Promise<Record<string, number>> {
+  const dailyRates = await fetchDailyRates(startDate, endDate);
+  const monthlySums: Record<string, number> = {};
+  const monthlyCounts: Record<string, number> = {};
+
+  for (const [dateStr, rate] of Object.entries(dailyRates)) {
+    const monthKey = dateStr.slice(0, 7) + "-01";
+    monthlySums[monthKey] = (monthlySums[monthKey] || 0) + rate;
+    monthlyCounts[monthKey] = (monthlyCounts[monthKey] || 0) + 1;
+  }
+
+  const result: Record<string, number> = {};
+  for (const monthKey in monthlySums) {
+    result[monthKey] = monthlySums[monthKey] / monthlyCounts[monthKey];
+  }
+  return result;
+}

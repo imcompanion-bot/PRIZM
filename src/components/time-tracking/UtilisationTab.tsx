@@ -371,38 +371,20 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
 
         const overallEnd2 = person.overall_end_date ? new Date(person.overall_end_date) : null;
         const hasEnded = overallEnd2 ? overallEnd2 < new Date() : false;
-
-        // Calculate total hours across all siblings from rawTimeEntries
+        // Calculate total hours across all siblings from the aggregated RPC data
         let personActual = 0, personBillable = 0, personLeave = 0;
         const hoursByWeek = new Map<string, number>();
 
         for (const sid of siblingIds) {
+          const totals = hoursByPerson.get(sid) || { total: 0, billable: 0, leave: 0 };
+          personActual += totals.total;
+          personBillable += totals.billable;
+          personLeave += totals.leave;
+
+          // Still need raw entries for the weekly breakdown
           const personEntries = entriesByPerson.get(sid) || [];
           for (const e of personEntries) {
             const h = Number(e.hours) || 0;
-            personActual += h;
-
-            // Classify for billable vs leave
-            const proj = e.projects;
-            const isLeave = proj?.title?.toLowerCase().includes("leave") || e.project_name?.toLowerCase().includes("leave");
-            if (isLeave) {
-              personLeave += h;
-            } else {
-              // Classification logic
-              const entryForClassification: TimeEntryForClassification = {
-                id: e.id || "",
-                date: e.date || "",
-                hours: h,
-                notes: null,
-                project_id: e.project_id || "",
-                people: null,
-                projects: proj || null,
-              };
-              const { result } = classifyEntry(rules, entryForClassification, projectIds.has(e.project_id || ""));
-              if (result === "billable") personBillable += h;
-            }
-
-            // Weekly breakdown
             if (e.date) {
               const d = new Date(e.date);
               if (!isNaN(d.getTime())) {

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/calculations";
+import { getMonthlyBatchFxRates } from "@/lib/fx";
 import { cn } from "@/lib/utils";
 import {
   format, startOfMonth, endOfMonth, eachMonthOfInterval, eachDayOfInterval, isWeekend,
@@ -71,7 +72,7 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, displayCurrency, st
       while (true) {
         const { data, error } = await supabase
           .from("projects")
-          .select("id, title, ultimate_parent, sf_account, office, start_date, end_date, rate_card_id, rate_card_discount, fee_calc_currency, fx_rate_gbp, fx_rate_usd, revenue, price, media_cost, gross_budget, extra_data, opportunity_record_type, project_scopes(id, scoped_hours, role_id), rate_cards(name, hourly_rate, currency)")
+          .select("id, title, ultimate_parent, sf_account, office, start_date, end_date, rate_card_id, rate_card_discount, fee_calc_currency, fx_rate_gbp, fx_rate_usd, revenue, price, media_cost, gross_budget, budget_cost, extra_data, opportunity_record_type, project_scopes(id, scoped_hours, role_id), rate_cards(name, hourly_rate, currency)")
           .order("title")
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -183,6 +184,12 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, displayCurrency, st
     return map;
   }, [monthlyCosts]);
 
+  const { data: monthlyFxRates = {} } = useQuery({
+    queryKey: ["monthly_batch_fx_rates", cutoffDate, todayStr],
+    queryFn: () => getMonthlyBatchFxRates(cutoffDate, todayStr),
+    staleTime: Infinity,
+  });
+
   // Compute a fallback GBP/USD rate from projects that have real FX rates
   const fallbackGbpUsdRate = useMemo(() => {
     const ratios: number[] = [];
@@ -293,7 +300,7 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, displayCurrency, st
 
       const afPrice = p.price ?? p.revenue ?? getExtraNum(p, "total price", "price gbp/usd", "price");
       const afMediaCost = p.media_cost ?? getExtraNum(p, "media cost", "cost - paid media budget") ?? 0;
-      const afGrossBudget = p.gross_budget ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+      const afGrossBudget = p.gross_budget ?? p.budget_cost ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
       const fullAgencyFee = afPrice !== null ? afPrice - afMediaCost - afGrossBudget : null;
 
       const rateCardRevenue = (p.project_scopes || []).reduce((sum: number, sc: any) => {
@@ -361,12 +368,25 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, displayCurrency, st
     }
 
     // Currency conversion helper
-    const toDisplay = (value: number, projectCurrency: string, fxGbp: number, fxUsd: number) => {
+    const toDisplay = (value: number, projectCurrency: string, fxGbp: number, fxUsd: number, monthKey?: string) => {
       if (projectCurrency === displayCurrency) return value;
-      const gbpToUsd = fxUsd > 0 ? fxGbp / fxUsd : 1;
+      
+      // Use monthly rate if available, otherwise fall back to project rate
+      let gbpToUsd = fxUsd > 0 ? fxGbp / fxUsd : 1;
+      let monthRate = monthKey ? monthlyFxRates[monthKey] : null;
+      if (monthRate) {
+        gbpToUsd = monthRate;
+      }
+
       let inGBP = value;
       if (projectCurrency === "USD") inGBP = value / gbpToUsd;
-      else if (projectCurrency !== "GBP") inGBP = value / (fxGbp || 1);
+      else if (projectCurrency !== "GBP") {
+        // If we have a monthly rate, we assume project is non-GBP/USD? 
+        // Actually the API only returns GBP->USD. 
+        // If project is e.g. EUR, we still use the project-level fx_rate_gbp.
+        inGBP = value / (fxGbp || 1);
+      }
+      
       if (displayCurrency === "GBP") return inGBP;
       if (displayCurrency === "USD") return inGBP * gbpToUsd;
       return inGBP;
@@ -394,13 +414,13 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, displayCurrency, st
       for (const month of months) {
         const monthKey = format(month, "yyyy-MM-01");
         const revInProjCurrency = pc.monthlyRevenue[monthKey] || 0;
-        const revDisplay = toDisplay(revInProjCurrency, pc.projectCurrency, pc.fxRateGbp, pc.fxRateUsd);
+        const revDisplay = toDisplay(revInProjCurrency, pc.projectCurrency, pc.fxRateGbp, pc.fxRateUsd, monthKey);
 
         let baseCostDisplay = 0;
         const mc = projMonthlyCost?.get(monthKey);
         if (mc) {
           const costInProject = mc.costGbp * pc.fxRateGbp + mc.costUsd * pc.fxRateUsd;
-          baseCostDisplay = toDisplay(costInProject, pc.projectCurrency, pc.fxRateGbp, pc.fxRateUsd);
+          baseCostDisplay = toDisplay(costInProject, pc.projectCurrency, pc.fxRateGbp, pc.fxRateUsd, monthKey);
         }
 
         if (revDisplay === 0 && baseCostDisplay === 0) continue;
@@ -545,7 +565,9 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, displayCurrency, st
         let costDisplay = 0;
         if (mc) {
           const costInProject = mc.costGbp * fxRateGbp + mc.costUsd * fxRateUsd;
-          const gbpToUsd = fxRateUsd > 0 ? fxRateGbp / fxRateUsd : 1;
+          const monthRate = monthlyFxRates[monthKey];
+          const gbpToUsd = monthRate || (fxRateUsd > 0 ? fxRateGbp / fxRateUsd : 1);
+          
           if (displayCurrency === "GBP") {
             costDisplay = projCurrency === "GBP" ? costInProject : costInProject / gbpToUsd;
           } else {

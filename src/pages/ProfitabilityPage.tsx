@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCurrency, calculateInternalCostPerHour } from "@/lib/calculations";
-import { getBatchProjectFxRates } from "@/lib/fx";
+import { getBatchProjectFxRates, getMonthlyBatchFxRates } from "@/lib/fx";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { subMonths, format, eachDayOfInterval, isWeekend } from "date-fns";
@@ -196,7 +196,7 @@ const ProfitabilityPage = () => {
       while (true) {
         const { data, error } = await supabase
           .from("projects")
-          .select("id, title, ultimate_parent, sf_account, office, start_date, end_date, rate_card_id, rate_card_discount, fee_calc_currency, fx_rate_gbp, fx_rate_usd, revenue, price, media_cost, gross_budget, extra_data, opportunity_record_type, project_scopes(id, scoped_hours, role_id, phase_percentages), rate_cards(name, hourly_rate, currency)")
+          .select("id, title, ultimate_parent, sf_account, office, start_date, end_date, rate_card_id, rate_card_discount, fee_calc_currency, fx_rate_gbp, fx_rate_usd, revenue, price, media_cost, gross_budget, budget_cost, extra_data, opportunity_record_type, project_scopes(id, scoped_hours, role_id, phase_percentages), rate_cards(name, hourly_rate, currency)")
           .order("title")
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -502,6 +502,12 @@ const ProfitabilityPage = () => {
     staleTime: Infinity,
   });
 
+  const { data: monthlyFxRates = {} } = useQuery({
+    queryKey: ["monthly_batch_fx_rates", cutoffDate, endDateStr],
+    queryFn: () => getMonthlyBatchFxRates(cutoffDate, endDateStr),
+    staleTime: Infinity,
+  });
+
   // Compute a fallback GBP/USD rate from projects that have real FX rates (used only until historicalFxRates loads)
   const fallbackGbpUsdRate = useMemo(() => {
     const ratios: number[] = [];
@@ -654,7 +660,7 @@ const ProfitabilityPage = () => {
 
       const afPrice = p.price ?? p.revenue ?? getExtraNum(p, "total price", "price gbp/usd", "price");
       const afMediaCost = p.media_cost ?? getExtraNum(p, "media cost", "cost - paid media budget") ?? 0;
-      const afGrossBudget = p.gross_budget ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+      const afGrossBudget = p.gross_budget ?? p.budget_cost ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
       const fullAgencyFee = afPrice !== null ? afPrice - afMediaCost - afGrossBudget : null;
 
       const rateCardRevenue = (p.project_scopes || []).reduce((sum: number, sc: any) => {
