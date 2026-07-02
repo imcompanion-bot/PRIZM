@@ -107,7 +107,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
       while (true) {
         const { data, error } = await supabase
           .from("time_entries")
-          .select("person_id, date, hours, projects(name, billable)")
+          .select("person_id, date, hours, project_id, project_name, projects(title, opportunity_record_type, revenue, stage, office)")
           .gte("date", format(startDate, "yyyy-MM-dd"))
           .lte("date", format(endDate, "yyyy-MM-dd"))
           .order("date")
@@ -317,9 +317,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
       const normName = person.name.trim().toLowerCase();
       const dedupKey = `${normName}::${person.team || "Unassigned"}`;
       const leaveIntervals = parentalLeaveMap.get(normName);
-      const allocationPercent = officeFilter === "UK" ? (person.uk_percentage ?? 1) 
-        : officeFilter === "US" ? (person.us_percentage ?? 1) 
-        : 1;
+      const allocationPercent = 1;
 
       const siblingIds = new Set(nameTeamToIds.get(dedupKey) || [person.id]);
       const activeTeams = activeTeamsByName.get(normName) || new Set<string>();
@@ -386,7 +384,8 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
 
             // Classify for billable vs leave
             const proj = e.projects;
-            if (proj?.name?.toLowerCase().includes("leave")) {
+            const isLeave = proj?.title?.toLowerCase().includes("leave") || e.project_name?.toLowerCase().includes("leave");
+            if (isLeave) {
               personLeave += h;
             } else {
               // Classification logic
