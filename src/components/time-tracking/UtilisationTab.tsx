@@ -9,7 +9,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ChevronDown, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useMemo, useEffect } from "react";
-import {  format, eachDayOfInterval, isWeekend , eachWeekOfInterval, startOfWeek, endOfWeek, isBefore, isAfter, min } from "date-fns";
+import { 
+  startOfWeek, endOfWeek, eachWeekOfInterval, eachDayOfInterval, isWeekend, format,
+  startOfDay, endOfDay
+} from "date-fns";
 import { buildParentalLeaveMap, isOnParentalLeave } from "@/lib/parental-leave";
 import { cn } from "@/lib/utils";
 import {
@@ -60,6 +63,7 @@ function getUtilisationColorClass(utilisation: number, expected: number) {
 }
 
 const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: UtilisationTabProps) => {
+  console.log("!!! UTILISATION TAB MOUNTED !!! VERSION 2.0 !!!");
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [selectedPerson, setSelectedPerson] = useState<{
     id: string; personIds: string[]; name: string; role: string;
@@ -97,25 +101,25 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
     const { data: rawTimeEntries = [] } = useQuery({
     queryKey: ["raw_time_entries_for_completeness", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd")],
     queryFn: async () => {
-      let allData: any[] = [];
+      const allEntries: any[] = [];
       let from = 0;
-      const PAGE_SIZE = 1000;
+      const pageSize = 1000;
+
       while (true) {
         const { data, error } = await supabase
           .from("time_entries")
-          .select("person_id, date, hours")
+          .select("person_id, date, hours, projects(name, billable)")
           .gte("date", format(startDate, "yyyy-MM-dd"))
           .lte("date", format(endDate, "yyyy-MM-dd"))
-          .order("date", { ascending: false })
-          .order("person_id", { ascending: true }) 
-          .order("id", { ascending: true })
-          .range(from, from + PAGE_SIZE - 1);
+          .order("date")
+          .range(from, from + pageSize - 1);
+        
         if (error) throw error;
-        allData = allData.concat(data || []);
-        if (!data || data.length < PAGE_SIZE) break;
-        from += PAGE_SIZE;
+        allEntries.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
       }
-      return allData;
+      return allEntries;
     }
   });
 
@@ -269,21 +273,36 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
       actualHours: number; billableHours: number; leaveHours: number;
       hoursSet: boolean; countedDays: Set<string>; hasEnded: boolean;
       accurateCompleteness: number;
-    }>();
+    completenessSum: number;
+    completenessCount: number;
+  }>();
 
-    for (const person of people) {
+  const entriesByPerson = new Map<string, any[]>();
+  for (const e of rawTimeEntries) {
+    if (!e.person_id) continue;
+    if (!entriesByPerson.has(e.person_id)) entriesByPerson.set(e.person_id, []);
+    entriesByPerson.get(e.person_id)!.push(e);
+  }
+
+  for (const person of people) {
       if (!matchesOffice(person.office, officeFilter)) continue;
       const team = (person.team || "").toLowerCase().trim();
       if (!allowedTeams.has(team)) continue;
 
-      // Use employment dates (specific contract period) for expected hours,
-      // falling back to overall dates only if employment dates are missing
+      // Use employment dates to decide if this specific contract row is relevant to the current view.
+      // We do NOT fall back to overall dates here because we want to skip stale contract rows.
+      const rowStart = person.employment_start_date ? new Date(person.employment_start_date) : null;
+      const rowEnd = person.employment_end_date ? new Date(person.employment_end_date) : null;
+      
+      if (rowStart && rowStart > endDate) continue;
+      if (rowEnd && rowEnd < startDate) continue;
+
+      // Now determine the effective start/end for this row within the visible period,
+      // using overall dates as a fallback only if employment dates are completely missing.
       const empStart = person.employment_start_date ? new Date(person.employment_start_date)
         : person.overall_start_date ? new Date(person.overall_start_date) : null;
       const empEnd = person.employment_end_date ? new Date(person.employment_end_date)
         : person.overall_end_date ? new Date(person.overall_end_date) : null;
-      if (empStart && empStart > endDate) continue;
-      if (empEnd && empEnd < startDate) continue;
 
       const effectiveStart = empStart && empStart > startDate ? empStart : startDate;
       const effectiveEnd = empEnd && empEnd < endDate ? empEnd : endDate;
@@ -299,6 +318,19 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
       const normName = person.name.trim().toLowerCase();
       const dedupKey = `${normName}::${person.team || "Unassigned"}`;
       const leaveIntervals = parentalLeaveMap.get(normName);
+      const allocationPercent = officeFilter === "UK" ? (person.uk_percentage ?? 1) 
+        : officeFilter === "US" ? (person.us_percentage ?? 1) 
+        : 1;
+
+      const siblingIds = new Set(nameTeamToIds.get(dedupKey) || [person.id]);
+      const activeTeams = activeTeamsByName.get(normName) || new Set<string>();
+      const allForName = nameToAllIds.get(normName) || [];
+      const orphanIds = allForName.filter(x => !activeTeams.has(x.team)).map(x => x.id);
+      // Only the first (alphabetical) active team row absorbs orphan hours
+      const sortedActive = [...activeTeams].sort();
+      if (sortedActive[0] === (person.team || "Unassigned")) {
+        for (const oid of orphanIds) siblingIds.add(oid);
+      }
 
       const existing = deduped.get(dedupKey);
       if (existing) {
@@ -314,37 +346,21 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
             newWorkingDays++;
           }
         }
-        existing.expectedTotalHours += newWorkingDays * HOURS_PER_DAY;
-        existing.expectedBillableHours += newWorkingDays * billableCapacityHrs;
-        existing.personIds.push(person.id);
+        existing.expectedTotalHours += newWorkingDays * HOURS_PER_DAY * allocationPercent;
+        existing.expectedBillableHours += newWorkingDays * billableCapacityHrs * allocationPercent;
         if (role?.name) {
           existing.roleHistory.push({ name: role.name, start: person.employment_start_date ? new Date(person.employment_start_date) : null });
         }
+        
         // Use overall_end_date to determine "former" status
         const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : null;
         const thisEnded = overallEnd ? overallEnd < new Date() : false;
         if (!thisEnded) existing.hasEnded = false;
+        
+        // Track earliest/latest dates for completeness range
+        if (effectiveStart < existing.effectiveStart) existing.effectiveStart = effectiveStart;
+        if (effectiveEnd > existing.effectiveEnd) existing.effectiveEnd = effectiveEnd;
       } else {
-        // Aggregate actual hours across sibling IDs in the same team.
-        // Also fold in "orphan" sibling IDs from teams that don't overlap the
-        // current period (e.g. an old contract on a different team) — without
-        // this, hours logged under a stale person_id after a team change get lost.
-        const siblingIds = new Set(nameTeamToIds.get(dedupKey) || [person.id]);
-        const activeTeams = activeTeamsByName.get(normName) || new Set<string>();
-        const allForName = nameToAllIds.get(normName) || [];
-        const orphanIds = allForName.filter(x => !activeTeams.has(x.team)).map(x => x.id);
-        // Only the first (alphabetical) active team row absorbs orphan hours,
-        // to avoid double-counting across multiple active team rows.
-        const sortedActive = [...activeTeams].sort();
-        if (sortedActive[0] === (person.team || "Unassigned")) {
-          for (const oid of orphanIds) siblingIds.add(oid);
-        }
-        let total = 0, billable = 0, leave = 0;
-        for (const sid of siblingIds) {
-          const h = hoursByPerson.get(sid);
-          if (h) { total += h.total; billable += h.billable; leave += h.leave; }
-        }
-
         // Track which calendar days have been counted (excluding parental leave)
         const countedDays = new Set<string>();
         const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
@@ -358,86 +374,67 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
 
         const overallEnd2 = person.overall_end_date ? new Date(person.overall_end_date) : null;
         const hasEnded = overallEnd2 ? overallEnd2 < new Date() : false;
-        // ----------------------------------------------------
-        // compute accurate weekly capped completeness
-        // ----------------------------------------------------
-        const today = new Date();
-        const personEffectiveEnd = today < endDate ? today : endDate;
-        
-        let completenessSum = 0;
-        let completenessCount = 0;
-        let accurateCompleteness = 0;
 
-        // Group their raw time entries by week
-        const entriesForPerson = rawTimeEntries.filter((r: any) => siblingIds.has(r.person_id));
-        const hoursByWeek = new Map();
-        for (const r of entriesForPerson) {
-          if (!r.date) continue;
-          const d = new Date(r.date);
-          if (isNaN(d.getTime())) continue;
-          const ws = startOfWeek(d, { weekStartsOn: 1 }).toISOString();
-          hoursByWeek.set(ws, (hoursByWeek.get(ws) || 0) + Number(r.hours));
-        }
+        // Calculate total hours across all siblings from rawTimeEntries
+        let personActual = 0, personBillable = 0, personLeave = 0;
+        const hoursByWeek = new Map<string, number>();
 
-        // Generate all weeks in the period
-        let pStart = startOfWeek(effectiveStart, { weekStartsOn: 1 });
-        let pEnd = endOfWeek(personEffectiveEnd, { weekStartsOn: 1 });
-        if (pStart <= pEnd) {
-          const weeks = eachWeekOfInterval({ start: pStart, end: pEnd }, { weekStartsOn: 1 });
-          
-          for (const weekStart of weeks) {
-            const wEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-            
-            let clampedStart = weekStart;
-            let clampedEnd = wEnd > personEffectiveEnd ? personEffectiveEnd : wEnd;
-            
-            // Clamp to employment dates
-            const empStart = person.employment_start_date ? new Date(person.employment_start_date) : null;
-            const empEnd = person.overall_end_date ? new Date(person.overall_end_date) : (person.employment_end_date ? new Date(person.employment_end_date) : null);
-            
-            if (empStart && empStart > clampedStart) clampedStart = empStart;
-            if (empEnd && empEnd < clampedEnd) clampedEnd = empEnd;
-            
-            if (clampedEnd < clampedStart) continue; // Not employed this week
-            
-            // Calculate expected hours for this specific week
-            let weekExpectedDays = 0;
-            const weekDays = eachDayOfInterval({ start: clampedStart, end: clampedEnd });
-            for (const d of weekDays) {
-              if (!isWeekend(d) && !isOnParentalLeave(d, leaveIntervals)) {
-                weekExpectedDays++;
-              }
+        for (const sid of siblingIds) {
+          const personEntries = entriesByPerson.get(sid) || [];
+          for (const e of personEntries) {
+            const h = Number(e.hours) || 0;
+            personActual += h;
+
+            // Classify for billable vs leave
+            const proj = e.projects;
+            if (proj?.name?.toLowerCase().includes("leave")) {
+              personLeave += h;
+            } else {
+              // Classification logic
+              const entryForClassification: TimeEntryForClassification = {
+                id: e.id || "",
+                date: e.date || "",
+                hours: h,
+                notes: null,
+                project_id: e.project_id || "",
+                people: null,
+                projects: proj || null,
+              };
+              const { result } = classifyEntry(rules, entryForClassification, projectIds.has(e.project_id || ""));
+              if (result === "billable") personBillable += h;
             }
-            const weekExpected = weekExpectedDays * 7.5;
-            
-            if (weekExpected > 0) {
-              const actual = hoursByWeek.get(weekStart.toISOString()) || 0;
-              completenessSum += Math.min(actual / weekExpected, 1);
-              completenessCount++;
+
+            // Weekly breakdown
+            if (e.date) {
+              const d = new Date(e.date);
+              if (!isNaN(d.getTime())) {
+                const ws = format(startOfWeek(d, { weekStartsOn: 1 }), "yyyy-MM-dd");
+                hoursByWeek.set(ws, (hoursByWeek.get(ws) || 0) + h);
+              }
             }
           }
         }
 
-        accurateCompleteness = completenessCount > 0 ? (completenessSum / completenessCount) * 100 : 0;
-        accurateCompleteness = accurateCompleteness || 0;
-
-
         deduped.set(dedupKey, {
           id: person.id,
-          personIds: [person.id],
+          personIds: Array.from(siblingIds),
           name: person.name,
           team: person.team || "Unassigned",
           role: role?.name || "Unknown",
           roleHistory: role?.name ? [{ name: role.name, start: person.employment_start_date ? new Date(person.employment_start_date) : null }] : [],
-          expectedTotalHours: personWorkingDays * HOURS_PER_DAY,
-          expectedBillableHours: personWorkingDays * billableCapacityHrs,
-          actualHours: total,
-          billableHours: billable,
-          leaveHours: leave,
+          expectedTotalHours: personWorkingDays * HOURS_PER_DAY * allocationPercent,
+          expectedBillableHours: personWorkingDays * billableCapacityHrs * allocationPercent,
+          actualHours: personActual,
+          billableHours: personBillable,
+          leaveHours: personLeave,
           hoursSet: true,
           countedDays,
           hasEnded,
-          accurateCompleteness,
+          hoursByWeek,
+          allocationPercent,
+          effectiveStart,
+          effectiveEnd,
+          leaveIntervals
         });
       }
     }
@@ -448,8 +445,18 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
       expectedTotalHours: number; expectedBillableHours: number;
       actualHours: number; billableHours: number; leaveHours: number;
       hasEnded: boolean;
+      accurateCompleteness: number;
     }>();
     for (const entry of deduped.values()) {
+      // Simple monthly completeness: Total Actual / Total Expected (capped at 100%)
+      const accurateCompleteness = entry.expectedTotalHours > 0 
+        ? Math.min((entry.actualHours / entry.expectedTotalHours) * 100, 100) 
+        : 0;
+
+      if (entry.name.includes("Drollas") || entry.name.includes("Grahamslaw")) {
+        console.log(`DEBUG [${entry.name}] actual=${entry.actualHours}, expected=${entry.expectedTotalHours}, result=${accurateCompleteness}%`);
+      }
+
       // Build role display from roleHistory: sort by employment_start_date,
       // dedupe consecutive duplicates, join with " → "
       const sortedHistory = [...entry.roleHistory].sort((a, b) => {
@@ -476,7 +483,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
         billableHours: entry.billableHours,
         leaveHours: entry.leaveHours,
         hasEnded: entry.hasEnded,
-        accurateCompleteness: entry.accurateCompleteness || 0
+        accurateCompleteness: accurateCompleteness
       });
     }
     return map;
@@ -511,8 +518,8 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
       t.totalActual += p.actualHours;
       t.totalBillable += p.billableHours;
       t.totalLeave += p.leaveHours;
-      // Cap each individual's completeness at 100% before summing for team average
-      const individualCompleteness = p.expectedTotalHours > 0 ? Math.min((p.actualHours / p.expectedTotalHours) * 100, 100) : 0;
+      // Use the accurate monthly completeness for the team average
+      const individualCompleteness = p.accurateCompleteness;
       t.sumCappedCompleteness += individualCompleteness;
     }
 
@@ -834,7 +841,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
                 <TableHead className="text-right">Expected (h)</TableHead>
                 <TableHead className="text-right">Actual (h)</TableHead>
                 <TableHead className="text-right">Billable (h)</TableHead>
-                <TableHead className="w-[140px] pl-6">Completeness</TableHead>
+                <TableHead className="w-[140px] pl-6 text-red-600 font-bold uppercase">Completeness (NEW CALC)</TableHead>
                 <TableHead className="w-[120px]">Utilisation</TableHead>
               </TableRow>
             </TableHeader>
@@ -904,7 +911,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
                             empEnd: latestEnd,
                           });
                         }}>
-                          <TableCell className="pl-10">
+                          <TableCell className="pl-10 text-red-600 font-bold">
                             {m.name}
                             {m.hasEnded && <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0">Former</Badge>}
                           </TableCell>
@@ -913,12 +920,21 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
                           <TableCell className="text-right">{fmt(m.actualHours)}</TableCell>
                           <TableCell className="text-right">{fmt(m.billableHours)}</TableCell>
                           <TableCell className="pl-6">
-                            <div className="flex items-center gap-2">
-                              <Progress value={m.completeness} className="h-2 w-16 shrink-0" />
-                              <span className={cn("text-sm px-1.5 py-0.5 rounded", m.completeness >= 95 ? "bg-green-100 text-green-900" : m.completeness >= 90 ? "bg-red-100 text-red-800" : "bg-red-200 text-red-900")}>
-                                {fmt(m.completeness)}%
-                              </span>
-                            </div>
+                            <TooltipProvider>
+                              <Tooltip delayDuration={100}>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-2 cursor-help">
+                                    <Progress value={m.completeness} className="h-2 w-16 shrink-0" />
+                                    <span className={cn("text-sm px-1.5 py-0.5 rounded", m.completeness >= 95 ? "bg-green-100 text-green-900" : m.completeness >= 90 ? "bg-red-100 text-red-800" : "bg-red-200 text-red-900")}>
+                                      {fmt(m.completeness)}%
+                                    </span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs">Formula: (Total Actual {fmt(m.actualHours)}h / Total Expected {fmt(m.expectedTotalHours)}h) capped at 100%</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </TableCell>
                           <TableCell>
                             <TooltipProvider>

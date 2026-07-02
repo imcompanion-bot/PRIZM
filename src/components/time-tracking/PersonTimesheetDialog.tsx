@@ -105,7 +105,9 @@ function HeatmapCell({ hours, expected, employed }: { hours: number; expected: n
             </span>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs">{hours}h / {expected}h expected</TooltipContent>
+        <TooltipContent side="top" className="text-xs">
+          {hours}h / {expected}h expected (Ratio: {(ratio * 100).toFixed(1)}%)
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
@@ -323,8 +325,9 @@ export function PersonTimesheetDialog({
 
   function getWeekExpected(weekStart: Date, effectiveEnd: Date) {
     const wEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-    let clampedStart: Date = weekStart;
+    let clampedStart = weekStart > startDate ? weekStart : startDate;
     let clampedEnd = wEnd > effectiveEnd ? effectiveEnd : wEnd;
+    
     if (empStart && empStart > clampedStart) clampedStart = empStart;
     if (empEnd && empEnd < clampedEnd) clampedEnd = empEnd;
     if (clampedEnd < clampedStart) return 0;
