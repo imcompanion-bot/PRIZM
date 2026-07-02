@@ -198,6 +198,7 @@ const ProfitabilityPage = () => {
           .from("projects")
           .select("id, title, ultimate_parent, sf_account, office, start_date, end_date, rate_card_id, rate_card_discount, fee_calc_currency, fx_rate_gbp, fx_rate_usd, revenue, price, media_cost, gross_budget, budget_cost, extra_data, opportunity_record_type, project_scopes(id, scoped_hours, role_id, phase_percentages), rate_cards(name, hourly_rate, currency)")
           .order("title")
+          .order("id") // Ensure deterministic pagination
           .range(from, from + pageSize - 1);
         if (error) throw error;
         allData.push(...(data || []));
@@ -237,7 +238,9 @@ const ProfitabilityPage = () => {
       let from = 0;
       const pageSize = 1000;
       while (true) {
-        const { data, error } = await supabase.rpc("get_project_costs").range(from, from + pageSize - 1);
+        const { data, error } = await supabase.rpc("get_project_costs")
+          .order("project_id")
+          .range(from, from + pageSize - 1);
         if (error) throw error;
         allData.push(...(data || []));
         if (!data || data.length < pageSize) break;
@@ -299,7 +302,10 @@ const ProfitabilityPage = () => {
       let from = 0;
       const pageSize = 1000;
       while (true) {
-        const { data, error } = await supabase.rpc("get_project_costs_monthly", { _start_date: cutoffDate, _end_date: endDateStr }).range(from, from + pageSize - 1);
+        const { data, error } = await supabase.rpc("get_project_costs_monthly", { _start_date: cutoffDate, _end_date: endDateStr })
+          .order("project_id")
+          .order("month_date")
+          .range(from, from + pageSize - 1);
         if (error) throw error;
         console.log("DEBUG: monthlyCosts fetched:", data?.slice(0, 5));
         allData.push(...(data || []));
@@ -329,7 +335,10 @@ const ProfitabilityPage = () => {
       let from = 0;
       const pageSize = 1000;
       while (true) {
-        const { data, error } = await supabase.rpc("get_project_hours_by_role").range(from, from + pageSize - 1);
+        const { data, error } = await supabase.rpc("get_project_hours_by_role")
+          .order("project_id")
+          .order("role_id")
+          .range(from, from + pageSize - 1);
         if (error) throw error;
         allData.push(...(data || []));
         if (!data || data.length < pageSize) break;
@@ -347,7 +356,10 @@ const ProfitabilityPage = () => {
       let from = 0;
       const pageSize = 1000;
       while (true) {
-        const { data, error } = await supabase.rpc("get_project_costs_by_role" as any).range(from, from + pageSize - 1);
+        const { data, error } = await supabase.rpc("get_project_costs_by_role" as any)
+          .order("project_id")
+          .order("role_id")
+          .range(from, from + pageSize - 1);
         if (error) throw error;
         allData.push(...(data || []));
         if (!data || data.length < pageSize) break;
@@ -386,7 +398,10 @@ const ProfitabilityPage = () => {
       let allData: any[] = [];
       let from = 0;
       while (true) {
-        const { data, error } = await supabase.rpc("get_project_person_hours" as any).range(from, from + PAGE_SIZE - 1);
+        const { data, error } = await supabase.rpc("get_project_person_hours" as any)
+          .order("project_id")
+          .order("person_id")
+          .range(from, from + PAGE_SIZE - 1);
         if (error) throw error;
         allData = allData.concat(data || []);
         if (!data || data.length < PAGE_SIZE) break;
@@ -396,15 +411,6 @@ const ProfitabilityPage = () => {
     },
   });
 
-  const { data: projectPersonProjectHours = [] } = useQuery({
-    queryKey: ["profitability_project_person_project_hours"],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_project_person_hours").range(0, 99999);
-      if (error) throw error;
-      return data as { project_id: string; person_id: string; total_hours: number }[];
-    },
-  });
 
   const peopleByIdForBudget = useMemo(() => {
     const map = new Map<string, any>();
@@ -435,7 +441,7 @@ const ProfitabilityPage = () => {
   const projectRoleCostStats = useMemo(() => {
     const map: Record<string, Record<string, { gbpWeightedCostSum: number; usdWeightedCostSum: number; gbpHours: number; usdHours: number }>> = {};
 
-    for (const row of projectPersonProjectHours) {
+    for (const row of projectPersonHours) {
       if (!row.project_id || !row.person_id) continue;
       const hours = Number(row.total_hours) || 0;
       if (hours <= 0) continue;
@@ -462,7 +468,7 @@ const ProfitabilityPage = () => {
     }
 
     return map;
-  }, [projectPersonProjectHours, peopleByIdForBudget]);
+  }, [projectPersonHours, peopleByIdForBudget]);
 
   // Build a lookup map for project costs
   // Window-clipped per-project costs: aggregate monthlyCosts rows (already filtered to cutoffDate..endDateStr)
