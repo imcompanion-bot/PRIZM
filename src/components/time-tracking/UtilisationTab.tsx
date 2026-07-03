@@ -266,7 +266,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
     // Deduplicate by name+team: combine expected hours across employment records,
     // aggregate actual hours across sibling IDs only once
     const deduped = new Map<string, {
-      id: string; personIds: string[]; name: string; team: string; role: string;
+      id: string; personIds: string[]; name: string; email: string | null; team: string; role: string;
       roleHistory: Array<{ name: string; start: Date | null }>;
       expectedTotalHours: number; expectedBillableHours: number;
       actualHours: number; billableHours: number; leaveHours: number;
@@ -399,6 +399,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
           id: person.id,
           personIds: Array.from(siblingIds),
           name: person.name,
+          email: person.email || null,
           team: person.team || "Unassigned",
           role: role?.name || "Unknown",
           roleHistory: role?.name ? [{ name: role.name, start: person.employment_start_date ? new Date(person.employment_start_date) : null }] : [],
@@ -421,7 +422,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
 
     // Convert to the expected Map<string, ...> format keyed by first person ID
     const map = new Map<string, {
-      id: string; name: string; team: string; role: string;
+      id: string; name: string; email: string | null; team: string; role: string;
       expectedTotalHours: number; expectedBillableHours: number;
       actualHours: number; billableHours: number; leaveHours: number;
       hasEnded: boolean;
@@ -455,6 +456,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
       map.set(entry.id, {
         id: entry.id,
         name: entry.name,
+        email: entry.email,
         team: entry.team,
         role: displayRole,
         expectedTotalHours: entry.expectedTotalHours,
@@ -628,11 +630,11 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
 
   // Build flat person list for reminders (current view filters: office + showFormer applied via personSummaries)
   const reminderPeople = useMemo(() => {
-    const out: Array<{ name: string; completeness: number; actualHours: number; expectedHours: number }> = [];
+    const out: Array<{ id: string; name: string; email?: string; completeness: number; actualHours: number; expectedHours: number }> = [];
     for (const p of personSummaries.values()) {
       if (!showFormer && p.hasEnded) continue;
       const completeness = p.accurateCompleteness;
-      out.push({ name: p.name, completeness, actualHours: p.actualHours, expectedHours: p.expectedTotalHours });
+      out.push({ id: p.id, name: p.name, email: p.email || undefined, completeness, actualHours: p.actualHours, expectedHours: p.expectedTotalHours });
     }
     return out;
   }, [personSummaries, showFormer]);
@@ -776,7 +778,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="font-display text-lg">By Team & Person</CardTitle>
           <div className="flex items-center gap-2">
-            <SendRemindersDialog people={reminderPeople} startDate={startDate} endDate={endDate} />
+            <SendRemindersDialog people={reminderPeople} startDate={startDate} endDate={endDate} office={officeFilter} />
             <Button
               variant="outline"
               size="sm"

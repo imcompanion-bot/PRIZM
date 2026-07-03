@@ -256,10 +256,40 @@ async function runSync() {
     // Perform stale records cleanup & relinking
     logger.info("Performing people cleanup and time entry relinking...");
     try {
-        const existingPeopleRes = await supabase.from("people").select("*");
-        const existingPeople = existingPeopleRes.data || [];
-        const timeEntriesRes = await supabase.from("time_entries").select("*");
-        const allTimeEntries = timeEntriesRes.data || [];
+        const existingPeople = [];
+        let pPage = 0;
+        const pPageSize = 1000;
+        while (true) {
+            const { data, error } = await supabase
+                .from("people")
+                .select("*")
+                .range(pPage * pPageSize, (pPage + 1) * pPageSize - 1);
+            if (error)
+                break;
+            if (!data || data.length === 0)
+                break;
+            existingPeople.push(...data);
+            if (data.length < pPageSize)
+                break;
+            pPage++;
+        }
+        const allTimeEntries = [];
+        let tPage = 0;
+        const tPageSize = 1000;
+        while (true) {
+            const { data, error } = await supabase
+                .from("time_entries")
+                .select("*")
+                .range(tPage * tPageSize, (tPage + 1) * tPageSize - 1);
+            if (error)
+                break;
+            if (!data || data.length === 0)
+                break;
+            allTimeEntries.push(...data);
+            if (data.length < tPageSize)
+                break;
+            tPage++;
+        }
         const deactivationsMap = new Map();
         for (const p of existingPeople) {
             if (!sheetPersonIds.has(p.id)) {
