@@ -37,8 +37,8 @@ exports.sendCompletenessReminders = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const nodemailer = __importStar(require("nodemailer"));
-const gmailEmail = (0, params_1.defineString)("GMAIL_EMAIL");
-const gmailAppPassword = (0, params_1.defineString)("GMAIL_APP_PASSWORD");
+const gmailEmail = (0, params_1.defineSecret)("GMAIL_EMAIL");
+const gmailAppPassword = (0, params_1.defineSecret)("GMAIL_APP_PASSWORD");
 function escapeHtml(s) {
     return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }

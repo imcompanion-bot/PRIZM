@@ -1,9 +1,9 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { defineString } from "firebase-functions/params";
+import { defineSecret } from "firebase-functions/params";
 import * as nodemailer from "nodemailer";
 
-const gmailEmail = defineString("GMAIL_EMAIL");
-const gmailAppPassword = defineString("GMAIL_APP_PASSWORD");
+const gmailEmail = defineSecret("GMAIL_EMAIL");
+const gmailAppPassword = defineSecret("GMAIL_APP_PASSWORD");
 
 interface Recipient {
   name: string;
