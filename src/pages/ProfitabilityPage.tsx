@@ -11,12 +11,13 @@ import { formatCurrency, calculateInternalCostPerHour } from "@/lib/calculations
 import { getBatchProjectFxRates, getMonthlyBatchFxRates } from "@/lib/fx";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { subMonths, format, eachDayOfInterval, isWeekend } from "date-fns";
+import { subMonths, format, eachDayOfInterval, isWeekend, parseISO } from "date-fns";
 import { buildParentalLeaveMap, getWorkingDaysExcludingLeave } from "@/lib/parental-leave";
 import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, ArrowUp, ArrowDown, Info } from "lucide-react";
 import * as RechartsPrimitive from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
 import ProfitabilityTrendChart from "@/components/profitability/ProfitabilityTrendChart";
+import { CustomDateRangePicker } from "@/components/ui/custom-date-range-picker";
 
 // ── Types ──
 
@@ -1685,21 +1686,18 @@ const ProfitabilityPage = () => {
             ]}
           />
           {timePeriod === "custom" && (
-            <div className="inline-flex items-center gap-1.5 rounded-lg border border-border p-0.5 bg-muted/50 bg-[#cfddf2]">
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="h-7 px-2 text-xs rounded-md bg-background border-0 focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-              <span className="text-xs text-muted-foreground">–</span>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="h-7 px-2 text-xs rounded-md bg-background border-0 focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
+            <CustomDateRangePicker
+              start={customStartDate ? parseISO(customStartDate) : undefined}
+              end={customEndDate ? parseISO(customEndDate) : undefined}
+              onSelect={({ start, end }) => {
+                setCustomStartDate(start ? format(start, "yyyy-MM-dd") : "");
+                setCustomEndDate(end ? format(end, "yyyy-MM-dd") : "");
+              }}
+              selectedClass="bg-[#4b71d8] text-white hover:bg-[#4b71d8] hover:text-white focus:bg-[#4b71d8] focus:text-white"
+              rangeMiddleClass="aria-selected:bg-[#cfddf2] aria-selected:text-[#1a1a1a]"
+              hoverPreviewClass="!bg-[#cfddf2] !text-[#1a1a1a] rounded-none"
+              cellClass="h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected])]:bg-[#cfddf2] first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20"
+            />
           )}
           <ToggleGroup
             value={statusFilter}
