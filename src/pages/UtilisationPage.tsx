@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import UtilisationTab from "@/components/time-tracking/UtilisationTab";
 import AnalysisTab from "@/components/time-tracking/AnalysisTab";
+import { CustomDateRangePicker } from "@/components/ui/custom-date-range-picker";
 
 type PeriodPreset = "last_1_month" | "last_3_months" | "last_6_months" | "last_12_months" | "custom";
 

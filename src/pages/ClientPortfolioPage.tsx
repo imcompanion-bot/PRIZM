@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { format, parseISO, startOfMonth, addMonths, subMonths, endOfMonth, isAfter, eachDayOfInterval, isWeekend } from "date-fns";
 import { formatCurrency, calculateInternalCostPerHour, formatCurrencyFixed, getDailyCapacity } from "@/lib/calculations";
 import { ClientTeamBuilder } from "@/components/client-portfolio/ClientTeamBuilder";
+import { CustomDateRangePicker } from "@/components/ui/custom-date-range-picker";
 import type { DateRange } from "react-day-picker";
 
 // ── Helpers ──
