@@ -6,7 +6,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, Loader2, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, isSameMonth } from "date-fns";
+import { app } from "@/lib/firebase";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 const EMAIL_DOMAIN = "billiondollarboy.com";
 
@@ -45,7 +47,9 @@ Thanks!
 }
 
 export interface ReminderPerson {
+  id: string;
   name: string;
+  email?: string;
   completeness: number;
   actualHours: number;
   expectedHours: number;
@@ -55,9 +59,10 @@ interface Props {
   people: ReminderPerson[];
   startDate: Date;
   endDate: Date;
+  office: "Global" | "UK" | "US";
 }
 
-export function SendRemindersDialog({ people, startDate, endDate }: Props) {
+export function SendRemindersDialog({ people, startDate, endDate, office }: Props) {
   const [open, setOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [step, setStep] = useState<"select" | "preview">("select");
@@ -68,7 +73,7 @@ export function SendRemindersDialog({ people, startDate, endDate }: Props) {
     () => people
       .filter(p => p.expectedHours > 0 && p.completeness < 95)
       .sort((a, b) => a.completeness - b.completeness)
-      .map(p => ({ ...p, email: deriveEmail(p.name) })),
+      .map(p => ({ ...p, email: p.email ?? deriveEmail(p.name) })),
     [people],
   );
 
@@ -82,13 +87,35 @@ export function SendRemindersDialog({ people, startDate, endDate }: Props) {
     setStep("select");
   }, [candidateNames]);
 
-  const periodLabel = `${format(startDate, "d MMM")} – ${format(endDate, "d MMM yyyy")}`;
+  const periodLabel = useMemo(() => {
+    const sameMonth = isSameMonth(startDate, endDate);
+    if (office === "US") {
+      if (sameMonth) {
+        return `${format(startDate, "MMMM d")} - ${format(endDate, "d")}`;
+      } else {
+        return `${format(startDate, "MMMM d")} - ${format(endDate, "MMMM d, yyyy")}`;
+      }
+    }
+    // Global / UK format
+    if (sameMonth) {
+      return `${format(startDate, "d")} – ${format(endDate, "d MMM yyyy")}`;
+    } else {
+      return `${format(startDate, "d MMM")} – ${format(endDate, "d MMM yyyy")}`;
+    }
+  }, [startDate, endDate, office]);
+
+  const ccList = useMemo(() => {
+    if (office === "UK") return ["churrell@billiondollarboy.com"];
+    if (office === "US") return ["psouthey@billiondollarboy.com"];
+    return ["churrell@billiondollarboy.com", "psouthey@billiondollarboy.com"];
+  }, [office]);
 
   const selectedRecipients = candidates
     .filter(c => selected.has(c.name))
     .map(c => ({
+      id: c.id,
       name: c.name,
-      email: (overrides[c.name] ?? c.email).trim(),
+      email: (overrides[c.id] ?? c.email ?? deriveEmail(c.name)).trim(),
       completeness: c.completeness,
       actualHours: c.actualHours,
       expectedHours: c.expectedHours,
@@ -102,10 +129,32 @@ export function SendRemindersDialog({ people, startDate, endDate }: Props) {
 
     setSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke("send-completeness-reminders", {
-        body: { recipients: selectedRecipients, periodLabel },
-      });
-      if (error) throw error;
+      // Save overrides to database
+      const emailsToUpdate = selectedRecipients
+        .filter(c => overrides[c.id])
+        .map(c => ({ id: c.id, email: overrides[c.id] }));
+
+      if (emailsToUpdate.length > 0) {
+        const { error: updateError } = await supabase
+          .from("people")
+          .upsert(emailsToUpdate); // upsert on id updates existing rows
+
+        if (updateError) {
+          console.error("Failed to save email overrides to database:", updateError);
+          // Don't throw, still try to send emails
+        }
+      }
+
+      const functions = getFunctions(app);
+      const sendReminders = httpsCallable(functions, "sendCompletenessReminders");
+      const payloadRecipients = selectedRecipients.map(c => ({
+        ...c,
+        email: overrides[c.id] ?? c.email ?? deriveEmail(c.name)
+      }));
+
+      const result = await sendReminders({ recipients: payloadRecipients, cc: ccList, periodLabel });
+      const data = result.data as any;
+      
       toast({
         title: "Reminder sent",
         description: `Group email sent to ${data?.sentTo ?? selectedRecipients.length} recipient${(data?.sentTo ?? selectedRecipients.length) === 1 ? "" : "s"} via Gmail`,
@@ -169,8 +218,8 @@ export function SendRemindersDialog({ people, startDate, endDate }: Props) {
                       </div>
                       <Input
                         className="w-64 h-8 text-xs"
-                        value={overrides[c.name] ?? c.email}
-                        onChange={(e) => setOverrides(p => ({ ...p, [c.name]: e.target.value }))}
+                        value={overrides[c.id] ?? c.email ?? deriveEmail(c.name)}
+                        onChange={(e) => setOverrides(p => ({ ...p, [c.id]: e.target.value }))}
                         placeholder="email@domain.com"
                       />
                     </div>
@@ -195,9 +244,17 @@ export function SendRemindersDialog({ people, startDate, endDate }: Props) {
                   <div>
                     <span className="text-muted-foreground">To:</span>{" "}
                     <span className="font-medium break-all">
-                      {selectedRecipients.map(r => r.email).join(", ") || "(no recipients)"}
+                      {selectedRecipients.map(r => overrides[r.id] ?? r.email ?? deriveEmail(r.name)).join(", ") || "(no recipients)"}
                     </span>
                   </div>
+                  {ccList.length > 0 && (
+                    <div>
+                      <span className="text-muted-foreground">Cc:</span>{" "}
+                      <span className="font-medium break-all">
+                        {ccList.join(", ")}
+                      </span>
+                    </div>
+                  )}
                   <div>
                     <span className="text-muted-foreground">Subject:</span>{" "}
                     <span className="font-medium">Timesheet reminder — {periodLabel}</span>

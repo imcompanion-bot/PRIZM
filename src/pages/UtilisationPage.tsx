@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import UtilisationTab from "@/components/time-tracking/UtilisationTab";
 import AnalysisTab from "@/components/time-tracking/AnalysisTab";
+import { CustomDateRangePicker } from "@/components/ui/custom-date-range-picker";
 
 type PeriodPreset = "last_1_month" | "last_3_months" | "last_6_months" | "last_12_months" | "custom";
 
@@ -22,7 +23,7 @@ function ToggleGroup({ value, onChange, options }: { value: string; onChange: (v
           onClick={() => onChange(opt.value)}
           className={cn(
             "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-            value === opt.value ? "bg-background shadow-sm text-foreground bg-[#4b71d8]" : "text-muted-foreground hover:text-foreground"
+            value === opt.value ? "bg-background shadow-sm text-white bg-[#4b71d8]" : "text-muted-foreground hover:text-foreground"
           )}
         >
           {opt.label}
@@ -142,48 +143,18 @@ const UtilisationPage = () => {
           ]}
         />
         {periodPreset === "custom" && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("justify-start text-left font-normal", !customStart && "text-muted-foreground")}>
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {customStart && customEnd
-                  ? `${format(customStart, "dd MMM yyyy")} – ${format(customEnd, "dd MMM yyyy")}`
-                  : customStart
-                    ? `${format(customStart, "dd MMM yyyy")} – select end date`
-                    : "Select date range"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="range"
-                showOutsideDays={false}
-                selected={customStart ? { from: customStart, to: customEnd } : undefined}
-                onSelect={(range: DateRange | undefined) => {
-                  setCustomStart(range?.from ?? undefined);
-                  setCustomEnd(range?.to ?? undefined);
-                  if (range?.to) setHoveredDate(undefined);
-                }}
-                onDayMouseEnter={(day) => setHoveredDate(day)}
-                onDayMouseLeave={() => setHoveredDate(undefined)}
-                numberOfMonths={2}
-                className="p-3 pointer-events-auto"
-                modifiers={{
-                  hoverPreview: hoverPreviewDays,
-                }}
-                modifiersClassNames={{
-                  hoverPreview: "!bg-yellow-100 !text-yellow-900 rounded-none",
-                }}
-                classNames={{
-                  day_selected: "bg-yellow-500 text-white hover:bg-yellow-500 hover:text-white focus:bg-yellow-500 focus:text-white",
-                  day_range_middle: "aria-selected:bg-yellow-400 aria-selected:text-yellow-950",
-                  day_range_end: "day-range-end",
-                  day_today: "",
-                  cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected])]:bg-yellow-400 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                  day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 rounded-md inline-flex items-center justify-center whitespace-nowrap text-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+          <CustomDateRangePicker
+            start={customStart}
+            end={customEnd}
+            onSelect={({ start, end }) => {
+              setCustomStart(start);
+              setCustomEnd(end);
+            }}
+            selectedClass="bg-indigo-600 text-white hover:bg-indigo-600 hover:text-white focus:bg-indigo-600 focus:text-white"
+            rangeMiddleClass="aria-selected:bg-indigo-50 aria-selected:text-indigo-900"
+            hoverPreviewClass="!bg-indigo-50 !text-indigo-900 rounded-none"
+            cellClass="h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected])]:bg-indigo-50 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20"
+          />
         )}
         <span className="text-sm text-muted-foreground">
           {format(startDate, "dd MMM")} – {format(endDate, "dd MMM yyyy")} · {workingDaysInPeriod} working days
