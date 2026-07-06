@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, Loader2, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, isSameMonth } from "date-fns";
 import { app } from "@/lib/firebase";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
@@ -87,7 +87,22 @@ export function SendRemindersDialog({ people, startDate, endDate, office }: Prop
     setStep("select");
   }, [candidateNames]);
 
-  const periodLabel = `${format(startDate, "d MMM")} – ${format(endDate, "d MMM yyyy")}`;
+  const periodLabel = useMemo(() => {
+    const sameMonth = isSameMonth(startDate, endDate);
+    if (office === "US") {
+      if (sameMonth) {
+        return `${format(startDate, "MMMM d")} - ${format(endDate, "d")}`;
+      } else {
+        return `${format(startDate, "MMMM d")} - ${format(endDate, "MMMM d, yyyy")}`;
+      }
+    }
+    // Global / UK format
+    if (sameMonth) {
+      return `${format(startDate, "d")} – ${format(endDate, "d MMM yyyy")}`;
+    } else {
+      return `${format(startDate, "d MMM")} – ${format(endDate, "d MMM yyyy")}`;
+    }
+  }, [startDate, endDate, office]);
 
   const ccList = useMemo(() => {
     if (office === "UK") return ["churrell@billiondollarboy.com"];
