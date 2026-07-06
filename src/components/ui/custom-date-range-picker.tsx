@@ -35,6 +35,8 @@ export function CustomDateRangePicker({
 }: CustomDateRangePickerProps) {
   const [mode, setMode] = useState<"months" | "dates">("months");
   const [currentYear, setCurrentYear] = useState(start ? start.getFullYear() : new Date().getFullYear());
+  const [open, setOpen] = useState(false);
+  const [isSelectingRange, setIsSelectingRange] = useState(false);
   
   const [hoveredDay, setHoveredDay] = useState<Date | undefined>(undefined);
   const [hoveredMonth, setHoveredMonth] = useState<Date | undefined>(undefined);
@@ -51,18 +53,21 @@ export function CustomDateRangePicker({
     const clickedStart = new Date(currentYear, monthIndex, 1);
     const clickedEnd = endOfMonth(clickedStart);
 
-    if (!start || (start && end)) {
-      // Start a new range
+    if (!isSelectingRange) {
+      // First click: select this month perfectly, but prime the picker for a range
       onSelect({ start: clickedStart, end: clickedEnd });
+      setIsSelectingRange(true);
     } else {
-      // We have a start but no end
-      if (isBefore(clickedStart, start)) {
-        // Clicked before start -> reset start
-        onSelect({ start: clickedStart, end: clickedEnd });
-      } else {
-        // Complete the range
+      // Second click: complete the range
+      if (start && isBefore(clickedStart, start)) {
+        // Clicked before the original start month
+        onSelect({ start: clickedStart, end: endOfMonth(start) });
+      } else if (start) {
+        // Clicked after the original start month
         onSelect({ start, end: clickedEnd });
       }
+      setIsSelectingRange(false);
+      setOpen(false); // auto-close popover when range is completed
     }
   };
 
@@ -79,13 +84,22 @@ export function CustomDateRangePicker({
   };
 
   const isMonthHoverPreview = (monthIndex: number) => {
-    if (!start || end || !hoveredMonth) return false;
+    if (!start || !isSelectingRange || !hoveredMonth) return false;
     const date = new Date(currentYear, monthIndex, 1);
-    return isAfter(date, start) && (isBefore(date, hoveredMonth) || isSameMonth(date, hoveredMonth));
+    
+    const minDate = isBefore(start, hoveredMonth) ? start : hoveredMonth;
+    const maxDate = isAfter(start, hoveredMonth) ? start : hoveredMonth;
+
+    return (isAfter(date, minDate) || isSameMonth(date, minDate)) && 
+           (isBefore(date, maxDate) || isSameMonth(date, maxDate)) &&
+           !isSameMonth(date, start);
   };
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={(o) => {
+      setOpen(o);
+      if (!o) setIsSelectingRange(false);
+    }}>
       <PopoverTrigger asChild>
         <Button variant="outline" className={cn("justify-start text-left font-normal", !start && "text-muted-foreground")}>
           <CalendarIcon className="mr-2 h-4 w-4" />
