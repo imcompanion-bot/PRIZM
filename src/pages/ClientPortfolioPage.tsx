@@ -101,7 +101,7 @@ function ToggleGroup({ value, onChange, options }: { value: string; onChange: (v
           onClick={() => onChange(opt.value)}
           className={cn(
             "px-3 py-1 text-xs font-medium rounded-md transition-colors",
-            value === opt.value ? "bg-background shadow-sm text-foreground bg-[#4b71d8]" : "text-muted-foreground hover:text-foreground"
+            value === opt.value ? "bg-background shadow-sm text-white bg-[#4b71d8]" : "text-muted-foreground hover:text-foreground"
           )}
         >
           {opt.label}
