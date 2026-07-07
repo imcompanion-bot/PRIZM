@@ -220,6 +220,7 @@ export type Database = {
           created_at: string
           employment_end_date: string | null
           employment_start_date: string | null
+          email: string | null
           id: string
           imc_percentage: number | null
           monthly_salary: number | null
@@ -240,6 +241,7 @@ export type Database = {
           created_at?: string
           employment_end_date?: string | null
           employment_start_date?: string | null
+          email?: string | null
           id?: string
           imc_percentage?: number | null
           monthly_salary?: number | null
@@ -260,6 +262,7 @@ export type Database = {
           created_at?: string
           employment_end_date?: string | null
           employment_start_date?: string | null
+          email?: string | null
           id?: string
           imc_percentage?: number | null
           monthly_salary?: number | null
