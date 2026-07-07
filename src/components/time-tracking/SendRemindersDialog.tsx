@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,7 +77,18 @@ export function SendRemindersDialog({ people, startDate, endDate, office }: Prop
     [people],
   );
 
-  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [overrides, setOverrides] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem("email_overrides");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("email_overrides", JSON.stringify(overrides));
+  }, [overrides]);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(candidates.map(c => c.name)));
 
   // Re-init selection when candidates change
@@ -134,14 +145,15 @@ export function SendRemindersDialog({ people, startDate, endDate, office }: Prop
         .filter(c => overrides[c.id])
         .map(c => ({ id: c.id, email: overrides[c.id] }));
 
+      // We keep the DB upsert attempt in case the column gets added later,
+      // but we also rely on localStorage for immediate persistence.
       if (emailsToUpdate.length > 0) {
         const { error: updateError } = await supabase
           .from("people")
-          .upsert(emailsToUpdate); // upsert on id updates existing rows
+          .upsert(emailsToUpdate);
 
         if (updateError) {
-          console.error("Failed to save email overrides to database:", updateError);
-          // Don't throw, still try to send emails
+          console.error("Note: email overrides are being saved locally in your browser because they couldn't be saved to the database (missing column).", updateError);
         }
       }
 
