@@ -20,6 +20,7 @@ import BillableWorkPage from "./pages/BillableWorkPage";
 
 import ScopingToolPage from "./pages/ScopingToolPage";
 import ClientPortfolioPage from "./pages/ClientPortfolioPage";
+import ResourcePlannerPage from "./pages/ResourcePlannerPage";
 import FeeCalculatorPage from "./pages/FeeCalculatorPage";
 import NotFound from "./pages/NotFound";
 import { resumeGlobalImportIfNeeded } from "./components/settings/TimesheetsImport";
@@ -80,6 +81,7 @@ const App = () => (
                 <Route path="/profitability" element={<ProfitabilityPage />} />
                 <Route path="/scoping" element={<ScopingToolPage />} />
                 <Route path="/billable-work" element={<BillableWorkPage />} />
+                <Route path="/resource-planner" element={<ResourcePlannerPage />} />
 
                 <Route path="/fee-calculator" element={<FeeCalculatorPage />} />
                 <Route path="/settings" element={<SettingsPage />} />

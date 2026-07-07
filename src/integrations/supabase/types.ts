@@ -701,6 +701,54 @@ export type Database = {
           },
         ]
       }
+      resource_allocations: {
+        Row: {
+          id: string
+          client_name: string
+          person_id: string
+          role_id: string
+          start_date: string
+          end_date: string
+          allocation_percentage: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          client_name: string
+          person_id: string
+          role_id: string
+          start_date: string
+          end_date: string
+          allocation_percentage?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client_name?: string
+          person_id?: string
+          role_id?: string
+          start_date?: string
+          end_date?: string
+          allocation_percentage?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_allocations_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_allocations_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       roles: {
         Row: {
           billable_capacity_hours: number

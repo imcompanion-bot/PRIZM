@@ -10,6 +10,7 @@ import {
   Settings,
   Receipt,
   FolderKanban,
+  CalendarRange,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +21,7 @@ const mainNav = [
   { to: "/profitability", icon: TrendingUp, label: "Profitability" },
   { to: "/client-portfolio", icon: FolderKanban, label: "Client Portfolio" },
   { to: "/projects", icon: Briefcase, label: "Projects" },
+  { to: "/resource-planner", icon: CalendarRange, label: "Resource Planner" },
 
   { to: "/fee-calculator", icon: CalendarDays, label: "Fee Calculator" },
 ];
