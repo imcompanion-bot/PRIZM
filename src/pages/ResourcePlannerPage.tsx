@@ -306,7 +306,7 @@ export default function ResourcePlannerPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Global">Global</SelectItem>
-                  <SelectItem value="UK">UK / Companion</SelectItem>
+                  <SelectItem value="UK">UK</SelectItem>
                   <SelectItem value="US">US</SelectItem>
                 </SelectContent>
               </Select>
