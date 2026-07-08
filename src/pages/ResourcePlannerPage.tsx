@@ -173,11 +173,23 @@ export default function ResourcePlannerPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("people")
-        .select("id, name, office, roles(name)");
+        .select("id, name, office, start_date, end_date, roles(name, billable_capacity_hours)");
       if (error) throw error;
       return data || [];
     }
   });
+
+  // Filter people to only those who held the role during the selected date range
+  const activePeople = useMemo(() => {
+    return people.filter(p => {
+      if (!p.start_date) return true; // Assume active if no start_date
+      const pStart = parseISO(p.start_date);
+      const pEnd = p.end_date ? parseISO(p.end_date) : new Date("2099-12-31");
+      
+      // Person's role must overlap with the [startDate, endDate] window
+      return pEnd >= startDate && pStart <= endDate;
+    });
+  }, [people, startDate, endDate]);
 
   const { data: allocations = [] } = useQuery({
     queryKey: ["resource_allocations"],
@@ -201,7 +213,7 @@ export default function ResourcePlannerPage() {
   const personAvailability = useMemo(() => {
     const availability = new Map<string, { totalAllocated: number, remaining: number, capacity: number }>();
     
-    for (const person of people) {
+    for (const person of activePeople) {
       const personDailyCapacity = getPersonDailyCapacity(person);
       const personPeriodCapacityHours = totalPeriodWorkingDays * personDailyCapacity;
 
@@ -229,7 +241,7 @@ export default function ResourcePlannerPage() {
       });
     }
     return availability;
-  }, [people, allocations, startDate, endDate, totalPeriodWorkingDays]);
+  }, [activePeople, allocations, startDate, endDate, totalPeriodWorkingDays]);
 
   // Calculate required hours per role for the selected client and time period
   const requiredByRole = useMemo(() => {
@@ -287,7 +299,7 @@ export default function ResourcePlannerPage() {
 
         if (overlapStart <= overlapEnd) {
           const wDays = getWorkingDays(overlapStart, overlapEnd);
-          const person = people.find(p => p.id === alloc.person_id);
+          const person = activePeople.find(p => p.id === alloc.person_id);
           const dailyCapacity = getPersonDailyCapacity(person);
           const hrs = wDays * dailyCapacity * ((alloc.allocation_percentage || 100) / 100);
           allocatedHours += hrs;
@@ -304,7 +316,7 @@ export default function ResourcePlannerPage() {
         shortfall: roleReq.requiredHours - allocatedHours,
       };
     });
-  }, [requiredByRole, allocations, activeClientName, startDate, endDate, people]);
+  }, [requiredByRole, allocations, activeClientName, startDate, endDate, activePeople]);
 
   // Allocation Mutation
   const allocateMutation = useMutation({
@@ -481,7 +493,7 @@ export default function ResourcePlannerPage() {
                                     {(() => {
                                       const dbOffice = officeFilter === "UK" ? "United Kingdom" : officeFilter === "US" ? "United States" : officeFilter;
                                       
-                                      const availablePeopleList = people.filter(p => {
+                                      const availablePeopleList = activePeople.filter(p => {
                                         // 1. Role must match
                                         if (p.roles?.name !== stat.roleName) return false;
                                         // 2. Office must match (if not Global)
