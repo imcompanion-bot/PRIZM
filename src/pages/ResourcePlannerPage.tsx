@@ -129,7 +129,10 @@ export default function ResourcePlannerPage() {
     if (ultimateParent !== "All") p = p.filter(pr => pr.ultimate_parent === ultimateParent);
     if (parentAccount !== "All") p = p.filter(pr => pr.parent_account === parentAccount);
     if (sfAccount !== "All") p = p.filter(pr => pr.sf_account === sfAccount);
-    if (officeFilter !== "Global") p = p.filter(pr => pr.office === officeFilter);
+    if (officeFilter !== "Global") {
+      const dbOffice = officeFilter === "UK" ? "United Kingdom" : officeFilter === "US" ? "United States" : officeFilter;
+      p = p.filter(pr => pr.office === dbOffice);
+    }
     return p;
   }, [projects, ultimateParent, parentAccount, sfAccount, officeFilter]);
 
