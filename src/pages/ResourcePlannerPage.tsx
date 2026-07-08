@@ -22,6 +22,14 @@ function getWorkingDays(start: Date, end: Date): number {
   return days.filter((d) => !isWeekend(d)).length;
 }
 
+// Helper to get daily billable capacity from a person's role (defaults to 7.5)
+function getPersonDailyCapacity(person: any): number {
+  if (!person || !person.roles) return HOURS_PER_DAY;
+  const weekly = person.roles.billable_capacity_hours;
+  if (typeof weekly === "number") return weekly / 5;
+  return HOURS_PER_DAY;
+}
+
 // Helper function to calculate the overlapping hours for a scope based on its 12 phases
 function calculateOverlappingHours(
   projectStart: Date,
@@ -188,13 +196,15 @@ export default function ResourcePlannerPage() {
 
   // Calculate total working days in the selected period
   const totalPeriodWorkingDays = useMemo(() => getWorkingDays(startDate, endDate), [startDate, endDate]);
-  const totalPeriodCapacityHours = totalPeriodWorkingDays * HOURS_PER_DAY;
 
   // Pre-calculate availability for all people in the selected date range
   const personAvailability = useMemo(() => {
-    const availability = new Map<string, { totalAllocated: number, remaining: number }>();
+    const availability = new Map<string, { totalAllocated: number, remaining: number, capacity: number }>();
     
     for (const person of people) {
+      const personDailyCapacity = getPersonDailyCapacity(person);
+      const personPeriodCapacityHours = totalPeriodWorkingDays * personDailyCapacity;
+
       // Find all allocations for this person that overlap with the date range
       const personAllocations = allocations.filter(a => a.person_id === person.id);
       let totalAllocatedHrs = 0;
@@ -207,18 +217,19 @@ export default function ResourcePlannerPage() {
 
         if (overlapStart <= overlapEnd) {
           const wDays = getWorkingDays(overlapStart, overlapEnd);
-          const hrs = wDays * HOURS_PER_DAY * ((alloc.allocation_percentage || 100) / 100);
+          const hrs = wDays * personDailyCapacity * ((alloc.allocation_percentage || 100) / 100);
           totalAllocatedHrs += hrs;
         }
       }
       
       availability.set(person.id, {
         totalAllocated: totalAllocatedHrs,
-        remaining: Math.max(0, totalPeriodCapacityHours - totalAllocatedHrs)
+        remaining: Math.max(0, personPeriodCapacityHours - totalAllocatedHrs),
+        capacity: personPeriodCapacityHours
       });
     }
     return availability;
-  }, [people, allocations, startDate, endDate, totalPeriodCapacityHours]);
+  }, [people, allocations, startDate, endDate, totalPeriodWorkingDays]);
 
   // Calculate required hours per role for the selected client and time period
   const requiredByRole = useMemo(() => {
@@ -277,8 +288,8 @@ export default function ResourcePlannerPage() {
         if (overlapStart <= overlapEnd) {
           const wDays = getWorkingDays(overlapStart, overlapEnd);
           const person = people.find(p => p.id === alloc.person_id);
-          // Assuming 7.5 hrs/day capacity. If they have specific billable_capacity_hours, we could use that.
-          const hrs = wDays * HOURS_PER_DAY * ((alloc.allocation_percentage || 100) / 100);
+          const dailyCapacity = getPersonDailyCapacity(person);
+          const hrs = wDays * dailyCapacity * ((alloc.allocation_percentage || 100) / 100);
           allocatedHours += hrs;
           if (person) {
             allocatedPeople.push({ id: person.id, name: person.name, hours: hrs });
@@ -491,7 +502,7 @@ export default function ResourcePlannerPage() {
 
                                       return availablePeopleList.map(person => {
                                         const avail = personAvailability.get(person.id);
-                                        const remainingHrs = avail ? avail.remaining : totalPeriodCapacityHours;
+                                        const remainingHrs = avail ? avail.remaining : (getPersonDailyCapacity(person) * totalPeriodWorkingDays);
                                         
                                         return (
                                           <div key={person.id} className="flex items-center justify-between p-3 border rounded-lg bg-stone-50">
