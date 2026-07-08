@@ -173,7 +173,7 @@ export default function ResourcePlannerPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("people")
-        .select("id, name, office, start_date, end_date, roles(name, billable_capacity_hours)");
+        .select("id, name, office, employment_start_date, employment_end_date, roles(name, billable_capacity_hours)");
       if (error) throw error;
       return data || [];
     }
@@ -182,9 +182,9 @@ export default function ResourcePlannerPage() {
   // Filter people to only those who held the role during the selected date range
   const activePeople = useMemo(() => {
     return people.filter(p => {
-      if (!p.start_date) return true; // Assume active if no start_date
-      const pStart = parseISO(p.start_date);
-      const pEnd = p.end_date ? parseISO(p.end_date) : new Date("2099-12-31");
+      if (!p.employment_start_date) return true; // Assume active if no start_date
+      const pStart = parseISO(p.employment_start_date);
+      const pEnd = p.employment_end_date ? parseISO(p.employment_end_date) : new Date("2099-12-31");
       
       // Person's role must overlap with the [startDate, endDate] window
       return pEnd >= startDate && pStart <= endDate;
