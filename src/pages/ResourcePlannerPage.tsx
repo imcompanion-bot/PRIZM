@@ -186,6 +186,40 @@ export default function ResourcePlannerPage() {
     }
   });
 
+  // Calculate total working days in the selected period
+  const totalPeriodWorkingDays = useMemo(() => getWorkingDays(startDate, endDate), [startDate, endDate]);
+  const totalPeriodCapacityHours = totalPeriodWorkingDays * HOURS_PER_DAY;
+
+  // Pre-calculate availability for all people in the selected date range
+  const personAvailability = useMemo(() => {
+    const availability = new Map<string, { totalAllocated: number, remaining: number }>();
+    
+    for (const person of people) {
+      // Find all allocations for this person that overlap with the date range
+      const personAllocations = allocations.filter(a => a.person_id === person.id);
+      let totalAllocatedHrs = 0;
+      
+      for (const alloc of personAllocations) {
+        const aStart = parseISO(alloc.start_date);
+        const aEnd = parseISO(alloc.end_date);
+        const overlapStart = max([aStart, startDate]);
+        const overlapEnd = min([aEnd, endDate]);
+
+        if (overlapStart <= overlapEnd) {
+          const wDays = getWorkingDays(overlapStart, overlapEnd);
+          const hrs = wDays * HOURS_PER_DAY * ((alloc.allocation_percentage || 100) / 100);
+          totalAllocatedHrs += hrs;
+        }
+      }
+      
+      availability.set(person.id, {
+        totalAllocated: totalAllocatedHrs,
+        remaining: Math.max(0, totalPeriodCapacityHours - totalAllocatedHrs)
+      });
+    }
+    return availability;
+  }, [people, allocations, startDate, endDate, totalPeriodCapacityHours]);
+
   // Calculate required hours per role for the selected client and time period
   const requiredByRole = useMemo(() => {
     const roleMap = new Map<string, { roleName: string; requiredHours: number }>();
@@ -433,17 +467,42 @@ export default function ResourcePlannerPage() {
                                     <p className="text-sm text-stone-500">
                                       Select people from your team to assign to {activeClientName} for this period.
                                     </p>
-                                    {people.filter(p => p.roles?.name === stat.roleName).map(person => {
-                                      const isAlreadyAllocated = stat.allocatedPeople.some(ap => ap.id === person.id);
-                                      return (
-                                        <div key={person.id} className="flex items-center justify-between p-3 border rounded-lg bg-stone-50">
-                                          <div className="flex flex-col">
-                                            <span className="font-medium text-stone-900">{person.name}</span>
-                                            <span className="text-xs text-stone-500">{person.office || "Global"}</span>
-                                          </div>
-                                          {isAlreadyAllocated ? (
-                                            <Badge variant="secondary">Allocated</Badge>
-                                          ) : (
+                                    {(() => {
+                                      const dbOffice = officeFilter === "UK" ? "United Kingdom" : officeFilter === "US" ? "United States" : officeFilter;
+                                      
+                                      const availablePeopleList = people.filter(p => {
+                                        // 1. Role must match
+                                        if (p.roles?.name !== stat.roleName) return false;
+                                        // 2. Office must match (if not Global)
+                                        if (dbOffice !== "Global" && p.office !== dbOffice) return false;
+                                        // 3. Must not already be allocated to this specific client
+                                        const isAlreadyAllocated = stat.allocatedPeople.some(ap => ap.id === p.id);
+                                        if (isAlreadyAllocated) return false;
+                                        // 4. Must have remaining availability
+                                        const avail = personAvailability.get(p.id);
+                                        if (avail && avail.remaining <= 0) return false;
+
+                                        return true;
+                                      });
+
+                                      if (availablePeopleList.length === 0) {
+                                        return <p className="text-sm text-stone-400 italic">No available people found with this role and office.</p>;
+                                      }
+
+                                      return availablePeopleList.map(person => {
+                                        const avail = personAvailability.get(person.id);
+                                        const remainingHrs = avail ? avail.remaining : totalPeriodCapacityHours;
+                                        
+                                        return (
+                                          <div key={person.id} className="flex items-center justify-between p-3 border rounded-lg bg-stone-50">
+                                            <div className="flex flex-col">
+                                              <span className="font-medium text-stone-900">{person.name}</span>
+                                              <div className="flex items-center gap-2 mt-1 text-xs text-stone-500">
+                                                <span>{person.office || "Global"}</span>
+                                                <span>•</span>
+                                                <span className="text-emerald-600 font-medium">{Math.round(remainingHrs)}h available</span>
+                                              </div>
+                                            </div>
                                             <Button 
                                               size="sm" 
                                               onClick={() => allocateMutation.mutate({ personId: person.id, roleId: stat.roleId, pct: 100 })}
@@ -451,13 +510,10 @@ export default function ResourcePlannerPage() {
                                             >
                                               Assign
                                             </Button>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                    {people.filter(p => p.roles?.name === stat.roleName).length === 0 && (
-                                      <p className="text-sm text-stone-400 italic">No people found with this role.</p>
-                                    )}
+                                          </div>
+                                        );
+                                      });
+                                    })()}
                                   </div>
                                 </DialogContent>
                               </Dialog>
