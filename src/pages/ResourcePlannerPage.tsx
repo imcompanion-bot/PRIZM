@@ -22,15 +22,6 @@ function getWorkingDays(start: Date, end: Date): number {
   return days.filter((d) => !isWeekend(d)).length;
 }
 
-// Helper to get daily billable capacity from a person's role (defaults to 7.5)
-function getPersonDailyCapacity(person: any): number {
-  if (!person || !person.roles) return HOURS_PER_DAY;
-  const weekly = person.roles.billable_capacity_hours;
-  if (typeof weekly === "number") return weekly / 5;
-  return HOURS_PER_DAY;
-}
-
-// Helper function to calculate the overlapping hours for a scope based on its 12 phases
 function calculateOverlappingHours(
   projectStart: Date,
   projectEnd: Date,
@@ -542,23 +533,15 @@ export default function ResourcePlannerPage() {
                                         }
 
                                         return (
-                                          <div key={person.id} className="flex items-center justify-between p-3 border rounded-lg bg-stone-50">
-                                            <div className="flex flex-col">
-                                              <span className="font-medium text-stone-900">{person.name}</span>
-                                              <div className="flex items-center gap-2 mt-1 text-xs text-stone-500">
-                                                <span>{person.office || "Global"}</span>
-                                                <span>•</span>
-                                                <span className="text-emerald-600 font-medium">{Math.round(remainingHrs)}h available</span>
-                                              </div>
-                                            </div>
-                                            <Button 
-                                              size="sm" 
-                                              onClick={() => allocateMutation.mutate({ personId: person.id, roleId: stat.roleId, pct: calculatedPct })}
-                                              disabled={allocateMutation.isPending}
-                                            >
-                                              Assign ({calculatedPct}%)
-                                            </Button>
-                                          </div>
+                                          <PersonAllocationRow
+                                            key={person.id}
+                                            person={person}
+                                            stat={stat}
+                                            personTotalCapacity={personTotalCapacity}
+                                            remainingHrs={remainingHrs}
+                                            calculatedPct={calculatedPct}
+                                            allocateMutation={allocateMutation}
+                                          />
                                         );
                                       });
                                     })()}
