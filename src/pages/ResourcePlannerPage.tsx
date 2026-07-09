@@ -192,10 +192,10 @@ export default function ResourcePlannerPage() {
   }, [people, startDate, endDate]);
 
   const { data: allocations = [] } = useQuery({
-    queryKey: ["staff_allocations"],
+    queryKey: ["allocations_v2"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("staff_allocations")
+        .from("allocations_v2")
         .select("*");
       // If table doesn't exist yet, this will fail gracefully or we can just catch
       if (error) {
@@ -324,19 +324,20 @@ export default function ResourcePlannerPage() {
       const startStr = format(startDate, "yyyy-MM-dd");
       const endStr = format(endDate, "yyyy-MM-dd");
       const { error } = await supabase
-        .rpc("allocate_staff", {
-          p_client_name: activeClientName,
-          p_person_id: personId,
-          p_role_id: roleId,
-          p_start_date: startStr,
-          p_end_date: endStr,
-          p_allocation_percentage: pct
+        .from("allocations_v2")
+        .insert({
+          client_name: activeClientName,
+          person_id: personId,
+          role_id: roleId,
+          start_date: startStr,
+          end_date: endStr,
+          allocation_percentage: pct
         });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Staff allocated successfully");
-      queryClient.invalidateQueries({ queryKey: ["staff_allocations"] });
+      queryClient.invalidateQueries({ queryKey: ["allocations_v2"] });
     },
     onError: (error: any) => {
       toast.error(`Failed to allocate: ${error.message}`);
