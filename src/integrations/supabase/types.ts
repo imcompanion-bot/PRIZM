@@ -701,7 +701,7 @@ export type Database = {
           },
         ]
       }
-      resource_allocations: {
+      staff_allocations: {
         Row: {
           id: string
           client_name: string
@@ -734,19 +734,19 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "resource_allocations_person_id_fkey"
+            foreignKeyName: "staff_allocations_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "resource_allocations_role_id_fkey"
+            foreignKeyName: "staff_allocations_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       roles: {
