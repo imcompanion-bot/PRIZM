@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, addMonths, startOfMonth, endOfMonth, parseISO, isAfter, isBefore, max, min, differenceInMilliseconds, eachDayOfInterval, isWeekend } from "date-fns";
-import { Users, CalendarRange, Filter } from "lucide-react";
+import { Users, CalendarRange, Filter, X } from "lucide-react";
 import { useAnalyticsContext } from "@/contexts/AnalyticsContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -289,7 +289,7 @@ export default function ResourcePlannerPage() {
       );
 
       let allocatedHours = 0;
-      const allocatedPeople: Array<{ id: string, name: string, hours: number }> = [];
+      const allocatedPeople: Array<{ id: string, name: string, hours: number, allocId: string }> = [];
 
       for (const alloc of roleAllocations) {
         const aStart = parseISO(alloc.start_date);
@@ -304,7 +304,7 @@ export default function ResourcePlannerPage() {
           const hrs = wDays * dailyCapacity * ((alloc.allocation_percentage || 100) / 100);
           allocatedHours += hrs;
           if (person) {
-            allocatedPeople.push({ id: person.id, name: person.name, hours: hrs });
+            allocatedPeople.push({ id: person.id, name: person.name, hours: hrs, allocId: alloc.id });
           }
         }
       }
@@ -341,6 +341,24 @@ export default function ResourcePlannerPage() {
     },
     onError: (error: any) => {
       toast.error(`Failed to allocate: ${error.message}`);
+    }
+  });
+
+  // Unallocation Mutation
+  const unallocateMutation = useMutation({
+    mutationFn: async (allocId: string) => {
+      const { error } = await supabase
+        .from("allocations_v2")
+        .delete()
+        .eq("id", allocId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Staff unallocated successfully");
+      queryClient.invalidateQueries({ queryKey: ["allocations_v2"] });
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to unallocate: ${error.message}`);
     }
   });
 
@@ -514,8 +532,15 @@ export default function ResourcePlannerPage() {
 
                                       return availablePeopleList.map(person => {
                                         const avail = personAvailability.get(person.id);
-                                        const remainingHrs = avail ? avail.remaining : (getPersonDailyCapacity(person) * totalPeriodWorkingDays);
+                                        const personTotalCapacity = getPersonDailyCapacity(person) * totalPeriodWorkingDays;
+                                        const remainingHrs = avail ? avail.remaining : personTotalCapacity;
                                         
+                                        let calculatedPct = 100;
+                                        if (personTotalCapacity > 0) {
+                                          let desiredHrs = stat.shortfall > 0 ? Math.min(stat.shortfall, remainingHrs) : remainingHrs;
+                                          calculatedPct = Math.max(1, Math.min(100, Math.round((desiredHrs / personTotalCapacity) * 100)));
+                                        }
+
                                         return (
                                           <div key={person.id} className="flex items-center justify-between p-3 border rounded-lg bg-stone-50">
                                             <div className="flex flex-col">
@@ -528,10 +553,10 @@ export default function ResourcePlannerPage() {
                                             </div>
                                             <Button 
                                               size="sm" 
-                                              onClick={() => allocateMutation.mutate({ personId: person.id, roleId: stat.roleId, pct: 100 })}
+                                              onClick={() => allocateMutation.mutate({ personId: person.id, roleId: stat.roleId, pct: calculatedPct })}
                                               disabled={allocateMutation.isPending}
                                             >
-                                              Assign
+                                              Assign ({calculatedPct}%)
                                             </Button>
                                           </div>
                                         );
@@ -545,8 +570,12 @@ export default function ResourcePlannerPage() {
                             {stat.allocatedPeople.length > 0 && (
                               <div className="mt-4 pt-4 border-t border-stone-100 flex flex-wrap gap-2">
                                 {stat.allocatedPeople.map(p => (
-                                  <Badge key={p.id} variant="secondary" className="bg-stone-100 text-stone-700 hover:bg-stone-200">
+                                  <Badge key={p.allocId} variant="secondary" className="bg-stone-100 text-stone-700 hover:bg-stone-200 flex items-center pr-1.5">
                                     {p.name} ({Math.round(p.hours)}h)
+                                    <X 
+                                      className="w-3 h-3 ml-1 cursor-pointer text-stone-400 hover:text-stone-700 hover:bg-stone-200 rounded-full" 
+                                      onClick={() => unallocateMutation.mutate(p.allocId)} 
+                                    />
                                   </Badge>
                                 ))}
                               </div>
