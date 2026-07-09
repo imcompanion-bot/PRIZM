@@ -324,14 +324,13 @@ export default function ResourcePlannerPage() {
       const startStr = format(startDate, "yyyy-MM-dd");
       const endStr = format(endDate, "yyyy-MM-dd");
       const { error } = await supabase
-        .from("staff_allocations")
-        .insert({
-          client_name: activeClientName,
-          person_id: personId,
-          role_id: roleId,
-          start_date: startStr,
-          end_date: endStr,
-          allocation_percentage: pct
+        .rpc("allocate_staff", {
+          p_client_name: activeClientName,
+          p_person_id: personId,
+          p_role_id: roleId,
+          p_start_date: startStr,
+          p_end_date: endStr,
+          p_allocation_percentage: pct
         });
       if (error) throw error;
     },
