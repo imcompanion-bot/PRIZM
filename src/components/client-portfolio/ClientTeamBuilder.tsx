@@ -95,6 +95,7 @@ function getSlotAvgPct(slot: Record<string, number>, months: string[]): number {
 }
 
 function getSlotLabel(index: number, avgPct: number, months: string[], slot: Record<string, number>): string {
+  if (months.length === 0) return `Option ${index + 1}`;
   const allSame = months.every(m => (slot[m] || 0) === (slot[months[0]] || 0));
   const maxPct = Math.max(...months.map(m => slot[m] || 0));
   const minPct = Math.min(...months.map(m => slot[m] || 0));
@@ -274,8 +275,16 @@ export function ClientTeamBuilder({ clientName, roleDemands, months, clientOffic
     }
     return Object.entries(groups)
       .sort(([, a], [, b]) => {
-        const aMax = Math.max(...a.map(d => Math.max(...Object.values(d.monthlyPct))));
-        const bMax = Math.max(...b.map(d => Math.max(...Object.values(d.monthlyPct))));
+        const getGroupMax = (arr: RoleDemand[]) => {
+          if (arr.length === 0) return 0;
+          const peakVals = arr.map(d => {
+            const vals = Object.values(d.monthlyPct || {});
+            return vals.length > 0 ? Math.max(...vals) : 0;
+          });
+          return peakVals.length > 0 ? Math.max(...peakVals) : 0;
+        };
+        const aMax = getGroupMax(a);
+        const bMax = getGroupMax(b);
         return bMax - aMax;
       });
   }, [roleDemands]);
@@ -396,7 +405,13 @@ export function ClientTeamBuilder({ clientName, roleDemands, months, clientOffic
                     </h4>
                     <div className="space-y-4">
                       {demands
-                        .sort((a, b) => Math.max(...Object.values(b.monthlyPct)) - Math.max(...Object.values(a.monthlyPct)))
+                        .sort((a, b) => {
+                          const aVals = Object.values(a.monthlyPct || {});
+                          const bVals = Object.values(b.monthlyPct || {});
+                          const aMax = aVals.length > 0 ? Math.max(...aVals) : 0;
+                          const bMax = bVals.length > 0 ? Math.max(...bVals) : 0;
+                          return bMax - aMax;
+                        })
                         .map((demand) => {
                           const slots = computePrioritySlots(demand.monthlyPct, months);
                           const roleAllocs = getRoleAllocations(demand.roleId);
@@ -459,7 +474,7 @@ function RoleSlotCard({
   onAssign: (personId: string, priority: number) => void;
   onRemove: (id: string) => void;
 }) {
-  const peakPct = Math.max(...Object.values(demand.monthlyPct));
+  const peakPct = Math.max(0, ...Object.values(demand.monthlyPct || {}));
 
   return (
     <div className="border rounded-lg overflow-hidden">

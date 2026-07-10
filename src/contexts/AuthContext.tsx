@@ -7,6 +7,7 @@ interface AppUser {
   role: string;
   createdAt: any;
   addedBy: string | null;
+  allocatedClients?: string[];
 }
 
 interface AuthContextType {
@@ -37,6 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
+          redirectTo: window.location.origin,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -86,7 +88,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             email: data[0].email,
             role: data[0].role,
             createdAt: data[0].created_at,
-            addedBy: data[0].added_by
+            addedBy: data[0].added_by,
+            allocatedClients: data[0].allocated_clients || []
           });
         } else {
           setAppUser(null);
