@@ -378,7 +378,7 @@ export default function ResourcePlannerPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("people")
-        .select("id, name, office, employment_start_date, employment_end_date, roles(name, billable_capacity_hours)");
+        .select("id, name, office, team, employment_start_date, employment_end_date, roles(name, billable_capacity_hours)");
       if (error) throw error;
       return data || [];
     }
@@ -850,9 +850,17 @@ export default function ResourcePlannerPage() {
                                       {(() => {
                                         const dbOffice = officeFilter === "UK" ? "United Kingdom" : officeFilter === "US" ? "United States" : officeFilter;
                                         
+                                        const targetTeams = new Set(
+                                          activePeople
+                                            .filter(p => p.roles?.name === stat.roleName && p.team)
+                                            .map(p => p.team)
+                                        );
+
                                         const alternativePeopleList = activePeople.filter(p => {
                                           // 1. Role must NOT match (this is the alternative list)
                                           if (p.roles?.name === stat.roleName) return false;
+                                          // 1.5 Must belong to the same team as the target role
+                                          if (targetTeams.size > 0 && (!p.team || !targetTeams.has(p.team))) return false;
                                           // 2. Office must match (if not Global)
                                           if (dbOffice !== "Global" && p.office !== dbOffice) return false;
                                           // 3. Must not already be allocated to this specific client
