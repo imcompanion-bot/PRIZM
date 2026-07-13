@@ -148,7 +148,7 @@ export default function ResourcePlannerPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, title, sf_account, parent_account, ultimate_parent, office, start_date, end_date, stage")
+        .select("id, title, sf_account, parent_account, ultimate_parent, office, start_date, end_date, stage, project_scopes!inner(id)")
         .order("start_date", { ascending: false });
       if (error) throw error;
       return data || [];
