@@ -118,18 +118,6 @@ function PersonAllocationRow({ person, stat, personTotalCapacity, remainingHrs, 
           <span>•</span>
           <span className="text-emerald-600 font-medium">{Math.round(remainingHrs)}h billable capacity available</span>
         </div>
-        {activeAllocations && activeAllocations.length > 0 && (
-          <div className="mt-2 flex flex-col gap-1">
-            <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">Current Allocations</span>
-            <div className="flex flex-wrap gap-1">
-              {activeAllocations.map((alloc: any, idx: number) => (
-                <Badge key={idx} variant="outline" className="text-[10px] bg-white border-stone-200 text-stone-500 font-normal py-0">
-                  {alloc.client}: {Math.round(alloc.hours)}h
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
       <div className="flex items-center gap-2">
         <Select value={selectedPct.toString()} onValueChange={(v) => setSelectedPct(parseInt(v))}>
@@ -822,10 +810,56 @@ export default function ResourcePlannerPage() {
                                             remainingHrs={remainingHrs}
                                             calculatedPct={calculatedPct}
                                             allocateMutation={allocateMutation}
-                                            activeAllocations={avail?.activeAllocations || []}
                                           />
                                         );
                                       });
+                                    })()}
+
+                                    {(() => {
+                                      const dbOffice = officeFilter === "UK" ? "United Kingdom" : officeFilter === "US" ? "United States" : officeFilter;
+                                      
+                                      const allocatedStaff = activePeople.filter(p => {
+                                        if (p.roles?.name !== stat.roleName) return false;
+                                        if (dbOffice !== "Global" && p.office !== dbOffice) return false;
+                                        const avail = personAvailability.get(p.id);
+                                        return avail && avail.activeAllocations && avail.activeAllocations.length > 0;
+                                      });
+
+                                      if (allocatedStaff.length === 0) return null;
+
+                                      return (
+                                        <div className="mt-6 border-t border-stone-200 pt-6">
+                                          <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-4">Currently Allocated Staff</h4>
+                                          <div className="space-y-3">
+                                            {allocatedStaff.map(person => {
+                                              const avail = personAvailability.get(person.id)!;
+                                              const personTotalCapacity = getPersonDailyCapacity(person) * totalPeriodWorkingDays;
+                                              const utilization = Math.min(100, Math.round((avail.totalAllocated / personTotalCapacity) * 100)) || 0;
+                                              
+                                              return (
+                                                <div key={person.id} className="flex flex-col p-3 border rounded-lg bg-stone-50/50 opacity-90">
+                                                  <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                      <span className="font-medium text-stone-900 text-sm">{person.name}</span>
+                                                      <div className="text-xs text-stone-500 mt-0.5">{person.office || "Global"} • {utilization}% utilized</div>
+                                                    </div>
+                                                    <Badge variant={utilization >= 100 ? "destructive" : "default"} className={utilization < 100 ? "bg-amber-500" : ""}>
+                                                      {utilization >= 100 ? "At Capacity" : `${Math.round(avail.remaining)}h remaining`}
+                                                    </Badge>
+                                                  </div>
+                                                  <div className="flex flex-wrap gap-1">
+                                                    {avail.activeAllocations.map((alloc: any, idx: number) => (
+                                                      <Badge key={idx} variant="outline" className="text-[10px] bg-white border-stone-200 text-stone-600 font-medium py-0">
+                                                        {alloc.client}: {Math.round(alloc.hours)}h
+                                                      </Badge>
+                                                    ))}
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      );
                                     })()}
                                   </div>
                                 </DialogContent>
