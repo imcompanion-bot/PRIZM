@@ -22,6 +22,29 @@ function getWorkingDays(start: Date, end: Date): number {
   return days.filter((d) => !isWeekend(d)).length;
 }
 
+function calculateAgencyFee(project: any) {
+  const getExtraNum = (proj: any, ...keys: string[]): number | null => {
+    if (!proj) return null;
+    const extra = proj.extra_data || {};
+    const normalised = Object.fromEntries(Object.entries(extra).map(([k, v]) => [k.toLowerCase().trim(), v]));
+    for (const k of keys) {
+      const val = normalised[k.toLowerCase().trim()];
+      if (val != null) {
+        const n = parseFloat(String(val).replace(/[£$,%]/g, "").replace(/,/g, ""));
+        if (!isNaN(n)) return n;
+      }
+    }
+    return null;
+  };
+
+  const agencyFeePrice = project?.price ?? project?.revenue ?? getExtraNum(project, "total price", "price gbp/usd", "price");
+  const agencyFeeMediaCost = project?.media_cost ?? getExtraNum(project, "media cost", "cost - paid media budget") ?? 0;
+  const agencyFeeGrossBudget = project?.gross_budget ?? project?.budget_cost ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+  
+  const agencyFee = agencyFeePrice !== null ? agencyFeePrice - agencyFeeMediaCost - agencyFeeGrossBudget : null;
+  return agencyFee ?? 0;
+}
+
 // Helper to get daily billable capacity from a person's role (defaults to 7.5)
 function getPersonDailyCapacity(person: any): number {
   if (!person || !person.roles) return HOURS_PER_DAY;
@@ -148,7 +171,7 @@ export default function ResourcePlannerPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, title, sf_account, parent_account, ultimate_parent, office, start_date, end_date, stage, gp_full_value, project_scopes(id)")
+        .select("id, title, sf_account, parent_account, ultimate_parent, office, start_date, end_date, stage, gp_full_value, revenue, price, media_cost, gross_budget, budget_cost, extra_data, project_scopes(id)")
         .order("start_date", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -554,9 +577,9 @@ export default function ResourcePlannerPage() {
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="text-[10px] text-stone-400 font-semibold uppercase tracking-wider mb-1">GP Full Value</div>
+                                  <div className="text-[10px] text-stone-400 font-semibold uppercase tracking-wider mb-1">Agency Fee</div>
                                   <div className="text-sm font-bold text-stone-700 whitespace-nowrap bg-white px-2 py-1 rounded border border-stone-200 inline-block">
-                                    £{p.gp_full_value?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || 0}
+                                    £{calculateAgencyFee(p).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                   </div>
                                 </div>
                               </li>
