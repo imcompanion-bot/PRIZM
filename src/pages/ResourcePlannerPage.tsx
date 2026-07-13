@@ -845,7 +845,71 @@ export default function ResourcePlannerPage() {
                                           />
                                         );
                                       });
-                                    })()}
+                                      })()}
+
+                                      {(() => {
+                                        const dbOffice = officeFilter === "UK" ? "United Kingdom" : officeFilter === "US" ? "United States" : officeFilter;
+                                        
+                                        const alternativePeopleList = activePeople.filter(p => {
+                                          // 1. Role must NOT match (this is the alternative list)
+                                          if (p.roles?.name === stat.roleName) return false;
+                                          // 2. Office must match (if not Global)
+                                          if (dbOffice !== "Global" && p.office !== dbOffice) return false;
+                                          // 3. Must not already be allocated to this specific client
+                                          const isAlreadyAllocated = stat.allocatedPeople.some(ap => ap.id === p.id);
+                                          if (isAlreadyAllocated) return false;
+                                          // 4. Must have remaining availability
+                                          const avail = personAvailability.get(p.id);
+                                          if (avail && avail.remaining <= 0) return false;
+
+                                          return true;
+                                        });
+
+                                        if (alternativePeopleList.length === 0) return null;
+
+                                        return (
+                                          <Accordion type="single" collapsible className="mt-4 border-t border-stone-200">
+                                            <AccordionItem value="alternative-roles" className="border-none">
+                                              <AccordionTrigger className="py-4 hover:no-underline flex text-stone-500 font-semibold text-xs tracking-wider uppercase">
+                                                Alternative Roles
+                                              </AccordionTrigger>
+                                              <AccordionContent>
+                                                <div className="space-y-3 pt-2">
+                                                  {alternativePeopleList.map(person => {
+                                                    const avail = personAvailability.get(person.id);
+                                                    const personTotalCapacity = getPersonDailyCapacity(person) * totalPeriodWorkingDays;
+                                                    const remainingHrs = avail ? avail.remaining : personTotalCapacity;
+                                                    
+                                                    let calculatedPct = 100;
+                                                    if (stat.shortfall <= 0) {
+                                                      calculatedPct = 0;
+                                                    } else if (personTotalCapacity > 0) {
+                                                      let desiredHrs = Math.min(stat.shortfall, remainingHrs);
+                                                      calculatedPct = Math.max(1, Math.min(100, Math.round((desiredHrs / personTotalCapacity) * 100)));
+                                                    }
+
+                                                    return (
+                                                      <div key={person.id} className="relative">
+                                                        <div className="absolute top-0 right-0 -mt-2 mr-2 z-10 bg-stone-100 text-stone-500 text-[10px] px-2 py-0.5 rounded-full font-medium border border-stone-200 shadow-sm">
+                                                          {person.roles?.name || "No Role"}
+                                                        </div>
+                                                        <PersonAllocationRow
+                                                          person={person}
+                                                          stat={stat}
+                                                          personTotalCapacity={personTotalCapacity}
+                                                          remainingHrs={remainingHrs}
+                                                          calculatedPct={calculatedPct}
+                                                          allocateMutation={allocateMutation}
+                                                        />
+                                                      </div>
+                                                    );
+                                                  })}
+                                                </div>
+                                              </AccordionContent>
+                                            </AccordionItem>
+                                          </Accordion>
+                                        );
+                                      })()}
 
                                     {(() => {
                                       const dbOffice = officeFilter === "UK" ? "United Kingdom" : officeFilter === "US" ? "United States" : officeFilter;
