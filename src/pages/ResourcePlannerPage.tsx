@@ -12,6 +12,7 @@ import { CustomDateRangePicker } from "@/components/ui/custom-date-range-picker"
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { toast } from "sonner";
 
 const HOURS_PER_DAY = 7.5;
