@@ -722,106 +722,7 @@ export default function ResourcePlannerPage() {
             </div>
             
             <div className="flex items-center gap-3 shrink-0">
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="outline" className="border-stone-200 bg-white text-stone-700 hover:bg-stone-50 shrink-0">
-                    <AlertCircle className="w-4 h-4 mr-2 text-stone-500" />
-                    Resolutions
-                    {resolutions.underResourcedClients.length + resolutions.overAllocatedStaff.length > 0 && (
-                      <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-600">
-                        {resolutions.underResourcedClients.length + resolutions.overAllocatedStaff.length}
-                      </span>
-                    )}
-                  </Button>
-                </SheetTrigger>
-                <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
-                  <SheetHeader className="pb-6 border-b border-stone-200">
-                    <SheetTitle className="text-2xl font-display">Resolutions</SheetTitle>
-                  </SheetHeader>
-                  
-                  <div className="py-6 space-y-8">
-                    {/* Under-resourced Clients */}
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider flex items-center gap-2">
-                        Clients Needing Staff
-                        <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full text-xs">{resolutions.underResourcedClients.length}</span>
-                      </h3>
-                      {resolutions.underResourcedClients.length === 0 ? (
-                        <p className="text-sm text-stone-500 italic">No shortfalls identified.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {resolutions.underResourcedClients.map((c, i) => (
-                            <div key={i} className="flex justify-between items-center bg-red-50 text-red-900 border border-red-100 p-3 rounded-lg text-sm">
-                              <span className="font-semibold">{c.client}</span>
-                              <span>Short by {Math.round(c.shortfall)} hrs</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
 
-                    {/* Over-allocated Staff */}
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider flex items-center gap-2">
-                        Over-allocated Staff
-                        <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full text-xs">{resolutions.overAllocatedStaff.length}</span>
-                      </h3>
-                      {resolutions.overAllocatedStaff.length === 0 ? (
-                        <p className="text-sm text-stone-500 italic">No staff are over capacity.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {resolutions.overAllocatedStaff.map((s, i) => (
-                            <div key={i} className="flex justify-between items-center bg-orange-50 text-orange-900 border border-orange-100 p-3 rounded-lg text-sm">
-                              <span className="font-semibold">{s.person.name}</span>
-                              <span>Over by {Math.round(s.overage)} hrs</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Available Staff */}
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider flex items-center gap-2">
-                        Staff With Capacity
-                        <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full text-xs">
-                          {resolutions.availableStaffByTeam.reduce((acc, t) => acc + t.staff.length, 0)}
-                        </span>
-                      </h3>
-                      {resolutions.availableStaffByTeam.length === 0 ? (
-                        <p className="text-sm text-stone-500 italic">No staff have remaining capacity.</p>
-                      ) : (
-                        <Accordion type="multiple" className="w-full">
-                          {resolutions.availableStaffByTeam.map((teamData) => (
-                            <AccordionItem key={teamData.team} value={teamData.team} className="border-stone-200">
-                              <AccordionTrigger className="hover:no-underline py-3">
-                                <div className="flex justify-between items-center w-full pr-4">
-                                  <span className="font-semibold text-stone-700">{teamData.team}</span>
-                                  <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full text-xs font-normal">
-                                    {teamData.staff.length} available
-                                  </span>
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <div className="space-y-1.5 pt-2">
-                                  {teamData.staff.map((s, i) => (
-                                    <div key={i} className="flex justify-between items-center bg-green-50/50 text-green-900 border border-green-100/50 p-2 rounded text-sm">
-                                      <span>{s.person.name}</span>
-                                      <span className="font-medium text-green-700">{Math.round(s.remaining)} hrs</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          ))}
-                        </Accordion>
-                      )}
-                    </div>
-
-                  </div>
-                </SheetContent>
-              </Sheet>
-              
               <Select value={teamFilter} onValueChange={setTeamFilter}>
                 <SelectTrigger className="w-auto min-w-[160px] bg-white border-stone-200 whitespace-nowrap">
                   <SelectValue placeholder="Team" />
@@ -904,6 +805,108 @@ export default function ResourcePlannerPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="pt-4 border-t border-stone-100">
+                    <Sheet>
+                      <SheetTrigger asChild>
+                        <Button className="w-full bg-brand-pink text-white hover:bg-brand-pink/90 border-0 shadow-sm font-semibold">
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          Resolutions
+                          {resolutions.underResourcedClients.length + resolutions.overAllocatedStaff.length > 0 && (
+                            <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-xs font-bold text-white">
+                              {resolutions.underResourcedClients.length + resolutions.overAllocatedStaff.length}
+                            </span>
+                          )}
+                        </Button>
+                      </SheetTrigger>
+                      <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+                        <SheetHeader className="pb-6 border-b border-stone-200">
+                          <SheetTitle className="text-2xl font-display">Resolutions</SheetTitle>
+                        </SheetHeader>
+                        
+                        <div className="py-6 space-y-8">
+                          {/* Under-resourced Clients */}
+                          <div className="space-y-4">
+                            <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider flex items-center gap-2">
+                              Clients Needing Staff
+                              <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full text-xs">{resolutions.underResourcedClients.length}</span>
+                            </h3>
+                            {resolutions.underResourcedClients.length === 0 ? (
+                              <p className="text-sm text-stone-500 italic">No shortfalls identified.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {resolutions.underResourcedClients.map((c, i) => (
+                                  <div key={i} className="flex justify-between items-center bg-red-50 text-red-900 border border-red-100 p-3 rounded-lg text-sm">
+                                    <span className="font-semibold">{c.client}</span>
+                                    <span>Short by {Math.round(c.shortfall)} hrs</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Over-allocated Staff */}
+                          <div className="space-y-4">
+                            <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider flex items-center gap-2">
+                              Over-allocated Staff
+                              <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full text-xs">{resolutions.overAllocatedStaff.length}</span>
+                            </h3>
+                            {resolutions.overAllocatedStaff.length === 0 ? (
+                              <p className="text-sm text-stone-500 italic">No staff are over capacity.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {resolutions.overAllocatedStaff.map((s, i) => (
+                                  <div key={i} className="flex justify-between items-center bg-orange-50 text-orange-900 border border-orange-100 p-3 rounded-lg text-sm">
+                                    <span className="font-semibold">{s.person.name}</span>
+                                    <span>Over by {Math.round(s.overage)} hrs</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Available Staff */}
+                          <div className="space-y-4">
+                            <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider flex items-center gap-2">
+                              Staff With Capacity
+                              <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full text-xs">
+                                {resolutions.availableStaffByTeam.reduce((acc, t) => acc + t.staff.length, 0)}
+                              </span>
+                            </h3>
+                            {resolutions.availableStaffByTeam.length === 0 ? (
+                              <p className="text-sm text-stone-500 italic">No staff have remaining capacity.</p>
+                            ) : (
+                              <Accordion type="multiple" className="w-full">
+                                {resolutions.availableStaffByTeam.map((teamData) => (
+                                  <AccordionItem key={teamData.team} value={teamData.team} className="border-stone-200">
+                                    <AccordionTrigger className="hover:no-underline py-3">
+                                      <div className="flex justify-between items-center w-full pr-4">
+                                        <span className="font-semibold text-stone-700">{teamData.team}</span>
+                                        <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full text-xs font-normal">
+                                          {teamData.staff.length} available
+                                        </span>
+                                      </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                      <div className="space-y-1.5 pt-2">
+                                        {teamData.staff.map((s, i) => (
+                                          <div key={i} className="flex justify-between items-center bg-green-50/50 text-green-900 border border-green-100/50 p-2 rounded text-sm">
+                                            <span>{s.person.name}</span>
+                                            <span className="font-medium text-green-700">{Math.round(s.remaining)} hrs</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                ))}
+                              </Accordion>
+                            )}
+                          </div>
+
+                        </div>
+                      </SheetContent>
+                    </Sheet>
                   </div>
                 </CardContent>
               </Card>
