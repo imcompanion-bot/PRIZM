@@ -24,6 +24,7 @@ import ResourcePlannerPage from "./pages/ResourcePlannerPage";
 import FeeCalculatorPage from "./pages/FeeCalculatorPage";
 import NotFound from "./pages/NotFound";
 import { resumeGlobalImportIfNeeded } from "./components/settings/TimesheetsImport";
+import { supabase } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,30 @@ const ImportResumeInitializer = () => {
   useEffect(() => {
     resumeGlobalImportIfNeeded(queryClient);
   }, []);
+  return null;
+};
+
+const RealtimeSubscriber = () => {
+  useEffect(() => {
+    console.log("Setting up Supabase Realtime subscription...");
+    const channel = supabase.channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public' },
+        (payload) => {
+          console.log('Realtime change received!', payload);
+          queryClient.invalidateQueries();
+        }
+      )
+      .subscribe((status) => {
+        console.log("Supabase Realtime status:", status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+  
   return null;
 };
 
@@ -62,6 +87,7 @@ const RoutePersistence = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ImportResumeInitializer />
+    <RealtimeSubscriber />
     <AnalyticsProvider>
       <TooltipProvider>
         <AuthProvider>
