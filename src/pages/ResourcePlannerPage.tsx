@@ -104,7 +104,7 @@ function PersonAllocationRow({ person, stat, personTotalCapacity, remainingHrs, 
   
   const maxAvailablePct = Math.round((remainingHrs / personTotalCapacity) * 100);
   
-  const rawOptions = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, calculatedPct];
+  const rawOptions = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, calculatedPct];
   const options = Array.from(new Set(rawOptions))
     .filter(opt => opt <= maxAvailablePct || opt === calculatedPct) // Always keep calculatedPct as an option
     .sort((a, b) => a - b);
@@ -819,8 +819,10 @@ export default function ResourcePlannerPage() {
                                         const remainingHrs = avail ? avail.remaining : personTotalCapacity;
                                         
                                         let calculatedPct = 100;
-                                        if (personTotalCapacity > 0) {
-                                          let desiredHrs = stat.shortfall > 0 ? Math.min(stat.shortfall, remainingHrs) : remainingHrs;
+                                        if (stat.shortfall <= 0) {
+                                          calculatedPct = 0;
+                                        } else if (personTotalCapacity > 0) {
+                                          let desiredHrs = Math.min(stat.shortfall, remainingHrs);
                                           calculatedPct = Math.max(1, Math.min(100, Math.round((desiredHrs / personTotalCapacity) * 100)));
                                         }
 
