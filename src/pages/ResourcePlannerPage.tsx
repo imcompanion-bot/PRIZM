@@ -318,7 +318,7 @@ export default function ResourcePlannerPage() {
     return Array.from(roleMap.entries()).map(([roleId, data]) => ({
       roleId,
       ...data
-    })).sort((a, b) => a.roleName.localeCompare(b.roleName));
+    })).sort((a, b) => b.requiredHours - a.requiredHours);
   }, [scopes, activeProjects, startDate, endDate]);
 
   // Map roles to their allocations
