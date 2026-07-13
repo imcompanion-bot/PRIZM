@@ -164,6 +164,7 @@ export default function ResourcePlannerPage() {
   const [startDate, setStartDate] = useState(startOfMonth(new Date()));
   const [endDate, setEndDate] = useState(endOfMonth(addMonths(new Date(), 2)));
   const [officeFilter, setOfficeFilter] = useState<"Global" | "UK" | "US">("Global");
+  const [teamFilter, setTeamFilter] = useState<string>("All Teams");
   
   // Client selection (3-tier)
   const [ultimateParent, setUltimateParent] = useState<string>("All");
@@ -378,7 +379,7 @@ export default function ResourcePlannerPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("people")
-        .select("id, name, office, team, employment_start_date, employment_end_date, roles(name, billable_capacity_hours)");
+        .select("id, name, office, team, role_id, employment_start_date, employment_end_date, roles(name, billable_capacity_hours)");
       if (error) throw error;
       return data || [];
     }
@@ -395,6 +396,31 @@ export default function ResourcePlannerPage() {
       return pEnd >= startDate && pStart <= endDate;
     });
   }, [people, startDate, endDate]);
+
+  // Compute role to team map based on people data
+  const roleTeamMap = useMemo(() => {
+    const teamCounts: Record<string, Record<string, number>> = {};
+    for (const p of people) {
+      if (!p.role_id || !p.team) continue;
+      if (!teamCounts[p.role_id]) teamCounts[p.role_id] = {};
+      teamCounts[p.role_id][p.team] = (teamCounts[p.role_id][p.team] || 0) + 1;
+    }
+    const map: Record<string, string> = {};
+    for (const [roleId, counts] of Object.entries(teamCounts)) {
+      let bestTeam = "Other";
+      let bestCount = -1;
+      for (const [team, count] of Object.entries(counts)) {
+        if (count > bestCount) { bestTeam = team; bestCount = count; }
+      }
+      map[roleId] = bestTeam;
+    }
+    return map;
+  }, [people]);
+
+  const availableTeams = useMemo(() => {
+    const teams = new Set(Object.values(roleTeamMap));
+    return Array.from(teams).sort();
+  }, [roleTeamMap]);
 
   const { data: allocations = [] } = useQuery({
     queryKey: ["allocations_v2"],
@@ -530,6 +556,11 @@ export default function ResourcePlannerPage() {
     });
   }, [requiredByRole, allocations, activeClientName, startDate, endDate, activePeople]);
 
+  const filteredRoleStats = useMemo(() => {
+    if (teamFilter === "All Teams") return roleStats;
+    return roleStats.filter(stat => roleTeamMap[stat.roleId] === teamFilter);
+  }, [roleStats, teamFilter, roleTeamMap]);
+
   // Allocation Mutation
   const allocateMutation = useMutation({
     mutationFn: async ({ personId, roleId, pct }: { personId: string, roleId: string, pct: number }) => {
@@ -590,6 +621,17 @@ export default function ResourcePlannerPage() {
             </div>
             
             <div className="flex flex-wrap items-center gap-3">
+              <Select value={teamFilter} onValueChange={setTeamFilter}>
+                <SelectTrigger className="w-[160px] bg-white border-stone-200">
+                  <SelectValue placeholder="Team" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All Teams">All Teams</SelectItem>
+                  {availableTeams.map(team => (
+                    <SelectItem key={team} value={team}>{team}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={officeFilter} onValueChange={(val: any) => setOfficeFilter(val)}>
                 <SelectTrigger className="w-[140px] bg-white border-stone-200">
                   <SelectValue placeholder="Office" />
@@ -728,13 +770,13 @@ export default function ResourcePlannerPage() {
                     <div className="text-center py-12 border-2 border-dashed border-stone-200 rounded-lg">
                       <p className="text-sm text-stone-500">Please select a specific client from the filters to view their resource requirements.</p>
                     </div>
-                  ) : roleStats.length === 0 ? (
+                  ) : filteredRoleStats.length === 0 ? (
                     <div className="text-center py-12 border-2 border-dashed border-stone-200 rounded-lg">
                       <p className="text-sm text-stone-500">No scoped resources found for {activeClientName} in this time period.</p>
                     </div>
                   ) : (
                     <div className="space-y-6">
-                      {roleStats.map(stat => {
+                      {filteredRoleStats.map(stat => {
                         const dailyCapacity = getPersonDailyCapacity({ roles: { billable_capacity_hours: stat.billableCapacityHours } });
                         const requiredFte = (stat.requiredHours / (getWorkingDays(startDate, endDate) * dailyCapacity)).toFixed(1);
                         const allocatedFte = (stat.allocatedHours / (getWorkingDays(startDate, endDate) * dailyCapacity)).toFixed(1);
