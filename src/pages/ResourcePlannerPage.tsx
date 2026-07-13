@@ -599,6 +599,11 @@ export default function ResourcePlannerPage() {
       const person = activePeople.find(p => p.id === personId);
       if (!person) continue;
       
+      if (teamFilter !== "All Teams") {
+        const pTeam = roleTeamMap[person.role_id] || person.team || "Other";
+        if (pTeam !== teamFilter) continue;
+      }
+      
       if (data.totalAllocated > data.capacity) {
         overAllocatedStaff.push({ person, overage: data.totalAllocated - data.capacity });
       } else if (data.remaining > 0) {
@@ -609,6 +614,10 @@ export default function ResourcePlannerPage() {
     // Process clients
     const clientRequirements = new Map<string, number>();
     for (const scope of combinedScopes) {
+      if (teamFilter !== "All Teams" && roleTeamMap[scope.role_id] !== teamFilter) {
+        continue;
+      }
+
       const project = activeProjects.find(p => p.id === scope.project_id);
       if (!project) continue;
       
@@ -624,6 +633,10 @@ export default function ResourcePlannerPage() {
 
     const clientAllocations = new Map<string, number>();
     for (const alloc of allocations) {
+      if (teamFilter !== "All Teams" && roleTeamMap[alloc.role_id] !== teamFilter) {
+        continue;
+      }
+
       const aStart = parseISO(alloc.start_date);
       const aEnd = parseISO(alloc.end_date);
       const overlapStart = max([aStart, startDate]);
@@ -673,7 +686,7 @@ export default function ResourcePlannerPage() {
       availableStaffByTeam: groupedAvailableStaff,
       underResourcedClients: underResourcedClients.sort((a, b) => b.shortfall - a.shortfall)
     };
-  }, [personAvailability, activePeople, combinedScopes, activeProjects, allocations, startDate, endDate]);
+  }, [personAvailability, activePeople, combinedScopes, activeProjects, allocations, startDate, endDate, teamFilter, roleTeamMap]);
 
   // Unallocation Mutation
   const unallocateMutation = useMutation({
