@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, addMonths, startOfMonth, endOfMonth, parseISO, isAfter, isBefore, max, min, differenceInMilliseconds, eachDayOfInterval, isWeekend } from "date-fns";
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, parseISO, isAfter, isBefore, max, min, differenceInMilliseconds, eachDayOfInterval, isWeekend } from "date-fns";
 import { Users, CalendarRange, Filter, X, AlertCircle } from "lucide-react";
 import { useAnalyticsContext } from "@/contexts/AnalyticsContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -260,6 +260,113 @@ export default function ResourcePlannerPage() {
     }
   });
 
+  const historicalProjectIds = useMemo(() => {
+    const twelveMonthsAgo = subMonths(new Date(), 12);
+    return projects
+      .filter(p => p.start_date && parseISO(p.start_date) >= twelveMonthsAgo && p.project_scopes && p.project_scopes.length > 0)
+      .map(p => p.id);
+  }, [projects]);
+
+  const { data: historicalScopes = [] } = useQuery({
+    queryKey: ["resource_planner_historical_scopes", historicalProjectIds],
+    enabled: historicalProjectIds.length > 0 && projectsMissingScopes.length > 0,
+    queryFn: async () => {
+      const chunkSize = 200;
+      let allScopes: any[] = [];
+      for (let i = 0; i < historicalProjectIds.length; i += chunkSize) {
+        const chunk = historicalProjectIds.slice(i, i + chunkSize);
+        const { data, error } = await supabase
+          .from("project_scopes")
+          .select("*, roles(name)")
+          .in("project_id", chunk);
+        if (error) throw error;
+        allScopes = allScopes.concat(data || []);
+      }
+      return allScopes;
+    }
+  });
+
+  const { combinedScopes, placeholderInfo } = useMemo(() => {
+    let resultScopes = [...scopes];
+    const info: Array<{ project: any, tier: number, reason: string }> = [];
+
+    if (projectsMissingScopes.length === 0 || historicalScopes.length === 0) {
+      return { combinedScopes: resultScopes, placeholderInfo: info };
+    }
+
+    const twelveMonthsAgo = subMonths(new Date(), 12);
+    const validHistoricalProjects = projects.filter(p => p.start_date && parseISO(p.start_date) >= twelveMonthsAgo && p.project_scopes && p.project_scopes.length > 0);
+
+    for (const missingProject of projectsMissingScopes) {
+      const missingAgencyFee = calculateAgencyFee(missingProject);
+      if (missingAgencyFee <= 0) continue;
+
+      let matchedProjects: any[] = [];
+      let tier = 0;
+      let reason = "";
+
+      // Tier 1: Same parent_account and office
+      matchedProjects = validHistoricalProjects.filter(p => p.parent_account === missingProject.parent_account && p.office === missingProject.office);
+      if (matchedProjects.length > 0) {
+        tier = 1;
+        reason = `Based on historical projects for ${missingProject.parent_account} in ${missingProject.office}`;
+      } else {
+        // Tier 2: Same ultimate_parent and office
+        matchedProjects = validHistoricalProjects.filter(p => p.ultimate_parent === missingProject.ultimate_parent && p.office === missingProject.office);
+        if (matchedProjects.length > 0) {
+          tier = 2;
+          reason = `Based on historical projects for overarching client ${missingProject.ultimate_parent} in ${missingProject.office}`;
+        } else {
+          // Tier 3: Same office
+          matchedProjects = validHistoricalProjects.filter(p => p.office === missingProject.office);
+          if (matchedProjects.length > 0) {
+            tier = 3;
+            reason = `Based on average historical projects across all clients in ${missingProject.office}`;
+          }
+        }
+      }
+
+      if (matchedProjects.length > 0) {
+        const matchedIds = matchedProjects.map(p => p.id);
+        const matchedScopes = historicalScopes.filter(s => matchedIds.includes(s.project_id));
+        
+        const totalAgencyFee = matchedProjects.reduce((sum, p) => sum + calculateAgencyFee(p), 0);
+        if (totalAgencyFee > 0) {
+          // Calculate total hours per role
+          const roleHours = new Map<string, { roleName: string, hours: number }>();
+          for (const s of matchedScopes) {
+            if (!s.role_id) continue;
+            const existing = roleHours.get(s.role_id) || { roleName: s.roles?.name || "", hours: 0 };
+            existing.hours += (s.scoped_hours || 0);
+            roleHours.set(s.role_id, existing);
+          }
+
+          // Generate placeholder scopes
+          const newScopes = Array.from(roleHours.entries()).map(([roleId, data]) => {
+            const ratio = data.hours / totalAgencyFee;
+            const placeholderHours = ratio * missingAgencyFee;
+            return {
+              id: `placeholder-${missingProject.id}-${roleId}`,
+              project_id: missingProject.id,
+              role_id: roleId,
+              scoped_hours: placeholderHours,
+              phase_percentages: null, // distribute evenly
+              roles: { name: data.roleName },
+              isPlaceholder: true
+            };
+          }).filter(s => s.scoped_hours > 0);
+
+          if (newScopes.length > 0) {
+            resultScopes = resultScopes.concat(newScopes);
+            info.push({ project: missingProject, tier, reason });
+          }
+        }
+      }
+    }
+
+    return { combinedScopes: resultScopes, placeholderInfo: info };
+  }, [scopes, historicalScopes, projectsMissingScopes, projects]);
+
   // Fetch people and allocations
   const { data: people = [] } = useQuery({
     queryKey: ["resource_planner_people"],
@@ -340,7 +447,7 @@ export default function ResourcePlannerPage() {
   const requiredByRole = useMemo(() => {
     const roleMap = new Map<string, { roleName: string; requiredHours: number }>();
     
-    for (const scope of scopes) {
+    for (const scope of combinedScopes) {
       const project = activeProjects.find(p => p.id === scope.project_id);
       if (!project || !project.start_date || !project.end_date) continue;
       if (!scope.roles || !scope.role_id) continue;
@@ -368,7 +475,7 @@ export default function ResourcePlannerPage() {
       roleId,
       ...data
     })).sort((a, b) => b.requiredHours - a.requiredHours);
-  }, [scopes, activeProjects, startDate, endDate]);
+  }, [combinedScopes, activeProjects, startDate, endDate]);
 
   // Map roles to their allocations
   const activeClientName = sfAccount !== "All" ? sfAccount : parentAccount !== "All" ? parentAccount : ultimateParent !== "All" ? ultimateParent : "All";
@@ -581,6 +688,49 @@ export default function ResourcePlannerPage() {
                                   <div className="text-sm font-bold text-stone-700 whitespace-nowrap bg-white px-2 py-1 rounded border border-stone-200 inline-block">
                                     £{calculateAgencyFee(p).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                   </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                  {activeClientName !== "All" && placeholderInfo.length > 0 && (
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 h-8 text-sm ml-2">
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          Includes {placeholderInfo.length} placeholder {placeholderInfo.length === 1 ? 'scope' : 'scopes'}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Placeholder Scopes Generated</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto">
+                          <p className="text-sm text-stone-500">
+                            The following projects are missing scopes, so we have generated estimates based on historical data to ensure they are represented in the resource calculations. These will be replaced automatically when the actual scopes are added.
+                          </p>
+                          <ul className="space-y-2">
+                            {placeholderInfo.map((info, idx) => (
+                              <li key={idx} className="text-sm font-medium border border-stone-200 p-3 rounded bg-stone-50 flex flex-col gap-2">
+                                <div className="flex justify-between items-start gap-4">
+                                  <div>
+                                    <div className="line-clamp-1" title={info.project.title}>{info.project.title}</div>
+                                    <div className="text-xs text-stone-500 font-normal mt-1">
+                                      {info.project.start_date ? format(parseISO(info.project.start_date), "dd-MM-yyyy") : ""} to {info.project.end_date ? format(parseISO(info.project.end_date), "dd-MM-yyyy") : ""}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-[10px] text-stone-400 font-semibold uppercase tracking-wider mb-1">Agency Fee</div>
+                                    <div className="text-sm font-bold text-stone-700 whitespace-nowrap bg-white px-2 py-1 rounded border border-stone-200 inline-block">
+                                      £{calculateAgencyFee(info.project).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-100 italic">
+                                  {info.reason}
                                 </div>
                               </li>
                             ))}
