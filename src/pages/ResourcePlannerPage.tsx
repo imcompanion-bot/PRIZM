@@ -620,9 +620,9 @@ export default function ResourcePlannerPage() {
               </p>
             </div>
             
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <Select value={teamFilter} onValueChange={setTeamFilter}>
-                <SelectTrigger className="w-[160px] bg-white border-stone-200">
+                <SelectTrigger className="w-auto min-w-[160px] bg-white border-stone-200 whitespace-nowrap">
                   <SelectValue placeholder="Team" />
                 </SelectTrigger>
                 <SelectContent>
@@ -633,7 +633,7 @@ export default function ResourcePlannerPage() {
                 </SelectContent>
               </Select>
               <Select value={officeFilter} onValueChange={(val: any) => setOfficeFilter(val)}>
-                <SelectTrigger className="w-[140px] bg-white border-stone-200">
+                <SelectTrigger className="w-auto min-w-[140px] bg-white border-stone-200 whitespace-nowrap">
                   <SelectValue placeholder="Office" />
                 </SelectTrigger>
                 <SelectContent>
