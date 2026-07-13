@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, addMonths, startOfMonth, endOfMonth, parseISO, isAfter, isBefore, max, min, differenceInMilliseconds, eachDayOfInterval, isWeekend } from "date-fns";
-import { Users, CalendarRange, Filter, X } from "lucide-react";
+import { Users, CalendarRange, Filter, X, AlertCircle } from "lucide-react";
 import { useAnalyticsContext } from "@/contexts/AnalyticsContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -148,7 +148,7 @@ export default function ResourcePlannerPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, title, sf_account, parent_account, ultimate_parent, office, start_date, end_date, stage, project_scopes!inner(id)")
+        .select("id, title, sf_account, parent_account, ultimate_parent, office, start_date, end_date, stage, project_scopes(id)")
         .order("start_date", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -166,7 +166,7 @@ export default function ResourcePlannerPage() {
       if (!pr.start_date || !pr.end_date) return false;
       const pStart = parseISO(pr.start_date);
       const pEnd = parseISO(pr.end_date);
-      return pStart <= endDate && pEnd >= startDate;
+      return pStart <= endDate && pEnd >= startDate && pr.project_scopes && pr.project_scopes.length > 0;
     });
   }, [projects, officeFilter, startDate, endDate]);
 
@@ -204,6 +204,16 @@ export default function ResourcePlannerPage() {
   }, [projects, ultimateParent, parentAccount, sfAccount, officeFilter]);
 
   const activeProjectIds = useMemo(() => activeProjects.map(p => p.id), [activeProjects]);
+
+  const projectsMissingScopes = useMemo(() => {
+    return activeProjects.filter(pr => {
+      if (!pr.start_date || !pr.end_date) return false;
+      const pStart = parseISO(pr.start_date);
+      const pEnd = parseISO(pr.end_date);
+      const inWindow = pStart <= endDate && pEnd >= startDate;
+      return inWindow && (!pr.project_scopes || pr.project_scopes.length === 0);
+    });
+  }, [activeProjects, startDate, endDate]);
 
   // Fetch scopes for active projects
   const { data: scopes = [] } = useQuery({
@@ -515,8 +525,38 @@ export default function ResourcePlannerPage() {
             
             <div className="col-span-3 space-y-6">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-xl font-display">Required vs Allocated Staff</CardTitle>
+                  {activeClientName !== "All" && projectsMissingScopes.length > 0 && (
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-8 text-sm">
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          {projectsMissingScopes.length} {projectsMissingScopes.length === 1 ? 'project' : 'projects'} missing scopes
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Projects Missing Scopes</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto">
+                          <p className="text-sm text-stone-500">
+                            The following projects are scheduled to run during this timeframe but have zero scoped resource hours attached to them. They are not included in the calculations.
+                          </p>
+                          <ul className="space-y-2">
+                            {projectsMissingScopes.map(p => (
+                              <li key={p.id} className="text-sm font-medium border border-stone-200 p-3 rounded bg-stone-50">
+                                {p.title}
+                                <div className="text-xs text-stone-500 font-normal mt-1">
+                                  {p.start_date} to {p.end_date}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
                 </CardHeader>
                 <CardContent>
                   {activeClientName === "All" ? (
