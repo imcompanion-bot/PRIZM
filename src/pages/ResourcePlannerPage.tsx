@@ -121,7 +121,7 @@ function PersonAllocationRow({ person, stat, personTotalCapacity, remainingHrs, 
       </div>
       <div className="flex items-center gap-2">
         <Select value={selectedPct.toString()} onValueChange={(v) => setSelectedPct(parseInt(v))}>
-          <SelectTrigger className="w-[120px] h-8 text-xs bg-white">
+          <SelectTrigger className="w-[140px] h-8 text-xs bg-white">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
