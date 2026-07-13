@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, addMonths, startOfMonth, endOfMonth, parseISO, isAfter, isBefore, max, min, differenceInMilliseconds, eachDayOfInterval, isWeekend } from "date-fns";
-import { Users, CalendarRange, Filter } from "lucide-react";
+import { Users, CalendarRange, Filter, X } from "lucide-react";
 import { useAnalyticsContext } from "@/contexts/AnalyticsContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +30,6 @@ function getPersonDailyCapacity(person: any): number {
   return HOURS_PER_DAY;
 }
 
-// Helper function to calculate the overlapping hours for a scope based on its 12 phases
 function calculateOverlappingHours(
   projectStart: Date,
   projectEnd: Date,
@@ -75,6 +74,51 @@ function calculateOverlappingHours(
   }
 
   return totalOverlappingHours;
+}
+
+function PersonAllocationRow({ person, stat, personTotalCapacity, remainingHrs, calculatedPct, allocateMutation }: any) {
+  const [selectedPct, setSelectedPct] = useState<number>(calculatedPct);
+  
+  const maxAvailablePct = Math.round((remainingHrs / personTotalCapacity) * 100);
+  
+  const rawOptions = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, calculatedPct];
+  const options = Array.from(new Set(rawOptions))
+    .filter(opt => opt <= maxAvailablePct || opt === calculatedPct) // Always keep calculatedPct as an option
+    .sort((a, b) => a - b);
+
+  return (
+    <div className="flex items-center justify-between p-3 border rounded-lg bg-stone-50">
+      <div className="flex flex-col">
+        <span className="font-medium text-stone-900">{person.name}</span>
+        <div className="flex items-center gap-2 mt-1 text-xs text-stone-500">
+          <span>{person.office || "Global"}</span>
+          <span>•</span>
+          <span className="text-emerald-600 font-medium">{Math.round(remainingHrs)}h available</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Select value={selectedPct.toString()} onValueChange={(v) => setSelectedPct(parseInt(v))}>
+          <SelectTrigger className="w-[120px] h-8 text-xs bg-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map(opt => (
+              <SelectItem key={opt} value={opt.toString()}>
+                {opt === calculatedPct ? `Scope (${opt}%)` : `${opt}%`}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button 
+          size="sm" 
+          onClick={() => allocateMutation.mutate({ personId: person.id, roleId: stat.roleId, pct: selectedPct })}
+          disabled={allocateMutation.isPending}
+        >
+          Assign
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export default function ResourcePlannerPage() {
@@ -192,10 +236,10 @@ export default function ResourcePlannerPage() {
   }, [people, startDate, endDate]);
 
   const { data: allocations = [] } = useQuery({
-    queryKey: ["resource_allocations"],
+    queryKey: ["allocations_v2"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("resource_allocations")
+        .from("allocations_v2")
         .select("*");
       // If table doesn't exist yet, this will fail gracefully or we can just catch
       if (error) {
@@ -289,7 +333,7 @@ export default function ResourcePlannerPage() {
       );
 
       let allocatedHours = 0;
-      const allocatedPeople: Array<{ id: string, name: string, hours: number }> = [];
+      const allocatedPeople: Array<{ id: string, name: string, hours: number, allocId: string }> = [];
 
       for (const alloc of roleAllocations) {
         const aStart = parseISO(alloc.start_date);
@@ -304,7 +348,7 @@ export default function ResourcePlannerPage() {
           const hrs = wDays * dailyCapacity * ((alloc.allocation_percentage || 100) / 100);
           allocatedHours += hrs;
           if (person) {
-            allocatedPeople.push({ id: person.id, name: person.name, hours: hrs });
+            allocatedPeople.push({ id: person.id, name: person.name, hours: hrs, allocId: alloc.id });
           }
         }
       }
@@ -324,7 +368,7 @@ export default function ResourcePlannerPage() {
       const startStr = format(startDate, "yyyy-MM-dd");
       const endStr = format(endDate, "yyyy-MM-dd");
       const { error } = await supabase
-        .from("resource_allocations")
+        .from("allocations_v2")
         .insert({
           client_name: activeClientName,
           person_id: personId,
@@ -337,10 +381,28 @@ export default function ResourcePlannerPage() {
     },
     onSuccess: () => {
       toast.success("Staff allocated successfully");
-      queryClient.invalidateQueries({ queryKey: ["resource_allocations"] });
+      queryClient.invalidateQueries({ queryKey: ["allocations_v2"] });
     },
     onError: (error: any) => {
       toast.error(`Failed to allocate: ${error.message}`);
+    }
+  });
+
+  // Unallocation Mutation
+  const unallocateMutation = useMutation({
+    mutationFn: async (allocId: string) => {
+      const { error } = await supabase
+        .from("allocations_v2")
+        .delete()
+        .eq("id", allocId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Staff unallocated successfully");
+      queryClient.invalidateQueries({ queryKey: ["allocations_v2"] });
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to unallocate: ${error.message}`);
     }
   });
 
@@ -514,26 +576,25 @@ export default function ResourcePlannerPage() {
 
                                       return availablePeopleList.map(person => {
                                         const avail = personAvailability.get(person.id);
-                                        const remainingHrs = avail ? avail.remaining : (getPersonDailyCapacity(person) * totalPeriodWorkingDays);
+                                        const personTotalCapacity = getPersonDailyCapacity(person) * totalPeriodWorkingDays;
+                                        const remainingHrs = avail ? avail.remaining : personTotalCapacity;
                                         
+                                        let calculatedPct = 100;
+                                        if (personTotalCapacity > 0) {
+                                          let desiredHrs = stat.shortfall > 0 ? Math.min(stat.shortfall, remainingHrs) : remainingHrs;
+                                          calculatedPct = Math.max(1, Math.min(100, Math.round((desiredHrs / personTotalCapacity) * 100)));
+                                        }
+
                                         return (
-                                          <div key={person.id} className="flex items-center justify-between p-3 border rounded-lg bg-stone-50">
-                                            <div className="flex flex-col">
-                                              <span className="font-medium text-stone-900">{person.name}</span>
-                                              <div className="flex items-center gap-2 mt-1 text-xs text-stone-500">
-                                                <span>{person.office || "Global"}</span>
-                                                <span>•</span>
-                                                <span className="text-emerald-600 font-medium">{Math.round(remainingHrs)}h available</span>
-                                              </div>
-                                            </div>
-                                            <Button 
-                                              size="sm" 
-                                              onClick={() => allocateMutation.mutate({ personId: person.id, roleId: stat.roleId, pct: 100 })}
-                                              disabled={allocateMutation.isPending}
-                                            >
-                                              Assign
-                                            </Button>
-                                          </div>
+                                          <PersonAllocationRow
+                                            key={person.id}
+                                            person={person}
+                                            stat={stat}
+                                            personTotalCapacity={personTotalCapacity}
+                                            remainingHrs={remainingHrs}
+                                            calculatedPct={calculatedPct}
+                                            allocateMutation={allocateMutation}
+                                          />
                                         );
                                       });
                                     })()}
@@ -545,8 +606,12 @@ export default function ResourcePlannerPage() {
                             {stat.allocatedPeople.length > 0 && (
                               <div className="mt-4 pt-4 border-t border-stone-100 flex flex-wrap gap-2">
                                 {stat.allocatedPeople.map(p => (
-                                  <Badge key={p.id} variant="secondary" className="bg-stone-100 text-stone-700 hover:bg-stone-200">
+                                  <Badge key={p.allocId} variant="secondary" className="bg-stone-100 text-stone-700 hover:bg-stone-200 flex items-center pr-1.5">
                                     {p.name} ({Math.round(p.hours)}h)
+                                    <X 
+                                      className="w-3 h-3 ml-1 cursor-pointer text-stone-400 hover:text-stone-700 hover:bg-stone-200 rounded-full" 
+                                      onClick={() => unallocateMutation.mutate(p.allocId)} 
+                                    />
                                   </Badge>
                                 ))}
                               </div>
