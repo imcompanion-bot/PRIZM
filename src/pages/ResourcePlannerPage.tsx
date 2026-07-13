@@ -99,7 +99,7 @@ function calculateOverlappingHours(
   return totalOverlappingHours;
 }
 
-function PersonAllocationRow({ person, stat, personTotalCapacity, remainingHrs, calculatedPct, allocateMutation }: any) {
+function PersonAllocationRow({ person, stat, personTotalCapacity, remainingHrs, calculatedPct, allocateMutation, activeAllocations }: any) {
   const [selectedPct, setSelectedPct] = useState<number>(calculatedPct);
   
   const maxAvailablePct = Math.round((remainingHrs / personTotalCapacity) * 100);
@@ -118,6 +118,18 @@ function PersonAllocationRow({ person, stat, personTotalCapacity, remainingHrs, 
           <span>•</span>
           <span className="text-emerald-600 font-medium">{Math.round(remainingHrs)}h billable capacity available</span>
         </div>
+        {activeAllocations && activeAllocations.length > 0 && (
+          <div className="mt-2 flex flex-col gap-1">
+            <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">Current Allocations</span>
+            <div className="flex flex-wrap gap-1">
+              {activeAllocations.map((alloc: any, idx: number) => (
+                <Badge key={idx} variant="outline" className="text-[10px] bg-white border-stone-200 text-stone-500 font-normal py-0">
+                  {alloc.client}: {Math.round(alloc.hours)}h
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <Select value={selectedPct.toString()} onValueChange={(v) => setSelectedPct(parseInt(v))}>
@@ -411,7 +423,7 @@ export default function ResourcePlannerPage() {
 
   // Pre-calculate availability for all people in the selected date range
   const personAvailability = useMemo(() => {
-    const availability = new Map<string, { totalAllocated: number, remaining: number, capacity: number }>();
+    const availability = new Map<string, { totalAllocated: number, remaining: number, capacity: number, activeAllocations: Array<{ client: string, hours: number }> }>();
     
     for (const person of activePeople) {
       const personDailyCapacity = getPersonDailyCapacity(person);
@@ -420,6 +432,7 @@ export default function ResourcePlannerPage() {
       // Find all allocations for this person that overlap with the date range
       const personAllocations = allocations.filter(a => a.person_id === person.id);
       let totalAllocatedHrs = 0;
+      const activeAllocations: Array<{ client: string, hours: number }> = [];
       
       for (const alloc of personAllocations) {
         const aStart = parseISO(alloc.start_date);
@@ -431,13 +444,15 @@ export default function ResourcePlannerPage() {
           const wDays = getWorkingDays(overlapStart, overlapEnd);
           const hrs = wDays * personDailyCapacity * ((alloc.allocation_percentage || 100) / 100);
           totalAllocatedHrs += hrs;
+          activeAllocations.push({ client: alloc.client_name, hours: hrs });
         }
       }
       
       availability.set(person.id, {
         totalAllocated: totalAllocatedHrs,
         remaining: Math.max(0, personPeriodCapacityHours - totalAllocatedHrs),
-        capacity: personPeriodCapacityHours
+        capacity: personPeriodCapacityHours,
+        activeAllocations
       });
     }
     return availability;
@@ -807,6 +822,7 @@ export default function ResourcePlannerPage() {
                                             remainingHrs={remainingHrs}
                                             calculatedPct={calculatedPct}
                                             allocateMutation={allocateMutation}
+                                            activeAllocations={avail?.activeAllocations || []}
                                           />
                                         );
                                       });
