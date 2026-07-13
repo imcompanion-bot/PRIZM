@@ -553,8 +553,11 @@ export default function ResourcePlannerPage() {
                                     {p.start_date ? format(parseISO(p.start_date), "dd-MM-yyyy") : ""} to {p.end_date ? format(parseISO(p.end_date), "dd-MM-yyyy") : ""}
                                   </div>
                                 </div>
-                                <div className="text-sm font-bold text-stone-700 whitespace-nowrap bg-white px-2 py-1 rounded border border-stone-200">
-                                  £{p.gp_full_value?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || 0}
+                                <div className="text-right">
+                                  <div className="text-[10px] text-stone-400 font-semibold uppercase tracking-wider mb-1">GP Full Value</div>
+                                  <div className="text-sm font-bold text-stone-700 whitespace-nowrap bg-white px-2 py-1 rounded border border-stone-200 inline-block">
+                                    £{p.gp_full_value?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || 0}
+                                  </div>
                                 </div>
                               </li>
                             ))}
