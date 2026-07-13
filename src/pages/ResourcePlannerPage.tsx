@@ -251,7 +251,7 @@ export default function ResourcePlannerPage() {
         const chunk = activeProjectIds.slice(i, i + chunkSize);
         const { data, error } = await supabase
           .from("project_scopes")
-          .select("*, roles(name)")
+          .select("*, roles(name, billable_capacity_hours)")
           .in("project_id", chunk);
         if (error) throw error;
         allScopes = allScopes.concat(data || []);
@@ -277,7 +277,7 @@ export default function ResourcePlannerPage() {
         const chunk = historicalProjectIds.slice(i, i + chunkSize);
         const { data, error } = await supabase
           .from("project_scopes")
-          .select("*, roles(name)")
+          .select("*, roles(name, billable_capacity_hours)")
           .in("project_id", chunk);
         if (error) throw error;
         allScopes = allScopes.concat(data || []);
@@ -333,10 +333,10 @@ export default function ResourcePlannerPage() {
         const totalAgencyFee = matchedProjects.reduce((sum, p) => sum + calculateAgencyFee(p), 0);
         if (totalAgencyFee > 0) {
           // Calculate total hours per role
-          const roleHours = new Map<string, { roleName: string, hours: number }>();
+          const roleHours = new Map<string, { roleName: string, hours: number, capacity: any }>();
           for (const s of matchedScopes) {
             if (!s.role_id) continue;
-            const existing = roleHours.get(s.role_id) || { roleName: s.roles?.name || "", hours: 0 };
+            const existing = roleHours.get(s.role_id) || { roleName: s.roles?.name || "", hours: 0, capacity: s.roles?.billable_capacity_hours };
             existing.hours += (s.scoped_hours || 0);
             roleHours.set(s.role_id, existing);
           }
@@ -351,7 +351,7 @@ export default function ResourcePlannerPage() {
               role_id: roleId,
               scoped_hours: placeholderHours,
               phase_percentages: null, // distribute evenly
-              roles: { name: data.roleName },
+              roles: { name: data.roleName, billable_capacity_hours: data.capacity },
               isPlaceholder: true
             };
           }).filter(s => s.scoped_hours > 0);
@@ -465,7 +465,11 @@ export default function ResourcePlannerPage() {
       );
       
       if (hours > 0) {
-        const existing = roleMap.get(scope.role_id) || { roleName: scope.roles.name, requiredHours: 0 };
+        const existing = roleMap.get(scope.role_id) || { 
+          roleName: scope.roles.name, 
+          requiredHours: 0,
+          billableCapacityHours: scope.roles.billable_capacity_hours
+        };
         existing.requiredHours += hours;
         roleMap.set(scope.role_id, existing);
       }
@@ -723,8 +727,9 @@ export default function ResourcePlannerPage() {
                   ) : (
                     <div className="space-y-6">
                       {roleStats.map(stat => {
-                        const requiredFte = (stat.requiredHours / (getWorkingDays(startDate, endDate) * HOURS_PER_DAY)).toFixed(1);
-                        const allocatedFte = (stat.allocatedHours / (getWorkingDays(startDate, endDate) * HOURS_PER_DAY)).toFixed(1);
+                        const dailyCapacity = getPersonDailyCapacity({ roles: { billable_capacity_hours: stat.billableCapacityHours } });
+                        const requiredFte = (stat.requiredHours / (getWorkingDays(startDate, endDate) * dailyCapacity)).toFixed(1);
+                        const allocatedFte = (stat.allocatedHours / (getWorkingDays(startDate, endDate) * dailyCapacity)).toFixed(1);
                         const pct = Math.min(100, (stat.allocatedHours / stat.requiredHours) * 100) || 0;
                         const isShortfall = stat.shortfall > 0;
 
