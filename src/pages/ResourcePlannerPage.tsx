@@ -672,68 +672,39 @@ export default function ResourcePlannerPage() {
                         </DialogHeader>
                         <div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto">
                           <p className="text-sm text-stone-500">
-                            The following projects are scheduled to run during this timeframe but have zero scoped resource hours attached to them. They are not included in the calculations.
+                            The following projects are scheduled to run during this timeframe but have zero scoped resource hours attached to them. To ensure they are represented in the resource calculations, we have generated estimates based on historical data where possible.
                           </p>
                           <ul className="space-y-2">
-                            {projectsMissingScopes.map(p => (
-                              <li key={p.id} className="text-sm font-medium border border-stone-200 p-3 rounded bg-stone-50 flex justify-between items-center gap-4">
-                                <div>
-                                  <div className="line-clamp-1" title={p.title}>{p.title}</div>
-                                  <div className="text-xs text-stone-500 font-normal mt-1">
-                                    {p.start_date ? format(parseISO(p.start_date), "dd-MM-yyyy") : ""} to {p.end_date ? format(parseISO(p.end_date), "dd-MM-yyyy") : ""}
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-[10px] text-stone-400 font-semibold uppercase tracking-wider mb-1">Agency Fee</div>
-                                  <div className="text-sm font-bold text-stone-700 whitespace-nowrap bg-white px-2 py-1 rounded border border-stone-200 inline-block">
-                                    £{calculateAgencyFee(p).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                  </div>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  )}
-                  {activeClientName !== "All" && placeholderInfo.length > 0 && (
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 h-8 text-sm ml-2">
-                          <AlertCircle className="w-4 h-4 mr-2" />
-                          Includes {placeholderInfo.length} placeholder {placeholderInfo.length === 1 ? 'scope' : 'scopes'}
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Placeholder Scopes Generated</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto">
-                          <p className="text-sm text-stone-500">
-                            The following projects are missing scopes, so we have generated estimates based on historical data to ensure they are represented in the resource calculations. These will be replaced automatically when the actual scopes are added.
-                          </p>
-                          <ul className="space-y-2">
-                            {placeholderInfo.map((info, idx) => (
-                              <li key={idx} className="text-sm font-medium border border-stone-200 p-3 rounded bg-stone-50 flex flex-col gap-2">
-                                <div className="flex justify-between items-start gap-4">
-                                  <div>
-                                    <div className="line-clamp-1" title={info.project.title}>{info.project.title}</div>
-                                    <div className="text-xs text-stone-500 font-normal mt-1">
-                                      {info.project.start_date ? format(parseISO(info.project.start_date), "dd-MM-yyyy") : ""} to {info.project.end_date ? format(parseISO(info.project.end_date), "dd-MM-yyyy") : ""}
+                            {projectsMissingScopes.map(p => {
+                              const placeholderMatch = placeholderInfo.find(info => info.project.id === p.id);
+                              return (
+                                <li key={p.id} className="text-sm font-medium border border-stone-200 p-3 rounded bg-stone-50 flex flex-col gap-2">
+                                  <div className="flex justify-between items-start gap-4">
+                                    <div>
+                                      <div className="line-clamp-1" title={p.title}>{p.title}</div>
+                                      <div className="text-xs text-stone-500 font-normal mt-1">
+                                        {p.start_date ? format(parseISO(p.start_date), "dd-MM-yyyy") : ""} to {p.end_date ? format(parseISO(p.end_date), "dd-MM-yyyy") : ""}
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-[10px] text-stone-400 font-semibold uppercase tracking-wider mb-1">Agency Fee</div>
+                                      <div className="text-sm font-bold text-stone-700 whitespace-nowrap bg-white px-2 py-1 rounded border border-stone-200 inline-block">
+                                        £{calculateAgencyFee(p).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                      </div>
                                     </div>
                                   </div>
-                                  <div className="text-right">
-                                    <div className="text-[10px] text-stone-400 font-semibold uppercase tracking-wider mb-1">Agency Fee</div>
-                                    <div className="text-sm font-bold text-stone-700 whitespace-nowrap bg-white px-2 py-1 rounded border border-stone-200 inline-block">
-                                      £{calculateAgencyFee(info.project).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                  {placeholderMatch ? (
+                                    <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-100 italic">
+                                      Generated Placeholders: {placeholderMatch.reason}
                                     </div>
-                                  </div>
-                                </div>
-                                <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-100 italic">
-                                  {info.reason}
-                                </div>
-                              </li>
-                            ))}
+                                  ) : (
+                                    <div className="text-xs text-stone-500 bg-stone-100 px-2 py-1 rounded border border-stone-200 italic">
+                                      Could not generate placeholders: No historical data match.
+                                    </div>
+                                  )}
+                                </li>
+                              );
+                            })}
                           </ul>
                         </div>
                       </DialogContent>
