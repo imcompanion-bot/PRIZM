@@ -68,6 +68,51 @@ function calculateOverlappingHours(
   return totalOverlappingHours;
 }
 
+function PersonAllocationRow({ person, stat, personTotalCapacity, remainingHrs, calculatedPct, allocateMutation }: any) {
+  const [selectedPct, setSelectedPct] = useState<number>(calculatedPct);
+  
+  const maxAvailablePct = Math.round((remainingHrs / personTotalCapacity) * 100);
+  
+  const rawOptions = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, calculatedPct];
+  const options = Array.from(new Set(rawOptions))
+    .filter(opt => opt <= maxAvailablePct || opt === calculatedPct) // Always keep calculatedPct as an option
+    .sort((a, b) => a - b);
+
+  return (
+    <div className="flex items-center justify-between p-3 border rounded-lg bg-stone-50">
+      <div className="flex flex-col">
+        <span className="font-medium text-stone-900">{person.name}</span>
+        <div className="flex items-center gap-2 mt-1 text-xs text-stone-500">
+          <span>{person.office || "Global"}</span>
+          <span>•</span>
+          <span className="text-emerald-600 font-medium">{Math.round(remainingHrs)}h available</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Select value={selectedPct.toString()} onValueChange={(v) => setSelectedPct(parseInt(v))}>
+          <SelectTrigger className="w-[120px] h-8 text-xs bg-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map(opt => (
+              <SelectItem key={opt} value={opt.toString()}>
+                {opt === calculatedPct ? `Scope (${opt}%)` : `${opt}%`}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button 
+          size="sm" 
+          onClick={() => allocateMutation.mutate({ personId: person.id, roleId: stat.roleId, pct: selectedPct })}
+          disabled={allocateMutation.isPending}
+        >
+          Assign
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function ResourcePlannerPage() {
   const { setPageData } = useAnalyticsContext();
   const queryClient = useQueryClient();
