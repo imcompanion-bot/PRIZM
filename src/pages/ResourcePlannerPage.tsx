@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, parseISO, isAfter, isBefore, max, min, differenceInMilliseconds, eachDayOfInterval, isWeekend } from "date-fns";
-import { Users, CalendarRange, Filter, X, AlertCircle } from "lucide-react";
+import { Users, CalendarRange, Filter, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useAnalyticsContext } from "@/contexts/AnalyticsContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -745,9 +745,32 @@ export default function ResourcePlannerPage() {
                                   {Math.round(stat.requiredHours)} hours required (~{requiredFte} FTEs)
                                 </p>
                               </div>
-                              <Badge variant={isShortfall ? "destructive" : "default"} className={!isShortfall ? "bg-green-500" : ""}>
-                                {isShortfall ? `Shortfall: ${Math.round(stat.shortfall)} hrs` : `Excess: ${Math.abs(Math.round(stat.shortfall))} hrs`}
-                              </Badge>
+                              {(() => {
+                                const roundedShortfall = Math.round(stat.shortfall);
+                                const absShortfall = Math.abs(roundedShortfall);
+                                
+                                if (absShortfall <= 5) {
+                                  return (
+                                    <div className="flex items-center justify-center w-6 h-6 bg-green-500 rounded-full" title="Adequately resourced">
+                                      <CheckCircle2 className="w-4 h-4 text-white" />
+                                    </div>
+                                  );
+                                }
+                                
+                                if (roundedShortfall > 5) {
+                                  return (
+                                    <Badge className="bg-blue-500 hover:bg-blue-600 border-transparent text-white">
+                                      Under-resourced: {roundedShortfall} hrs
+                                    </Badge>
+                                  );
+                                }
+                                
+                                return (
+                                  <Badge variant="destructive">
+                                    Over-resourced: {absShortfall} hrs
+                                  </Badge>
+                                );
+                              })()}
                             </div>
 
                             <Progress value={pct} className="h-2" />
