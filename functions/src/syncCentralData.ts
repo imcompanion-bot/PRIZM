@@ -467,6 +467,21 @@ export async function runSync() {
       const { error } = await supabase.from("projects" as any).upsert(projectsBatch.slice(i, i + 500));
       if (error) throw new Error(`Projects Upsert Error: ${error.message}`);
     }
+
+    // Cleanup orphaned projects
+    const { data: existingProjects } = await supabase.from("projects" as any).select("id");
+    if (existingProjects) {
+      const validProjectIdsSet = new Set(projectsBatchMap.keys());
+      const orphanIds = existingProjects.map((p: any) => p.id).filter((id: string) => !validProjectIdsSet.has(id));
+      
+      if (orphanIds.length > 0) {
+        logger.info(`Deleting ${orphanIds.length} orphaned projects...`);
+        for (let i = 0; i < orphanIds.length; i += 500) {
+          const chunk = orphanIds.slice(i, i + 500);
+          await supabase.from("projects" as any).delete().in("id", chunk);
+        }
+      }
+    }
   }
 
   // 4. SCOPES & ALLOCATIONS
@@ -518,6 +533,21 @@ export async function runSync() {
     for (let i = 0; i < scopesBatch.length; i += 500) {
       const { error } = await supabase.from("project_scopes" as any).upsert(scopesBatch.slice(i, i + 500));
       if (error) throw new Error(`Project Scopes Upsert Error: ${error.message}`);
+    }
+
+    // Cleanup orphaned project scopes
+    const { data: existingScopes } = await supabase.from("project_scopes" as any).select("id");
+    if (existingScopes) {
+      const validScopeIdsSet = new Set(scopesBatchMap.keys());
+      const orphanScopeIds = existingScopes.map((s: any) => s.id).filter((id: string) => !validScopeIdsSet.has(id));
+      
+      if (orphanScopeIds.length > 0) {
+        logger.info(`Deleting ${orphanScopeIds.length} orphaned project scopes...`);
+        for (let i = 0; i < orphanScopeIds.length; i += 500) {
+          const chunk = orphanScopeIds.slice(i, i + 500);
+          await supabase.from("project_scopes" as any).delete().in("id", chunk);
+        }
+      }
     }
   }
 

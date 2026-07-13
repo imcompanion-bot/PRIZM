@@ -148,7 +148,7 @@ export default function ResourcePlannerPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, title, sf_account, parent_account, ultimate_parent, office, start_date, end_date, stage, project_scopes(id)")
+        .select("id, title, sf_account, parent_account, ultimate_parent, office, start_date, end_date, stage, gp_full_value, project_scopes(id)")
         .order("start_date", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -164,6 +164,7 @@ export default function ResourcePlannerPage() {
     }
     return p.filter(pr => {
       if (!pr.start_date || !pr.end_date) return false;
+      if (pr.gp_full_value === 0) return false; // Exclude pass-through cost projects
       const pStart = parseISO(pr.start_date);
       const pEnd = parseISO(pr.end_date);
       return pStart <= endDate && pEnd >= startDate && pr.project_scopes && pr.project_scopes.length > 0;
@@ -192,7 +193,7 @@ export default function ResourcePlannerPage() {
 
   // Determine the active client filter
   const activeProjects = useMemo(() => {
-    let p = projects;
+    let p = projects.filter(pr => pr.stage !== "Closed Lost" && pr.gp_full_value !== 0);
     if (ultimateParent !== "All") p = p.filter(pr => pr.ultimate_parent === ultimateParent);
     if (parentAccount !== "All") p = p.filter(pr => pr.parent_account === parentAccount);
     if (sfAccount !== "All") p = p.filter(pr => pr.sf_account === sfAccount);

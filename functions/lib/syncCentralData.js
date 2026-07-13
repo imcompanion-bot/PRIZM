@@ -476,6 +476,19 @@ async function runSync() {
             if (error)
                 throw new Error(`Projects Upsert Error: ${error.message}`);
         }
+        // Cleanup orphaned projects
+        const { data: existingProjects } = await supabase.from("projects").select("id");
+        if (existingProjects) {
+            const validProjectIdsSet = new Set(projectsBatchMap.keys());
+            const orphanIds = existingProjects.map((p) => p.id).filter((id) => !validProjectIdsSet.has(id));
+            if (orphanIds.length > 0) {
+                logger.info(`Deleting ${orphanIds.length} orphaned projects...`);
+                for (let i = 0; i < orphanIds.length; i += 500) {
+                    const chunk = orphanIds.slice(i, i + 500);
+                    await supabase.from("projects").delete().in("id", chunk);
+                }
+            }
+        }
     }
     // 4. SCOPES & ALLOCATIONS
     logger.info("Syncing Scopes...");
@@ -521,6 +534,19 @@ async function runSync() {
             const { error } = await supabase.from("project_scopes").upsert(scopesBatch.slice(i, i + 500));
             if (error)
                 throw new Error(`Project Scopes Upsert Error: ${error.message}`);
+        }
+        // Cleanup orphaned project scopes
+        const { data: existingScopes } = await supabase.from("project_scopes").select("id");
+        if (existingScopes) {
+            const validScopeIdsSet = new Set(scopesBatchMap.keys());
+            const orphanScopeIds = existingScopes.map((s) => s.id).filter((id) => !validScopeIdsSet.has(id));
+            if (orphanScopeIds.length > 0) {
+                logger.info(`Deleting ${orphanScopeIds.length} orphaned project scopes...`);
+                for (let i = 0; i < orphanScopeIds.length; i += 500) {
+                    const chunk = orphanScopeIds.slice(i, i + 500);
+                    await supabase.from("project_scopes").delete().in("id", chunk);
+                }
+            }
         }
     }
     logger.info(`Sync complete! Roles: ${upsertedRoles}, RateCards: ${upsertedRateCards}, People: ${upsertedPeople}, Projects: ${upsertedProjects}, Scopes: ${upsertedScopes}`);
