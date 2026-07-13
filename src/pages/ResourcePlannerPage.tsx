@@ -155,25 +155,40 @@ export default function ResourcePlannerPage() {
     }
   });
 
+  // Base projects filtered by Date and Office (for use in generating available dropdown options)
+  const baseFilteredProjects = useMemo(() => {
+    let p = projects;
+    if (officeFilter !== "Global") {
+      const dbOffice = officeFilter === "UK" ? "United Kingdom" : officeFilter === "US" ? "United States" : officeFilter;
+      p = p.filter(pr => pr.office === dbOffice);
+    }
+    return p.filter(pr => {
+      if (!pr.start_date || !pr.end_date) return false;
+      const pStart = parseISO(pr.start_date);
+      const pEnd = parseISO(pr.end_date);
+      return pStart <= endDate && pEnd >= startDate;
+    });
+  }, [projects, officeFilter, startDate, endDate]);
+
   // Extract unique tiers for dropdowns based on selections
   const availableUltimateParents = useMemo(() => {
-    const parents = new Set(projects.map(p => p.ultimate_parent).filter(Boolean) as string[]);
+    const parents = new Set(baseFilteredProjects.map(p => p.ultimate_parent).filter(Boolean) as string[]);
     return Array.from(parents).sort();
-  }, [projects]);
+  }, [baseFilteredProjects]);
 
   const availableParentAccounts = useMemo(() => {
-    const p = ultimateParent === "All" ? projects : projects.filter(pr => pr.ultimate_parent === ultimateParent);
+    const p = ultimateParent === "All" ? baseFilteredProjects : baseFilteredProjects.filter(pr => pr.ultimate_parent === ultimateParent);
     const parents = new Set(p.map(pr => pr.parent_account).filter(Boolean) as string[]);
     return Array.from(parents).sort();
-  }, [projects, ultimateParent]);
+  }, [baseFilteredProjects, ultimateParent]);
 
   const availableSfAccounts = useMemo(() => {
-    let p = projects;
+    let p = baseFilteredProjects;
     if (ultimateParent !== "All") p = p.filter(pr => pr.ultimate_parent === ultimateParent);
     if (parentAccount !== "All") p = p.filter(pr => pr.parent_account === parentAccount);
     const sf = new Set(p.map(pr => pr.sf_account).filter(Boolean) as string[]);
     return Array.from(sf).sort();
-  }, [projects, ultimateParent, parentAccount]);
+  }, [baseFilteredProjects, ultimateParent, parentAccount]);
 
   // Determine the active client filter
   const activeProjects = useMemo(() => {
