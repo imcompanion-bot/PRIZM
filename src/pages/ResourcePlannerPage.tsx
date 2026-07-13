@@ -617,7 +617,7 @@ export default function ResourcePlannerPage() {
       const hours = calculateOverlappingHours(pStart, pEnd, startDate, endDate, scope.scoped_hours || 0, scope.phase_percentages);
       
       if (hours > 0) {
-        const clientName = project.sf_account || project.parent_account || project.ultimate_parent || "Unknown Client";
+        const clientName = project.ultimate_parent || project.parent_account || project.sf_account || "Unknown Client";
         clientRequirements.set(clientName, (clientRequirements.get(clientName) || 0) + hours);
       }
     }
@@ -635,7 +635,15 @@ export default function ResourcePlannerPage() {
         if (person) {
           const dailyCapacity = getPersonDailyCapacity(person);
           const hrs = wDays * dailyCapacity * ((alloc.allocation_percentage || 100) / 100);
-          clientAllocations.set(alloc.client_name, (clientAllocations.get(alloc.client_name) || 0) + hrs);
+          
+          // Map the allocation's client_name back to its ultimate_parent
+          let bucketClient = alloc.client_name;
+          const matchedProj = activeProjects.find(p => p.sf_account === alloc.client_name || p.parent_account === alloc.client_name || p.ultimate_parent === alloc.client_name);
+          if (matchedProj && matchedProj.ultimate_parent) {
+            bucketClient = matchedProj.ultimate_parent;
+          }
+
+          clientAllocations.set(bucketClient, (clientAllocations.get(bucketClient) || 0) + hrs);
         }
       }
     }
