@@ -501,7 +501,7 @@ export default function ResourcePlannerPage() {
       );
 
       let allocatedHours = 0;
-      const allocatedPeople: Array<{ id: string, name: string, hours: number, allocId: string }> = [];
+      const allocatedPeople: Array<{ id: string, name: string, roleName: string, hours: number, allocId: string }> = [];
 
       for (const alloc of roleAllocations) {
         const aStart = parseISO(alloc.start_date);
@@ -516,7 +516,7 @@ export default function ResourcePlannerPage() {
           const hrs = wDays * dailyCapacity * ((alloc.allocation_percentage || 100) / 100);
           allocatedHours += hrs;
           if (person) {
-            allocatedPeople.push({ id: person.id, name: person.name, hours: hrs, allocId: alloc.id });
+            allocatedPeople.push({ id: person.id, name: person.name, roleName: person.roles?.name || "No Role", hours: hrs, allocId: alloc.id });
           }
         }
       }
@@ -972,15 +972,18 @@ export default function ResourcePlannerPage() {
 
                             {stat.allocatedPeople.length > 0 && (
                               <div className="mt-4 pt-4 border-t border-stone-100 flex flex-wrap gap-2">
-                                {stat.allocatedPeople.map(p => (
-                                  <Badge key={p.allocId} variant="secondary" className="bg-stone-100 text-stone-700 hover:bg-stone-200 flex items-center pr-1.5">
-                                    {p.name} ({Math.round(p.hours)}h)
-                                    <X 
-                                      className="w-3 h-3 ml-1 cursor-pointer text-stone-400 hover:text-stone-700 hover:bg-stone-200 rounded-full" 
-                                      onClick={() => unallocateMutation.mutate(p.allocId)} 
-                                    />
-                                  </Badge>
-                                ))}
+                                {stat.allocatedPeople.map(p => {
+                                  const displayRole = p.roleName !== stat.roleName ? `${p.roleName} - ` : "";
+                                  return (
+                                    <Badge key={p.allocId} variant="secondary" className="bg-stone-100 text-stone-700 hover:bg-stone-200 flex items-center pr-1.5">
+                                      {p.name} ({displayRole}{Math.round(p.hours)}h)
+                                      <X 
+                                        className="w-3 h-3 ml-1 cursor-pointer text-stone-400 hover:text-stone-700 hover:bg-stone-200 rounded-full" 
+                                        onClick={() => unallocateMutation.mutate(p.allocId)} 
+                                      />
+                                    </Badge>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
