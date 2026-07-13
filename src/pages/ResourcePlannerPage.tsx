@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
 
 const HOURS_PER_DAY = 7.5;
@@ -587,6 +588,85 @@ export default function ResourcePlannerPage() {
     }
   });
 
+  // Calculate global resolutions
+  const resolutions = useMemo(() => {
+    const overAllocatedStaff: Array<{ person: any, overage: number }> = [];
+    const availableStaff: Array<{ person: any, remaining: number }> = [];
+    const underResourcedClients: Array<{ client: string, shortfall: number }> = [];
+
+    // Process staff
+    for (const [personId, data] of personAvailability.entries()) {
+      const person = activePeople.find(p => p.id === personId);
+      if (!person) continue;
+      
+      if (data.totalAllocated > data.capacity) {
+        overAllocatedStaff.push({ person, overage: data.totalAllocated - data.capacity });
+      } else if (data.remaining > 0) {
+        availableStaff.push({ person, remaining: data.remaining });
+      }
+    }
+
+    // Process clients
+    const clientRequirements = new Map<string, number>();
+    for (const scope of combinedScopes) {
+      const project = activeProjects.find(p => p.id === scope.project_id);
+      if (!project) continue;
+      
+      const pStart = parseISO(project.start_date);
+      const pEnd = parseISO(project.end_date);
+      const hours = calculateOverlappingHours(pStart, pEnd, startDate, endDate, scope.scoped_hours || 0, scope.phase_percentages);
+      
+      if (hours > 0) {
+        const clientName = project.sf_account || project.parent_account || project.ultimate_parent || "Unknown Client";
+        clientRequirements.set(clientName, (clientRequirements.get(clientName) || 0) + hours);
+      }
+    }
+
+    const clientAllocations = new Map<string, number>();
+    for (const alloc of allocations) {
+      const aStart = parseISO(alloc.start_date);
+      const aEnd = parseISO(alloc.end_date);
+      const overlapStart = max([aStart, startDate]);
+      const overlapEnd = min([aEnd, endDate]);
+      
+      if (overlapStart <= overlapEnd) {
+        const wDays = getWorkingDays(overlapStart, overlapEnd);
+        const person = activePeople.find(p => p.id === alloc.person_id);
+        if (person) {
+          const dailyCapacity = getPersonDailyCapacity(person);
+          const hrs = wDays * dailyCapacity * ((alloc.allocation_percentage || 100) / 100);
+          clientAllocations.set(alloc.client_name, (clientAllocations.get(alloc.client_name) || 0) + hrs);
+        }
+      }
+    }
+
+    for (const [client, reqHours] of clientRequirements.entries()) {
+      const allocHours = clientAllocations.get(client) || 0;
+      if (reqHours > allocHours + 0.1) { // 0.1 buffer for floating point
+        underResourcedClients.push({ client, shortfall: reqHours - allocHours });
+      }
+    }
+
+    // Group available staff by team
+    const availableStaffByTeam = new Map<string, any[]>();
+    for (const item of availableStaff) {
+      const team = item.person.team || "Unknown Team";
+      const list = availableStaffByTeam.get(team) || [];
+      list.push(item);
+      availableStaffByTeam.set(team, list);
+    }
+    const groupedAvailableStaff = Array.from(availableStaffByTeam.entries()).map(([team, staff]) => ({
+      team,
+      staff: staff.sort((a, b) => b.remaining - a.remaining)
+    })).sort((a, b) => a.team.localeCompare(b.team));
+
+    return {
+      overAllocatedStaff: overAllocatedStaff.sort((a, b) => b.overage - a.overage),
+      availableStaffByTeam: groupedAvailableStaff,
+      underResourcedClients: underResourcedClients.sort((a, b) => b.shortfall - a.shortfall)
+    };
+  }, [personAvailability, activePeople, combinedScopes, activeProjects, allocations, startDate, endDate]);
+
   // Unallocation Mutation
   const unallocateMutation = useMutation({
     mutationFn: async (allocId: string) => {
@@ -621,6 +701,106 @@ export default function ResourcePlannerPage() {
             </div>
             
             <div className="flex items-center gap-3 shrink-0">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" className="border-stone-200 bg-white text-stone-700 hover:bg-stone-50 shrink-0">
+                    <AlertCircle className="w-4 h-4 mr-2 text-stone-500" />
+                    Resolutions
+                    {resolutions.underResourcedClients.length + resolutions.overAllocatedStaff.length > 0 && (
+                      <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-600">
+                        {resolutions.underResourcedClients.length + resolutions.overAllocatedStaff.length}
+                      </span>
+                    )}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+                  <SheetHeader className="pb-6 border-b border-stone-200">
+                    <SheetTitle className="text-2xl font-display">Resolutions</SheetTitle>
+                  </SheetHeader>
+                  
+                  <div className="py-6 space-y-8">
+                    {/* Under-resourced Clients */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider flex items-center gap-2">
+                        Clients Needing Staff
+                        <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full text-xs">{resolutions.underResourcedClients.length}</span>
+                      </h3>
+                      {resolutions.underResourcedClients.length === 0 ? (
+                        <p className="text-sm text-stone-500 italic">No shortfalls identified.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {resolutions.underResourcedClients.map((c, i) => (
+                            <div key={i} className="flex justify-between items-center bg-red-50 text-red-900 border border-red-100 p-3 rounded-lg text-sm">
+                              <span className="font-semibold">{c.client}</span>
+                              <span>Short by {Math.round(c.shortfall)} hrs</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Over-allocated Staff */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider flex items-center gap-2">
+                        Over-allocated Staff
+                        <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full text-xs">{resolutions.overAllocatedStaff.length}</span>
+                      </h3>
+                      {resolutions.overAllocatedStaff.length === 0 ? (
+                        <p className="text-sm text-stone-500 italic">No staff are over capacity.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {resolutions.overAllocatedStaff.map((s, i) => (
+                            <div key={i} className="flex justify-between items-center bg-orange-50 text-orange-900 border border-orange-100 p-3 rounded-lg text-sm">
+                              <span className="font-semibold">{s.person.name}</span>
+                              <span>Over by {Math.round(s.overage)} hrs</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Available Staff */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider flex items-center gap-2">
+                        Staff With Capacity
+                        <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full text-xs">
+                          {resolutions.availableStaffByTeam.reduce((acc, t) => acc + t.staff.length, 0)}
+                        </span>
+                      </h3>
+                      {resolutions.availableStaffByTeam.length === 0 ? (
+                        <p className="text-sm text-stone-500 italic">No staff have remaining capacity.</p>
+                      ) : (
+                        <Accordion type="multiple" className="w-full">
+                          {resolutions.availableStaffByTeam.map((teamData) => (
+                            <AccordionItem key={teamData.team} value={teamData.team} className="border-stone-200">
+                              <AccordionTrigger className="hover:no-underline py-3">
+                                <div className="flex justify-between items-center w-full pr-4">
+                                  <span className="font-semibold text-stone-700">{teamData.team}</span>
+                                  <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full text-xs font-normal">
+                                    {teamData.staff.length} available
+                                  </span>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <div className="space-y-1.5 pt-2">
+                                  {teamData.staff.map((s, i) => (
+                                    <div key={i} className="flex justify-between items-center bg-green-50/50 text-green-900 border border-green-100/50 p-2 rounded text-sm">
+                                      <span>{s.person.name}</span>
+                                      <span className="font-medium text-green-700">{Math.round(s.remaining)} hrs</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          ))}
+                        </Accordion>
+                      )}
+                    </div>
+
+                  </div>
+                </SheetContent>
+              </Sheet>
+              
               <Select value={teamFilter} onValueChange={setTeamFilter}>
                 <SelectTrigger className="w-auto min-w-[160px] bg-white border-stone-200 whitespace-nowrap">
                   <SelectValue placeholder="Team" />
