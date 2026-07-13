@@ -546,10 +546,15 @@ export default function ResourcePlannerPage() {
                           </p>
                           <ul className="space-y-2">
                             {projectsMissingScopes.map(p => (
-                              <li key={p.id} className="text-sm font-medium border border-stone-200 p-3 rounded bg-stone-50">
-                                {p.title}
-                                <div className="text-xs text-stone-500 font-normal mt-1">
-                                  {p.start_date} to {p.end_date}
+                              <li key={p.id} className="text-sm font-medium border border-stone-200 p-3 rounded bg-stone-50 flex justify-between items-center gap-4">
+                                <div>
+                                  <div className="line-clamp-1" title={p.title}>{p.title}</div>
+                                  <div className="text-xs text-stone-500 font-normal mt-1">
+                                    {p.start_date ? format(parseISO(p.start_date), "dd-MM-yyyy") : ""} to {p.end_date ? format(parseISO(p.end_date), "dd-MM-yyyy") : ""}
+                                  </div>
+                                </div>
+                                <div className="text-sm font-bold text-stone-700 whitespace-nowrap bg-white px-2 py-1 rounded border border-stone-200">
+                                  £{p.gp_full_value?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || 0}
                                 </div>
                               </li>
                             ))}
