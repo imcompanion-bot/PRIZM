@@ -148,7 +148,7 @@ export default function ResourcePlannerPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, title, sf_account, parent_account, ultimate_parent, office, start_date, end_date")
+        .select("id, title, sf_account, parent_account, ultimate_parent, office, start_date, end_date, stage")
         .order("start_date", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -157,7 +157,7 @@ export default function ResourcePlannerPage() {
 
   // Base projects filtered by Date and Office (for use in generating available dropdown options)
   const baseFilteredProjects = useMemo(() => {
-    let p = projects;
+    let p = projects.filter(pr => pr.stage !== "Closed Lost");
     if (officeFilter !== "Global") {
       const dbOffice = officeFilter === "UK" ? "United Kingdom" : officeFilter === "US" ? "United States" : officeFilter;
       p = p.filter(pr => pr.office === dbOffice);
