@@ -74,13 +74,7 @@ const AppLayout = () => {
           ))}
         </nav>
 
-        <div className="p-3 pt-0 border-t border-border mt-auto space-y-0.5 bg-transparent">
-          <div className="pt-3 pb-1">
-            <span className="flex items-center gap-2 px-3 text-sm font-display uppercase tracking-widest text-sidebar-foreground/50">
-              <Settings className="h-3.5 w-3.5" />
-              Settings
-            </span>
-          </div>
+        <div className="p-3 pt-3 border-t border-border mt-auto space-y-0.5 bg-transparent">
           {settingsNav.map((item) => (
             <NavItem key={item.to} item={item} />
           ))}
