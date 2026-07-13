@@ -22,6 +22,14 @@ function getWorkingDays(start: Date, end: Date): number {
   return days.filter((d) => !isWeekend(d)).length;
 }
 
+// Helper to get daily billable capacity from a person's role (defaults to 7.5)
+function getPersonDailyCapacity(person: any): number {
+  if (!person || !person.roles) return HOURS_PER_DAY;
+  const weekly = person.roles.billable_capacity_hours;
+  if (typeof weekly === "number") return weekly / 5;
+  return HOURS_PER_DAY;
+}
+
 function calculateOverlappingHours(
   projectStart: Date,
   projectEnd: Date,
