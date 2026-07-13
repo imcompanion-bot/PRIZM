@@ -116,7 +116,7 @@ function PersonAllocationRow({ person, stat, personTotalCapacity, remainingHrs, 
         <div className="flex items-center gap-2 mt-1 text-xs text-stone-500">
           <span>{person.office || "Global"}</span>
           <span>•</span>
-          <span className="text-emerald-600 font-medium">{Math.round(remainingHrs)}h available</span>
+          <span className="text-emerald-600 font-medium">{Math.round(remainingHrs)}h billable capacity available</span>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -757,7 +757,7 @@ export default function ResourcePlannerPage() {
                                     <Users className="w-4 h-4 mr-2" /> Allocate Staff
                                   </Button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-md">
+                                <DialogContent className="max-w-2xl">
                                   <DialogHeader>
                                     <DialogTitle>Allocate {stat.roleName}</DialogTitle>
                                   </DialogHeader>
