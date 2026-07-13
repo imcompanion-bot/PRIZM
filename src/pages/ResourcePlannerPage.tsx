@@ -758,16 +758,18 @@ export default function ResourcePlannerPage() {
                                 }
                                 
                                 if (roundedShortfall > 5) {
+                                  const shortfallFte = (roundedShortfall / (getWorkingDays(startDate, endDate) * dailyCapacity)).toFixed(1);
                                   return (
                                     <Badge className="bg-blue-500 hover:bg-blue-600 border-transparent text-white">
-                                      Under-resourced: {roundedShortfall} hrs
+                                      Under-resourced: {roundedShortfall} hrs (~{shortfallFte} FTEs)
                                     </Badge>
                                   );
                                 }
                                 
+                                const excessFte = (absShortfall / (getWorkingDays(startDate, endDate) * dailyCapacity)).toFixed(1);
                                 return (
                                   <Badge variant="destructive">
-                                    Over-resourced: {absShortfall} hrs
+                                    Over-resourced: {absShortfall} hrs (~{excessFte} FTEs)
                                   </Badge>
                                 );
                               })()}
