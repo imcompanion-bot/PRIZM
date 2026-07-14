@@ -41,7 +41,7 @@ const DataSyncTab = () => {
     setIsSyncing(true);
     try {
       const functions = getFunctions(undefined, 'us-east4');
-      const syncCentralData = httpsCallable(functions, 'syncCentralDataCallable');
+      const syncCentralData = httpsCallable(functions, 'syncCentralDataCallable', { timeout: 300000 });
       
       const result = await syncCentralData();
       
