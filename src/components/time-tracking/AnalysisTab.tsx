@@ -35,6 +35,8 @@ import {
   Cell,
   LabelList,
   Legend,
+  ComposedChart,
+  Line,
 } from "recharts";
 
 interface AnalysisTabProps {
@@ -1875,7 +1877,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={340}>
-              <BarChart
+              <ComposedChart
                 data={isIndividualRoles ? monthlyByRoleChartData : (monthlyViewMode === "total" ? monthlyTotalChartData : monthlyChartData)}
                 margin={{ top: 20, right: 20, left: 20, bottom: 60 }}
               >
@@ -1917,7 +1919,19 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
                 <Bar dataKey="benchmark" name="Benchmark" fill="hsl(var(--border))" radius={[4, 4, 0, 0]} barSize={!isIndividualRoles && monthlyViewMode === "total" ? 80 : 20}>
                   <LabelList dataKey="benchmark" position="top" formatter={(v: number) => `${Math.round(v)}%`} fontSize={9} fill="hsl(var(--muted-foreground))" />
                 </Bar>
-              </BarChart>
+                {monthlyViewMode === "month" && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="actual" 
+                    name="Trend" 
+                    stroke="hsl(var(--foreground))" 
+                    strokeWidth={2} 
+                    dot={{ r: 3, fill: "hsl(var(--foreground))" }}
+                    activeDot={{ r: 5 }} 
+                    strokeDasharray="5 5"
+                  />
+                )}
+              </ComposedChart>
             </ResponsiveContainer>
 
             {aggregateExpanded && selectedMonthlyRole === "All roles - aggregated" && !isIndividualRoles && (() => {
