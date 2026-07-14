@@ -10,9 +10,8 @@ export const WORKING_HOURS_PER_YEAR = WORKING_DAYS_PER_YEAR * HOURS_PER_DAY; // 
 const SALARY_MARKUP = 0.15; // 15% for taxes and benefits
 
 export function getDailyCapacity(billableCapacityHours: number): number {
-  // billable_capacity_hours in the DB is often a weekly figure (e.g. 30 hours).
-  // If it's significantly larger than HOURS_PER_DAY, we treat it as weekly and divide by 5.
-  return billableCapacityHours > 12 ? billableCapacityHours / 5 : billableCapacityHours;
+  // billable_capacity_hours in the DB is always a weekly figure (e.g. 30 hours, or 11.25 hours).
+  return billableCapacityHours / 5;
 }
 
 export function calculateInternalCostPerHour(annualSalary: number, billableCapacityHours: number = HOURS_PER_DAY): number {
