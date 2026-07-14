@@ -710,7 +710,8 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       })
       .sort((a, b) => b.hours - a.hours)
       .slice(0, 20);
-  }, [selectedDetailTeam, selectedDetailProject, selectedDetailRoles, personIndex, roleIndex, personTotalLogged, roleTotalLogged, detailGroupBy, benchmarkRuleProjectIndex, personRoleMap, detailTeamData]);
+    return batchSmallSegments(all, "hours", "name", "pct");
+  }, [selectedDetailTeam, selectedDetailProject, selectedDetailRoles, personIndex, roleIndex, personTotalLogged, teamRoleLogged, detailGroupBy, personRoleMap, personRuleProjectIndex, detailTeamData]);
 
   const isRuleBar = selectedProject ? ruleNames.has(selectedProject) : false;
 
