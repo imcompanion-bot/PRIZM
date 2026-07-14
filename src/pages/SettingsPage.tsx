@@ -55,11 +55,6 @@ const DataSyncTab = () => {
       queryClient.invalidateQueries({ queryKey: ["utilisation_summary"] });
       queryClient.invalidateQueries({ queryKey: ["utilisation_summary_monthly"] });
       
-      // Update our central_sync timestamp
-      await supabase.from("data_imports" as any).upsert(
-        { dataset: "central_sync", last_imported_at: new Date().toISOString() } as any,
-        { onConflict: "dataset" } as any
-      );
       queryClient.invalidateQueries({ queryKey: ["sync_central_data_status"] });
 
       toast.success(`Successfully synced full database from centralized sheet!`);

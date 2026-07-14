@@ -299,8 +299,12 @@ async function runSync() {
                     const staleEntries = allTimeEntries.filter((e) => e.person_id === p.id);
                     if (staleEntries.length > 0) {
                         logger.info(`Relinking ${staleEntries.length} time entries from stale ID ${p.id} to new ID ${targetCurrentId}`);
-                        for (const entry of staleEntries) {
-                            await supabase.from("time_entries").update({ person_id: targetCurrentId }).eq("id", entry.id);
+                        const { error: relinkErr } = await supabase
+                            .from("time_entries")
+                            .update({ person_id: targetCurrentId })
+                            .eq("person_id", p.id);
+                        if (relinkErr) {
+                            logger.error(`Error bulk relinking time entries for ${p.id}:`, relinkErr);
                         }
                     }
                     await supabase.from("people").delete().eq("id", p.id);
@@ -549,9 +553,17 @@ async function runSync() {
             }
         }
     }
+    // Update data_imports timestamp from server-side (bypasses any client-side RLS limits!)
+    const { error: timestampError } = await supabase.from("data_imports").upsert({ dataset: "central_sync", last_imported_at: new Date().toISOString() }, { onConflict: "dataset" });
+    if (timestampError) {
+        logger.error("Failed to update data_imports timestamp on server side:", timestampError);
+    }
+    else {
+        logger.info("Successfully updated central_sync data_imports timestamp on server side!");
+    }
     logger.info(`Sync complete! Roles: ${upsertedRoles}, RateCards: ${upsertedRateCards}, People: ${upsertedPeople}, Projects: ${upsertedProjects}, Scopes: ${upsertedScopes}`);
 }
-exports.syncCentralDataCron = (0, scheduler_1.onSchedule)({ schedule: "0 7 * * *", timeZone: "Europe/London" }, async (event) => {
+exports.syncCentralDataCron = (0, scheduler_1.onSchedule)({ schedule: "0 6 * * *", timeZone: "Europe/London" }, async (event) => {
     await runSync();
 });
 exports.syncCentralDataHttp = (0, https_1.onRequest)({ region: "us-east4", serviceAccount: "pharaoh-54a0e@appspot.gserviceaccount.com", timeoutSeconds: 500, memory: "512MiB" }, async (req, res) => {
