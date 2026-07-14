@@ -799,11 +799,12 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       const thisEnded = overallEnd ? overallEnd < new Date() : false;
       const dedupKey = `${normName}::${roleName}`;
       const existing = deduped.get(dedupKey);
+      const leaveIntervals = parentalLeaveMap.get(normName);
 
       if (existing) {
         const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
         for (const d of days) {
-          if (!isWeekend(d)) existing.countedDays.add(d.toISOString().slice(0, 10));
+          if (!isWeekend(d) && !isOnParentalLeave(d, leaveIntervals)) existing.countedDays.add(d.toISOString().slice(0, 10));
         }
         if (!thisEnded) existing.hasEnded = false;
       } else {
@@ -816,7 +817,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
         const countedDays = new Set<string>();
         const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
         for (const d of days) {
-          if (!isWeekend(d)) countedDays.add(d.toISOString().slice(0, 10));
+          if (!isWeekend(d) && !isOnParentalLeave(d, leaveIntervals)) countedDays.add(d.toISOString().slice(0, 10));
         }
         deduped.set(dedupKey, {
           roleName, billableCapacity, countedDays,
@@ -915,11 +916,13 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       const existing = deduped.get(dedupKey);
       const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : null;
       const thisEnded = overallEnd ? overallEnd < new Date() : false;
+      const leaveIntervals = parentalLeaveMap.get(normName);
 
       if (existing) {
         const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
         for (const d of days) {
           if (isWeekend(d)) continue;
+          if (isOnParentalLeave(d, leaveIntervals)) continue;
           const dk = d.toISOString().slice(0, 10);
           if (!existing.countedDays.has(dk)) {
             existing.countedDays.add(dk);
@@ -942,6 +945,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
         const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
         for (const d of days) {
           if (isWeekend(d)) continue;
+          if (isOnParentalLeave(d, leaveIntervals)) continue;
           const dk = d.toISOString().slice(0, 10);
           if (!countedDays.has(dk)) {
             countedDays.add(dk);
