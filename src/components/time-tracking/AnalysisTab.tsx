@@ -745,6 +745,8 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
     return batchSmallSegments(all, "hours", "name", "pct");
   }, [selectedProject, selectedTeam, personIndex, roleIndex, personTotalLogged, roleTotalLogged, drilldownGroupBy]);
 
+  const parentalLeaveMap = useMemo(() => buildParentalLeaveMap(people), [people]);
+
   // Role gap summaries – top 5 roles furthest below their utilisation benchmark
   const allRoleStats = useMemo(() => {
     const HOURS_PER_DAY = 7.5;
@@ -1121,8 +1123,6 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
     }
     return map;
   }, [utilisationSummaryMonthly, projectsMap, projectIds, rules]);
-
-  const parentalLeaveMap = useMemo(() => buildParentalLeaveMap(people), [people]);
 
   const monthlyTeamData = useMemo(() => {
     const HOURS_PER_DAY = 7.5;
