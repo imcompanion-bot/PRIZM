@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -73,6 +74,7 @@ const ragBg = (burnPct: number | null) => {
 };
 
 export default function BurnVsScope({ team, roleNames, startDate, endDate, officeFilter, showFormer }: BurnVsScopeProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const startStr = format(startDate, "yyyy-MM-dd");
   const endStr = format(endDate, "yyyy-MM-dd");
 
@@ -316,9 +318,17 @@ export default function BurnVsScope({ team, roleNames, startDate, endDate, offic
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader 
+        className="pb-2 cursor-pointer hover:bg-muted/30 transition-colors select-none group"
+        onClick={() => setIsExpanded(p => !p)}
+      >
         <CardTitle className="font-display text-lg flex items-center justify-between">
-          <span>Burn vs Scope — {headerLabel}</span>
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded-md hover:bg-muted group-hover:bg-muted transition-colors">
+              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </div>
+            <span>Burn vs Scope — {headerLabel}</span>
+          </div>
           {scopedRows.length > 0 && totals.burnPct !== null && (
             <span className={cn("text-sm font-normal px-2 py-0.5 rounded", ragBg(totals.burnPct))}>
               {(() => {
@@ -334,13 +344,14 @@ export default function BurnVsScope({ team, roleNames, startDate, endDate, offic
         <p className="text-xs text-muted-foreground mt-1">
           Actual hours burnt vs. scoped hours in {timeframeLabel} — excluding projects with no scope ({noScopeRows.length})
         </p>
-        <p className="text-xs text-muted-foreground italic mt-1">
+        <p className="text-xs text-muted-foreground italic mt-1 pl-8">
           Note: former employees are always included in this table, regardless of the page toggle.
         </p>
       </CardHeader>
-      <CardContent>
-        {teLoading ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">Loading…</p>
+      {isExpanded && (
+        <CardContent>
+          {teLoading ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">Loading…</p>
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">
             No hours logged by {roleNames.length === 0 ? "this team" : "the selected role(s)"} in the selected timeframe.
@@ -432,6 +443,7 @@ export default function BurnVsScope({ team, roleNames, startDate, endDate, offic
           </div>
         )}
       </CardContent>
+      )}
     </Card>
   );
 }

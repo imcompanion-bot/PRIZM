@@ -35,6 +35,8 @@ import {
   Cell,
   LabelList,
   Legend,
+  ComposedChart,
+  Line,
 } from "recharts";
 
 interface AnalysisTabProps {
@@ -664,36 +666,54 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
   const detailPersonBreakdown = useMemo(() => {
     if (!selectedDetailTeam || !selectedDetailProject) return [];
     if (detailGroupBy === "project") {
-      // Only meaningful for rule-aggregated bars; show projects driving the rule for this team
-      const bmKey = `team:${selectedDetailTeam}|||${selectedDetailProject}`;
-      const pMap = benchmarkRuleProjectIndex.get(bmKey);
+      const pKey = `${selectedDetailTeam}|||${selectedDetailProject}`;
+      const pMap = personIndex.get(pKey);
       if (!pMap) return [];
+
+      const projectAgg = new Map<string, number>();
+
+      for (const [name] of pMap.entries()) {
+        const role = personRoleMap.get(name) || "";
+        if (selectedDetailRoles.length > 0 && !selectedDetailRoles.includes(role)) continue;
+
+        const prMap = personRuleProjectIndex.get(name)?.get(selectedDetailProject);
+        if (prMap) {
+          for (const [projTitle, hrs] of prMap.entries()) {
+            projectAgg.set(projTitle, (projectAgg.get(projTitle) || 0) + hrs);
+          }
+        }
+      }
+
       const teamLogged = detailTeamData?.teamLoggedHours || 0;
-      return Array.from(pMap.entries())
+      return Array.from(projectAgg.entries())
         .map(([name, hours]) => ({ name, hours, pct: teamLogged > 0 ? (hours / teamLogged) * 100 : 0, role: "" }))
         .sort((a, b) => b.hours - a.hours)
         .slice(0, 20);
     }
     const pKey = `${selectedDetailTeam}|||${selectedDetailProject}`;
     const idx = detailGroupBy === "role" ? roleIndex : personIndex;
-    const totals = detailGroupBy === "role" ? roleTotalLogged : personTotalLogged;
     const pMap = idx.get(pKey);
     if (!pMap) return [];
-    const roleFilter = selectedDetailRoles.length > 0 ? new Set(selectedDetailRoles) : null;
-    return Array.from(pMap.entries())
+    const all = Array.from(pMap.entries())
       .filter(([name]) => {
-        if (!roleFilter) return true;
-        if (detailGroupBy === "role") return roleFilter.has(name);
-        return roleFilter.has(personRoleMap.get(name) || "");
+        if (selectedDetailRoles.length === 0) return true;
+        const role = detailGroupBy === "role" ? name : (personRoleMap.get(name) || "");
+        return selectedDetailRoles.includes(role);
       })
       .map(([name, hours]) => {
-        const pTotal = totals.get(name) || 0;
+        let total = 0;
+        if (detailGroupBy === "role") {
+          total = teamRoleLogged.get(selectedDetailTeam)?.get(name) || 0;
+        } else {
+          total = personTotalLogged.get(name) || 0;
+        }
         const role = detailGroupBy === "person" ? (personRoleMap.get(name) || "") : "";
-        return { name, hours, pct: pTotal > 0 ? (hours / pTotal) * 100 : 0, role };
+        return { name, hours, pct: total > 0 ? (hours / total) * 100 : 0, role };
       })
       .sort((a, b) => b.hours - a.hours)
       .slice(0, 20);
-  }, [selectedDetailTeam, selectedDetailProject, selectedDetailRoles, personIndex, roleIndex, personTotalLogged, roleTotalLogged, detailGroupBy, benchmarkRuleProjectIndex, personRoleMap, detailTeamData]);
+    return batchSmallSegments(all, "hours", "name", "pct");
+  }, [selectedDetailTeam, selectedDetailProject, selectedDetailRoles, personIndex, roleIndex, personTotalLogged, teamRoleLogged, detailGroupBy, personRoleMap, personRuleProjectIndex, detailTeamData]);
 
   const isRuleBar = selectedProject ? ruleNames.has(selectedProject) : false;
 
@@ -744,6 +764,8 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       .slice(0, 20);
     return batchSmallSegments(all, "hours", "name", "pct");
   }, [selectedProject, selectedTeam, personIndex, roleIndex, personTotalLogged, roleTotalLogged, drilldownGroupBy]);
+
+  const parentalLeaveMap = useMemo(() => buildParentalLeaveMap(people), [people]);
 
   // Role gap summaries – top 5 roles furthest below their utilisation benchmark
   const allRoleStats = useMemo(() => {
@@ -799,11 +821,12 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       const thisEnded = overallEnd ? overallEnd < new Date() : false;
       const dedupKey = `${normName}::${roleName}`;
       const existing = deduped.get(dedupKey);
+      const leaveIntervals = parentalLeaveMap.get(normName);
 
       if (existing) {
         const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
         for (const d of days) {
-          if (!isWeekend(d)) existing.countedDays.add(d.toISOString().slice(0, 10));
+          if (!isWeekend(d) && !isOnParentalLeave(d, leaveIntervals)) existing.countedDays.add(d.toISOString().slice(0, 10));
         }
         if (!thisEnded) existing.hasEnded = false;
       } else {
@@ -816,7 +839,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
         const countedDays = new Set<string>();
         const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
         for (const d of days) {
-          if (!isWeekend(d)) countedDays.add(d.toISOString().slice(0, 10));
+          if (!isWeekend(d) && !isOnParentalLeave(d, leaveIntervals)) countedDays.add(d.toISOString().slice(0, 10));
         }
         deduped.set(dedupKey, {
           roleName, billableCapacity, countedDays,
@@ -915,11 +938,13 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       const existing = deduped.get(dedupKey);
       const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : null;
       const thisEnded = overallEnd ? overallEnd < new Date() : false;
+      const leaveIntervals = parentalLeaveMap.get(normName);
 
       if (existing) {
         const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
         for (const d of days) {
           if (isWeekend(d)) continue;
+          if (isOnParentalLeave(d, leaveIntervals)) continue;
           const dk = d.toISOString().slice(0, 10);
           if (!existing.countedDays.has(dk)) {
             existing.countedDays.add(dk);
@@ -942,6 +967,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
         const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
         for (const d of days) {
           if (isWeekend(d)) continue;
+          if (isOnParentalLeave(d, leaveIntervals)) continue;
           const dk = d.toISOString().slice(0, 10);
           if (!countedDays.has(dk)) {
             countedDays.add(dk);
@@ -1117,8 +1143,6 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
     }
     return map;
   }, [utilisationSummaryMonthly, projectsMap, projectIds, rules]);
-
-  const parentalLeaveMap = useMemo(() => buildParentalLeaveMap(people), [people]);
 
   const monthlyTeamData = useMemo(() => {
     const HOURS_PER_DAY = 7.5;
@@ -1853,7 +1877,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={340}>
-              <BarChart
+              <ComposedChart
                 data={isIndividualRoles ? monthlyByRoleChartData : (monthlyViewMode === "total" ? monthlyTotalChartData : monthlyChartData)}
                 margin={{ top: 20, right: 20, left: 20, bottom: 60 }}
               >
@@ -1895,7 +1919,20 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
                 <Bar dataKey="benchmark" name="Benchmark" fill="hsl(var(--border))" radius={[4, 4, 0, 0]} barSize={!isIndividualRoles && monthlyViewMode === "total" ? 80 : 20}>
                   <LabelList dataKey="benchmark" position="top" formatter={(v: number) => `${Math.round(v)}%`} fontSize={9} fill="hsl(var(--muted-foreground))" />
                 </Bar>
-              </BarChart>
+                {monthlyViewMode === "month" && (
+                  <Line 
+                    type="monotone" 
+                    dataKey={(v: any) => v.actual}
+                    name="Trend" 
+                    stroke="hsl(var(--foreground))" 
+                    strokeWidth={2} 
+                    dot={{ r: 3, fill: "hsl(var(--foreground))" }}
+                    activeDot={{ r: 5 }} 
+                    strokeDasharray="5 5"
+                    isAnimationActive={false}
+                  />
+                )}
+              </ComposedChart>
             </ResponsiveContainer>
 
             {aggregateExpanded && selectedMonthlyRole === "All roles - aggregated" && !isIndividualRoles && (() => {
@@ -2561,7 +2598,9 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
         <CardContent>
           {detailTeamData ? (
             <>
-              <p className="text-xs text-muted-foreground mb-2">% = share of team's logged hours (excl. leave)</p>
+              <p className="text-xs text-muted-foreground mb-2">
+                % = share of {selectedDetailRoles.length === 0 ? "team's" : selectedDetailRoles.length === 1 ? `${selectedDetailRoles[0]}'s` : "selected roles'"} logged hours (excl. leave)
+              </p>
               <ResponsiveContainer width="100%" height={Math.max(detailTeamData.projects.length * 36, 200)}>
                 <BarChart
                   data={detailTeamData.projects}
@@ -2628,7 +2667,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
                   </div>
                   <p className="text-xs text-muted-foreground mb-2">
                     {detailGroupBy === "project"
-                      ? `% = share of ${selectedDetailTeam ?? "team"} team's logged hours (excl. leave)`
+                      ? `% = share of ${selectedDetailRoles.length > 0 ? (selectedDetailRoles.length === 1 ? `${selectedDetailRoles[0]}'s` : "selected roles'") : `${selectedDetailTeam ?? "team"} team's`} logged hours (excl. leave)`
                       : `% = share of each ${detailGroupBy}'s logged hours (excl. leave)`}
                   </p>
                   <ResponsiveContainer width="100%" height={Math.max(detailPersonBreakdown.length * (detailGroupBy === "person" ? 40 : 32), 120)}>
