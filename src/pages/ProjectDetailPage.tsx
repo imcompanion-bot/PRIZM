@@ -183,8 +183,8 @@ const ProjectDetailPage = () => {
   const discountPct = project?.rate_card_discount || 0;
   const rcName = project?.rate_cards?.name;
 
-  // Project currency: from fee calc import, or rate card currency, or GBP default
-  const projectCurrency = project?.fee_calc_currency || project?.rate_cards?.currency || "GBP";
+  // Project currency: from fee calc import, or rate card currency, or office location fallback, or GBP default
+  const projectCurrency = project?.fee_calc_currency || project?.rate_cards?.currency || (project?.office === "United States" ? "USD" : "GBP");
   // Fetch real historical FX rate for projects missing stored rates
   const needsFxFallback = !!(project && !project.fx_rate_gbp && !project.fx_rate_usd);
   const { data: historicalFxRate } = useQuery({
