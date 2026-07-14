@@ -22,6 +22,9 @@ import ScopingToolPage from "./pages/ScopingToolPage";
 import ClientPortfolioPage from "./pages/ClientPortfolioPage";
 import ResourcePlannerPage from "./pages/ResourcePlannerPage";
 import FeeCalculatorPage from "./pages/FeeCalculatorPage";
+import WeeklyUpdatePage from "./pages/WeeklyUpdatePage";
+import KpiExplorerPage from "./pages/KpiExplorerPage";
+import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
 import { resumeGlobalImportIfNeeded } from "./components/settings/TimesheetsImport";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,7 +100,7 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-                <Route path="/" element={<ProjectsPage />} />
+                <Route path="/" element={<HomePage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
                 <Route path="/projects/:id" element={<ProjectDetailPage />} />
                 <Route path="/client-portfolio" element={<ClientPortfolioPage />} />
@@ -110,7 +113,9 @@ const App = () => (
                 <Route path="/resource-planner" element={<ResourcePlannerPage />} />
 
                 <Route path="/fee-calculator" element={<FeeCalculatorPage />} />
+                <Route path="/kpi-explorer" element={<KpiExplorerPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/settings/weekly-update" element={<WeeklyUpdatePage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

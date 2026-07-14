@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import { Info, Download, Filter, Target, CalendarDays, ExternalLink, Activity } from "lucide-react";
+import { Info, Download, Filter, Target, CalendarDays, ExternalLink, Activity, Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Label } from "@/components/ui/label";
@@ -67,12 +67,21 @@ function computeMonthlyHours(
 }
 
 function getMonthRange(start: string, end: string): string[] {
+  if (!start || !end) return [];
+  const parsedStart = parseISO(start);
+  const parsedEnd = parseISO(end);
+  if (isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime())) return [];
+
   const months: string[] = [];
-  let current = startOfMonth(parseISO(start));
-  const last = startOfMonth(parseISO(end));
-  while (!isAfter(current, last)) {
+  let current = startOfMonth(parsedStart);
+  const last = startOfMonth(parsedEnd);
+  
+  // Guard against infinite loop if dates are invalid or reversed
+  let iterations = 0;
+  while (!isAfter(current, last) && iterations < 500) {
     months.push(format(current, "yyyy-MM"));
     current = addMonths(current, 1);
+    iterations++;
   }
   return months;
 }
@@ -84,7 +93,11 @@ function mergeMonthlyHours(target: Record<string, number>, source: Record<string
 }
 
 function getWorkingDaysInMonth(monthKey: string): number {
-  const start = startOfMonth(parseISO(`${monthKey}-01`));
+  if (!monthKey || monthKey.length < 7) return 0;
+  const parsed = parseISO(`${monthKey}-01`);
+  if (isNaN(parsed.getTime())) return 0;
+
+  const start = startOfMonth(parsed);
   const end = endOfMonth(start);
   const days = eachDayOfInterval({ start, end });
   return days.filter(d => !isWeekend(d)).length;
@@ -144,6 +157,7 @@ type ViewMode = "scoped" | "actual";
 type UnitMode = "pct" | "hours";
 
 const ClientPortfolioPage = () => {
+  const currentMonth = format(new Date(), "yyyy-MM");
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [selectedAccount, setSelectedAccount] = useState<string>("all");
   const [selectedOffice, setSelectedOffice] = useState<string>("all");
@@ -420,8 +434,7 @@ const ClientPortfolioPage = () => {
     return roleData;
   }, [timeEntries]);
 
-  // Current month for determining past vs future
-  const currentMonth = format(new Date(), "yyyy-MM");
+  // Current month for determining past vs future (declared at top of component)
 
   // Build display rows
   const displayRows = useMemo(() => {
@@ -1071,4 +1084,43 @@ const ClientPortfolioPage = () => {
   );
 };
 
-export default ClientPortfolioPage;
+import React from "react";
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ClientPortfolioPage ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg max-w-4xl mx-auto my-12">
+          <h2 className="text-lg font-bold mb-2">Something went wrong rendering the Client Portfolio Page</h2>
+          <p className="text-sm text-muted-foreground mb-4">Please copy and send us the error trace below so we can fix it instantly:</p>
+          <pre className="text-xs overflow-auto bg-black p-4 rounded text-red-400 font-mono whitespace-pre-wrap">
+            {this.state.error?.stack || this.state.error?.message}
+          </pre>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export default function ClientPortfolioPageWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <ClientPortfolioPage />
+    </ErrorBoundary>
+  );
+}

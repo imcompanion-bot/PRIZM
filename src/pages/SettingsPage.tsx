@@ -14,6 +14,11 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 import { TimesheetsImport } from "@/components/settings/TimesheetsImport";
+import { ClientAllocationDialog } from "@/components/settings/ClientAllocationDialog";
+import { UserCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { initLegacyModule } from "@/lib/pharaoh/legacyPharaoh";
+import { LegacyViewWrapper } from "@/components/pharaoh/LegacyViewWrapper";
 
 const DataSyncTab = () => {
   const queryClient = useQueryClient();
@@ -112,6 +117,70 @@ const DataSyncTab = () => {
   );
 };
 
+const DataQualityTab = () => {
+  const [loading, setLoading] = useState(true);
+  const [legacy, setLegacy] = useState<any>(null);
+
+  useEffect(() => {
+    async function loadData() {
+      const { data, error } = await supabase
+        .from('pharaoh_data')
+        .select('*');
+        
+      if (error) {
+        console.error("Error fetching pharaoh_data:", error);
+        setLoading(false);
+        return;
+      }
+
+      const metricsPayload = data.find(r => r.id === 'metrics')?.payload || {};
+      const usPayload = data.find(r => r.id === 'us')?.payload || {};
+      const ukPayload = data.find(r => r.id === 'uk')?.payload || {};
+
+      const D = {
+        ...metricsPayload,
+        us: usPayload,
+        uk: ukPayload
+      };
+
+      const legacyApi = initLegacyModule(D);
+      
+      // Provide dummy implementations for legacy global navigation calls to prevent errors
+      legacyApi.buildSidebar = () => {};
+      (window as any).mkt = 'grp';
+      
+      setLegacy(legacyApi);
+      setLoading(false);
+    }
+    loadData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center h-48">
+        <Loader2 className="animate-spin w-8 h-8 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 max-w-full">
+        <h2 className="text-xl font-bold text-gray-900 mb-2">
+          Data Quality Completeness
+        </h2>
+        <p className="text-gray-500 mb-6 text-sm">
+          Historical data completeness flags and quality checks from the Pharaoh legacy database.
+        </p>
+
+        <div className="bg-white rounded-lg border border-stone-100 p-4 overflow-x-auto">
+          <LegacyViewWrapper legacy={legacy} viewFn="renderFlags" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function SettingsPage() {
   const { appUser } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
@@ -119,6 +188,20 @@ export default function SettingsPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState("user");
   const [adding, setAdding] = useState(false);
+  const [allocationUser, setAllocationUser] = useState<any>(null);
+
+  const { data: allClients = [] } = useQuery({
+    queryKey: ["all_pharaoh_clients"],
+    queryFn: async () => {
+      const { data: usData } = await supabase.from('pharaoh_data').select('payload').eq('id', 'us').maybeSingle();
+      const { data: ukData } = await supabase.from('pharaoh_data').select('payload').eq('id', 'uk').maybeSingle();
+      
+      const usClients = Object.values(usData?.payload?.owner_clients || {}).flat() as string[];
+      const ukClients = Object.values(ukData?.payload?.owner_clients || {}).flat() as string[];
+      
+      return [...new Set([...usClients, ...ukClients])].sort();
+    }
+  });
 
   useEffect(() => {
     if (appUser?.role === "admin") {
@@ -136,7 +219,8 @@ export default function SettingsPage() {
         email: u.email,
         role: u.role,
         createdAt: u.created_at,
-        addedBy: u.added_by
+        addedBy: u.added_by,
+        allocatedClients: u.allocated_clients || []
       })) || []);
     } catch (error) {
       console.error("Failed to fetch users", error);
@@ -203,8 +287,12 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="data" className="space-y-6">
-        <TabsList className="grid w-[400px] grid-cols-2">
+        <TabsList className={cn(
+          "grid",
+          appUser?.role === "admin" ? "w-[600px] grid-cols-3" : "w-[400px] grid-cols-2"
+        )}>
           <TabsTrigger value="data">Data Sync</TabsTrigger>
+          <TabsTrigger value="quality">Data Quality</TabsTrigger>
           {appUser?.role === "admin" && (
             <TabsTrigger value="access">Access Control</TabsTrigger>
           )}
@@ -212,6 +300,10 @@ export default function SettingsPage() {
 
         <TabsContent value="data">
           <DataSyncTab />
+        </TabsContent>
+
+        <TabsContent value="quality">
+          <DataQualityTab />
         </TabsContent>
 
         {appUser?.role === "admin" && (
@@ -256,6 +348,7 @@ export default function SettingsPage() {
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Added By</TableHead>
+                      <TableHead>Clients</TableHead>
                       <TableHead>Date Added</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -283,6 +376,17 @@ export default function SettingsPage() {
                             </span>
                           </TableCell>
                           <TableCell className="text-muted-foreground">{user.addedBy || '-'}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => setAllocationUser(user)}
+                            >
+                              <UserCheck className="w-3 h-3 mr-1.5" />
+                              {user.allocatedClients?.length || 0} Clients
+                            </Button>
+                          </TableCell>
                           <TableCell className="text-muted-foreground">
                             {new Date(user.createdAt).toLocaleDateString()}
                           </TableCell>
@@ -306,6 +410,14 @@ export default function SettingsPage() {
           </TabsContent>
         )}
       </Tabs>
+      
+      <ClientAllocationDialog 
+        user={allocationUser}
+        allClients={allClients}
+        isOpen={!!allocationUser}
+        onClose={() => setAllocationUser(null)}
+        onSuccess={fetchUsers}
+      />
     </div>
   );
 }

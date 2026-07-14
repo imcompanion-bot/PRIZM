@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pharaoh Migrator</title>
+  <style>
+    body { font-family: sans-serif; padding: 40px; background: #f9fafb; text-align: center; }
+    button { padding: 12px 24px; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    #status { margin-top: 20px; font-family: monospace; color: #374151; white-space: pre-wrap; text-align: left; background: #fff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 6px; max-width: 600px; margin-left: auto; margin-right: auto; }
+  </style>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+    import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const firebaseConfig = {
+      projectId: "pharaoh-54a0e",
+      appId: "1:909637352706:web:98a9ef33d6b680d6e8d61b",
+      storageBucket: "pharaoh-54a0e.firebasestorage.app",
+      apiKey: "AIzaSyBWy2AP5d-YTdpirVipzs2tvd0hVqqfeIw",
+      authDomain: "pharaoh-54a0e.firebaseapp.com"
+    };
+
+    const supabaseUrl = 'https://hyfgyfuvligacjwxjnce.supabase.co';
+    const supabaseKey = 'sb_publishable_UhHtt6QptJ1ujNZpohjJfA_S8lHrwvh';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    function log(msg) {
+      document.getElementById('status').innerText += msg + '\n';
+    }
+
+    document.getElementById('migrateBtn').addEventListener('click', async () => {
+      document.getElementById('status').innerText = '';
+      log('Authenticating with Firebase...');
+      try {
+        await signInWithPopup(auth, provider);
+        
+        const docsToFetch = ['metrics', 'us', 'uk'];
+        
+        for (const docId of docsToFetch) {
+          log(`Fetching ${docId} from Firebase...`);
+          const snap = await getDoc(doc(db, "dashboard", docId));
+          if (snap.exists()) {
+            const payloadStr = snap.data().payload;
+            const payload = JSON.parse(payloadStr);
+            
+            log(`Inserting ${docId} into Supabase...`);
+            const { error } = await supabase
+              .from('pharaoh_data')
+              .upsert({ id: docId, payload });
+              
+            if (error) throw error;
+          } else {
+            log(`Doc ${docId} not found in Firebase`);
+          }
+        }
+        
+        log('\n✅ Migration Complete! All data is now in Supabase.');
+      } catch (err) {
+        log('\n❌ Error: ' + err.message);
+        console.error(err);
+      }
+    });
+  </script>
+</head>
+<body>
+  <h2>Pharaoh Data Migration (Raw Web Page)</h2>
+  <p>Bypassing the PRISM app entirely to avoid cache issues.</p>
+  <button id="migrateBtn">Migrate Data Now</button>
+  <div id="status">Waiting to start...</div>
+</body>
+</html>

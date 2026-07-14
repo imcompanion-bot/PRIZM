@@ -4,7 +4,7 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalyticsContext } from "@/contexts/AnalyticsContext";
 import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCurrency, calculateInternalCostPerHour } from "@/lib/calculations";
@@ -143,6 +143,18 @@ const ProfitabilityPage = () => {
   const setStatusFilter = useCallback((v: StatusFilter) => setParam("status", v), [setParam]);
   const grossUp = searchParams.get("grossUp") === "true";
   const setGrossUp = useCallback((v: boolean) => setParam("grossUp", v ? "true" : null), [setParam]);
+
+  const [sortField, setSortField] = useState<"client" | "revenue" | "cost" | "profit" | "margin" | "timesheets">("profit");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  const handleSort = useCallback((field: typeof sortField) => {
+    if (sortField === field) {
+      setSortOrder((prev) => (v => v === "asc" ? "desc" : "asc")(prev));
+    } else {
+      setSortField(field);
+      setSortOrder(field === "client" ? "asc" : "desc");
+    }
+  }, [sortField]);
 
   const [trendData, setTrendData] = useState<Array<{ month: string; revenue: number; cost: number; profit: number; margin: number }>>([]);
   const [projectMonthlyData, setProjectMonthlyData] = useState<Array<{ title: string; client: string; startDate: string; endDate: string; month: string; revenue: number; cost: number }>>([]);
@@ -1331,19 +1343,17 @@ const ProfitabilityPage = () => {
   // ── Gross-up adjusted data ──
 
   const displayClientGroups = useMemo(() => {
-    if (!grossUp) return clientGroups;
-
-    return clientGroups.map((group) => {
+    const baseGroups = clientGroups.map((group) => {
       const adjustedProjects = group.projects.map((proj) => {
+        if (!grossUp) return proj;
         const comp = completenessData.projectComp.get(proj.id);
         // Only gross up if completeness is known and less than 100%
         if (comp === undefined || comp >= 99.5 || comp <= 0) return proj;
-        const grossUpFactor = 100 / comp; // no cap — scale fully to 100% completeness
+        const grossUpFactor = 100 / comp; // scale fully to 100% completeness
         const adjustedCost = proj.cost * grossUpFactor;
         const adjustedHours = proj.actualHours * grossUpFactor;
         const adjustedProfit = proj.revenue - adjustedCost;
         const adjustedMargin = proj.revenue > 0 ? (adjustedProfit / proj.revenue) * 100 : adjustedProfit < 0 ? -100 : 0;
-        // Budget margin stays the same — it's based on role-level budgeted costs, not actuals
         return {
           ...proj,
           actualHours: adjustedHours,
@@ -1366,9 +1376,29 @@ const ProfitabilityPage = () => {
         ? (budgetProfit / budgetRevenue) * 100
         : budgetProfit < 0 ? -100 : 0;
 
+      const sortedProjects = [...adjustedProjects].sort((projA, projB) => {
+        let comp = 0;
+        if (sortField === "client") {
+          comp = projA.title.localeCompare(projB.title);
+        } else if (sortField === "revenue") {
+          comp = projA.revenue - projB.revenue;
+        } else if (sortField === "cost") {
+          comp = projA.cost - projB.cost;
+        } else if (sortField === "profit") {
+          comp = projA.profit - projB.profit;
+        } else if (sortField === "margin") {
+          comp = projA.margin - projB.margin;
+        } else if (sortField === "timesheets") {
+          const compA = completenessData.projectComp.get(projA.id) ?? 0;
+          const compB = completenessData.projectComp.get(projB.id) ?? 0;
+          comp = compA - compB;
+        }
+        return sortOrder === "asc" ? comp : -comp;
+      });
+
       return {
         ...group,
-        projects: adjustedProjects.sort((a, b) => b.profit - a.profit),
+        projects: sortedProjects,
         revenue,
         cost,
         profit,
@@ -1377,8 +1407,28 @@ const ProfitabilityPage = () => {
         actualHours,
         budgetMargin,
       };
-    }).sort((a, b) => b.profit - a.profit);
-  }, [clientGroups, grossUp, completenessData]);
+    });
+
+    return [...baseGroups].sort((a, b) => {
+      let comparison = 0;
+      if (sortField === "client") {
+        comparison = a.client.localeCompare(b.client);
+      } else if (sortField === "revenue") {
+        comparison = a.revenue - b.revenue;
+      } else if (sortField === "cost") {
+        comparison = a.cost - b.cost;
+      } else if (sortField === "profit") {
+        comparison = a.profit - b.profit;
+      } else if (sortField === "margin") {
+        comparison = a.margin - b.margin;
+      } else if (sortField === "timesheets") {
+        const compA = completenessData.clientComp.get(a.client) ?? 0;
+        const compB = completenessData.clientComp.get(b.client) ?? 0;
+        comparison = compA - compB;
+      }
+      return sortOrder === "asc" ? comparison : -comparison;
+    });
+  }, [clientGroups, grossUp, completenessData, sortField, sortOrder]);
 
   const displayTotals = useMemo(() => {
     const revenue = displayClientGroups.reduce((s, c) => s + c.revenue, 0);
@@ -1906,7 +1956,16 @@ const ProfitabilityPage = () => {
                 <TableRow>
                   <TableHead className="min-w-[200px] bg-card">
                     <div className="flex items-center gap-2">
-                      <span>Client</span>
+                      <button
+                        type="button"
+                        onClick={() => handleSort("client")}
+                        className="inline-flex items-center gap-1 font-semibold hover:text-foreground text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded px-1 -ml-1 transition-colors py-0.5"
+                      >
+                        <span>Client</span>
+                        {sortField === "client" && (
+                          sortOrder === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                        )}
+                      </button>
                       <ToggleGroup
                         value={detailView}
                         onChange={(v) => setDetailView(v as DetailView)}
@@ -1918,8 +1977,17 @@ const ProfitabilityPage = () => {
                     </div>
                   </TableHead>
                   <TableHead className="text-right bg-card">
-                    <div className="inline-flex items-center justify-end gap-1">
-                      Agency Fee
+                    <div className="inline-flex items-center justify-end gap-1 w-full">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("revenue")}
+                        className="inline-flex items-center justify-end gap-1 font-semibold hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded px-1 transition-colors py-0.5"
+                      >
+                        Agency Fee
+                        {sortField === "revenue" && (
+                          sortOrder === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                        )}
+                      </button>
                       <TooltipProvider delayDuration={100}>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -1927,7 +1995,7 @@ const ProfitabilityPage = () => {
                               <Info className="h-3 w-3 text-muted-foreground" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs">
+                          <TooltipContent side="top" className="max-w-xs text-left">
                             <p className="text-xs">
                               Agency Fee = Price − Media Cost − Gross Budget (Full Value).
                               Blank values treated as zero. For in-progress projects, fee is
@@ -1938,19 +2006,67 @@ const ProfitabilityPage = () => {
                       </TooltipProvider>
                     </div>
                   </TableHead>
-                  <TableHead className="text-right bg-card">Internal Cost</TableHead>
-                  <TableHead className="text-right bg-card">Profit</TableHead>
-                  <TableHead className="text-right bg-card">Margin</TableHead>
+                  <TableHead className="text-right bg-card">
+                    <div className="inline-flex items-center justify-end gap-1 w-full">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("cost")}
+                        className="inline-flex items-center justify-end gap-1 font-semibold hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded px-1 transition-colors py-0.5"
+                      >
+                        Internal Cost
+                        {sortField === "cost" && (
+                          sortOrder === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-right bg-card">
+                    <div className="inline-flex items-center justify-end gap-1 w-full">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("profit")}
+                        className="inline-flex items-center justify-end gap-1 font-semibold hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded px-1 transition-colors py-0.5"
+                      >
+                        Profit
+                        {sortField === "profit" && (
+                          sortOrder === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-right bg-card">
+                    <div className="inline-flex items-center justify-end gap-1 w-full">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("margin")}
+                        className="inline-flex items-center justify-end gap-1 font-semibold hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded px-1 transition-colors py-0.5"
+                      >
+                        Margin
+                        {sortField === "margin" && (
+                          sortOrder === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
+                  </TableHead>
                   <TableHead className="min-w-[200px] bg-card">Insight</TableHead>
                   <TableHead className="text-right w-[100px] bg-card">
-                    <div className="inline-flex items-center justify-end gap-1">
-                      <span>Timesheets</span>
+                    <div className="inline-flex items-center justify-end gap-1 w-full">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("timesheets")}
+                        className="inline-flex items-center justify-end gap-1 font-semibold hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded px-1 transition-colors py-0.5"
+                      >
+                        Timesheets
+                        {sortField === "timesheets" && (
+                          sortOrder === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                        )}
+                      </button>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[280px] text-xs">
+                          <TooltipContent side="top" className="max-w-[280px] text-xs text-left">
                             <p className="font-semibold mb-1">Timesheet Completeness</p>
                             <p>For each person on a project, we compare their logged hours against expected hours (7.5h × working days) during the overlap of the project's dates and their employment, capped at today.</p>
                             <p className="mt-1">Each person's score is capped at 100%, then averaged across everyone on the project. Client % is the average across its projects.</p>
@@ -2301,9 +2417,10 @@ const ProfitabilityPage = () => {
                     );
                   })
                 )}
-                {/* Total row */}
-                {displayClientGroups.length > 0 && (
-                  <TableRow className="border-t-2 font-bold bg-muted/60">
+              </TableBody>
+              {displayClientGroups.length > 0 && (
+                <TableFooter className="sticky bottom-0 z-20 bg-card border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+                  <TableRow className="hover:bg-transparent font-bold bg-card text-foreground border-b-0">
                     <TableCell className="uppercase text-xs tracking-wider">Total ({displayTotals.clientCount} clients){grossUp && <span className="ml-1 text-[9px] font-normal text-primary">(Grossed Up)</span>}</TableCell>
                     <TableCell className="text-right">{formatCurrency(displayTotals.revenue, displayCurrency)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(displayTotals.cost, displayCurrency)}</TableCell>
@@ -2335,8 +2452,8 @@ const ProfitabilityPage = () => {
                       })()}
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
+                </TableFooter>
+              )}
             </table>
             </div>
           </CardContent>

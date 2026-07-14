@@ -43,9 +43,11 @@ const BENCHMARKS_GBP: Record<string, Benchmark> = {
   "TikTok - Carousel":         { a: 0,    b: 0,     c: 0,  viewRate: 0.15 },
   "YouTube - Short Video":     { a: 277,  b: -20.7, c: 12, viewRate: 0.15 },
   "YouTube - Long Video":      { a: 277,  b: -20.7, c: 12, viewRate: 0.15 },
+  "YouTube - Story Frames":    { a: 151.0, b: -12.5, c: 12.0, viewRate: 0.05 },
   "Content House - Image":     { a: 200,  b: 0,     c: 200, viewRate: 0 },
   "Content House - Short Video":{ a: 1500, b: 0,    c: 1500, viewRate: 0 },
   "Content House - Long Video": { a: 2500, b: 0,    c: 2500, viewRate: 0 },
+  "Content House - Story Frames": { a: 200.0, b: 0, c: 200.0, viewRate: 0.0 },
 };
 
 // US = GBP × 1.35 conversion rate (from US Excel CD7)
@@ -346,12 +348,12 @@ export function calculateCreatorCosts(
   const totalDeliverables = Object.values(platformBreakdown).reduce((s, p) => s + p.deliverables, 0);
   const totalImpressions = groups.reduce((s, g) => s + g.totalImpressions, 0);
 
-  // Companion creator costs: 3% of total fee (BM)
-  const companionCreatorCosts = totalFee * 0.03;
-
   // Talent contingency (D16 UK = 10%, D17 US = 25%)
   const contingencyPct = tb.talentContingencyPct / 100;
   const talentContingency = totalFee * contingencyPct;
+
+  // Companion creator costs: 3% of total fee + contingency (BM)
+  const companionCreatorCosts = (totalFee + talentContingency) * 0.03;
 
   // FX premium
   const fxPremium = tb.fxExposure ? totalFee * (tb.fxPremiumPct / 100) : 0;

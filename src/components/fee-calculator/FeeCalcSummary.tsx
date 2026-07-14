@@ -133,26 +133,40 @@ function CollapsibleCard({ title, subtitle, children }: { title: string; subtitl
   );
 }
 
+const FX_RATES: Record<string, number> = {
+  "EURGBP": 0.865695,
+  "GBPEUR": 1.155100,
+  "GBPUSD": 1.345100,
+};
+
+function getFxRate(from: string, to: string): number {
+  const f = from.toUpperCase();
+  const t = to.toUpperCase();
+  if (f === t) return 1.0;
+  const key = `${f}${t}`;
+  return FX_RATES[key] ?? 1.0;
+}
+
 export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], onMarginChange }: FeeCalcSummaryProps) {
   const s = state.sections;
 
   // ═══ Fetch rate card roles from DB ═══
-  const { data: rateCardRoles = [] } = useQuery({
+  const { data: rawRateCardRoles = [] } = useQuery({
     queryKey: ["fee-calc-rate-card-roles", state.rateCard],
     enabled: !!state.rateCard,
     queryFn: async () => {
-      const all: { roleName: string; hourlyRate: number }[] = [];
+      const all: { roleName: string; hourlyRate: number; currency: string }[] = [];
       let from = 0;
       while (true) {
         const { data, error } = await supabase
           .from("rate_cards")
-          .select("role_id, hourly_rate, roles!inner(name)")
+          .select("role_id, hourly_rate, currency, roles!inner(name)")
           .eq("name", state.rateCard)
           .range(from, from + 999);
         if (error) throw error;
         for (const rc of data || []) {
           const roleName = (rc.roles as any)?.name || "";
-          all.push({ roleName, hourlyRate: Number(rc.hourly_rate) || 0 });
+          all.push({ roleName, hourlyRate: Number(rc.hourly_rate) || 0, currency: rc.currency || "GBP" });
         }
         if (!data || data.length < 1000) break;
         from += 1000;
@@ -160,6 +174,20 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
       return all;
     },
   });
+
+  const fxRate = useMemo(() => {
+    if (!rawRateCardRoles.length) return 1.0;
+    const rateCardCurrency = rawRateCardRoles[0]?.currency || "GBP";
+    const clientCurrency = state.currency || "GBP";
+    return getFxRate(rateCardCurrency, clientCurrency);
+  }, [rawRateCardRoles, state.currency]);
+
+  const rateCardRoles = useMemo(() => {
+    return rawRateCardRoles.map(rc => ({
+      roleName: rc.roleName,
+      hourlyRate: Math.round(rc.hourlyRate * fxRate * 100) / 100,
+    }));
+  }, [rawRateCardRoles, fxRate]);
 
   // ═══ Fetch people for internal cost calculation ═══
   const { data: peopleData = [] } = useQuery({
@@ -513,7 +541,7 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `pryzm-export-${(state.projectName || 'calc').replace(/\\s+/g, '-').toLowerCase()}.json`;
+    a.download = `prism-export-${(state.projectName || 'calc').replace(/\\s+/g, '-').toLowerCase()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
