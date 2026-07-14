@@ -1922,13 +1922,14 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
                 {monthlyViewMode === "month" && (
                   <Line 
                     type="monotone" 
-                    dataKey="actual" 
+                    dataKey={(v: any) => v.actual}
                     name="Trend" 
                     stroke="hsl(var(--foreground))" 
                     strokeWidth={2} 
                     dot={{ r: 3, fill: "hsl(var(--foreground))" }}
                     activeDot={{ r: 5 }} 
                     strokeDasharray="5 5"
+                    isAnimationActive={false}
                   />
                 )}
               </ComposedChart>
