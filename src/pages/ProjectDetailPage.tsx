@@ -365,13 +365,7 @@ const ProjectDetailPage = () => {
   const soFarBudgetCost = (project?.project_scopes || []).reduce((sum: number, scope: any) => {
     const hours = soFarHoursPerScope[scope.id] || 0;
     const roleId = scope.role_id;
-    const rolePeople = people.filter((p) => p.role_id === roleId && p.annual_salary);
-    if (rolePeople.length === 0) return sum;
-    const avgCostPerHour = rolePeople.reduce((s, p) => {
-      const cap = p.roles?.billable_capacity_hours;
-      const cost = calculateInternalCostPerHour(p.annual_salary!, cap);
-      return s + convertCostToProjectCurrency(cost, p.office);
-    }, 0) / rolePeople.length;
+    const avgCostPerHour = budgetedCostByRole[roleId] || 0;
     return sum + hours * avgCostPerHour;
   }, 0);
 
