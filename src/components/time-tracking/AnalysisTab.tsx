@@ -664,32 +664,49 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
   const detailPersonBreakdown = useMemo(() => {
     if (!selectedDetailTeam || !selectedDetailProject) return [];
     if (detailGroupBy === "project") {
-      // Only meaningful for rule-aggregated bars; show projects driving the rule for this team
-      const bmKey = `team:${selectedDetailTeam}|||${selectedDetailProject}`;
-      const pMap = benchmarkRuleProjectIndex.get(bmKey);
+      const pKey = `${selectedDetailTeam}|||${selectedDetailProject}`;
+      const pMap = personIndex.get(pKey);
       if (!pMap) return [];
+
+      const projectAgg = new Map<string, number>();
+
+      for (const [name] of pMap.entries()) {
+        const role = personRoleMap.get(name) || "";
+        if (selectedDetailRoles.length > 0 && !selectedDetailRoles.includes(role)) continue;
+
+        const prMap = personRuleProjectIndex.get(name)?.get(selectedDetailProject);
+        if (prMap) {
+          for (const [projTitle, hrs] of prMap.entries()) {
+            projectAgg.set(projTitle, (projectAgg.get(projTitle) || 0) + hrs);
+          }
+        }
+      }
+
       const teamLogged = detailTeamData?.teamLoggedHours || 0;
-      return Array.from(pMap.entries())
+      return Array.from(projectAgg.entries())
         .map(([name, hours]) => ({ name, hours, pct: teamLogged > 0 ? (hours / teamLogged) * 100 : 0, role: "" }))
         .sort((a, b) => b.hours - a.hours)
         .slice(0, 20);
     }
     const pKey = `${selectedDetailTeam}|||${selectedDetailProject}`;
     const idx = detailGroupBy === "role" ? roleIndex : personIndex;
-    const totals = detailGroupBy === "role" ? roleTotalLogged : personTotalLogged;
     const pMap = idx.get(pKey);
     if (!pMap) return [];
-    const roleFilter = selectedDetailRoles.length > 0 ? new Set(selectedDetailRoles) : null;
-    return Array.from(pMap.entries())
+    const all = Array.from(pMap.entries())
       .filter(([name]) => {
-        if (!roleFilter) return true;
-        if (detailGroupBy === "role") return roleFilter.has(name);
-        return roleFilter.has(personRoleMap.get(name) || "");
+        if (selectedDetailRoles.length === 0) return true;
+        const role = detailGroupBy === "role" ? name : (personRoleMap.get(name) || "");
+        return selectedDetailRoles.includes(role);
       })
       .map(([name, hours]) => {
-        const pTotal = totals.get(name) || 0;
+        let total = 0;
+        if (detailGroupBy === "role") {
+          total = teamRoleLogged.get(selectedDetailTeam)?.get(name) || 0;
+        } else {
+          total = personTotalLogged.get(name) || 0;
+        }
         const role = detailGroupBy === "person" ? (personRoleMap.get(name) || "") : "";
-        return { name, hours, pct: pTotal > 0 ? (hours / pTotal) * 100 : 0, role };
+        return { name, hours, pct: total > 0 ? (hours / total) * 100 : 0, role };
       })
       .sort((a, b) => b.hours - a.hours)
       .slice(0, 20);
@@ -2565,7 +2582,9 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
         <CardContent>
           {detailTeamData ? (
             <>
-              <p className="text-xs text-muted-foreground mb-2">% = share of team's logged hours (excl. leave)</p>
+              <p className="text-xs text-muted-foreground mb-2">
+                % = share of {selectedDetailRoles.length === 0 ? "team's" : selectedDetailRoles.length === 1 ? `${selectedDetailRoles[0]}'s` : "selected roles'"} logged hours (excl. leave)
+              </p>
               <ResponsiveContainer width="100%" height={Math.max(detailTeamData.projects.length * 36, 200)}>
                 <BarChart
                   data={detailTeamData.projects}
@@ -2632,7 +2651,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
                   </div>
                   <p className="text-xs text-muted-foreground mb-2">
                     {detailGroupBy === "project"
-                      ? `% = share of ${selectedDetailTeam ?? "team"} team's logged hours (excl. leave)`
+                      ? `% = share of ${selectedDetailRoles.length > 0 ? (selectedDetailRoles.length === 1 ? `${selectedDetailRoles[0]}'s` : "selected roles'") : `${selectedDetailTeam ?? "team"} team's`} logged hours (excl. leave)`
                       : `% = share of each ${detailGroupBy}'s logged hours (excl. leave)`}
                   </p>
                   <ResponsiveContainer width="100%" height={Math.max(detailPersonBreakdown.length * (detailGroupBy === "person" ? 40 : 32), 120)}>
