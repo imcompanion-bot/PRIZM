@@ -14,8 +14,9 @@ export function getDailyCapacity(billableCapacityHours: number): number {
   return billableCapacityHours / 5;
 }
 
-export function calculateInternalCostPerHour(annualSalary: number, billableCapacityHours: number = HOURS_PER_DAY): number {
-  const dailyBillableHours = getDailyCapacity(billableCapacityHours);
+export function calculateInternalCostPerHour(annualSalary: number, billableCapacityHours?: number | null): number {
+  const weeklyCapacity = (billableCapacityHours == null || billableCapacityHours <= 0) ? (HOURS_PER_DAY * 5) : billableCapacityHours;
+  const dailyBillableHours = getDailyCapacity(weeklyCapacity);
   const billableCapacityPct = dailyBillableHours / HOURS_PER_DAY;
   const billableHoursPerYear = WORKING_HOURS_PER_YEAR * billableCapacityPct;
   return (annualSalary * (1 + SALARY_MARKUP)) / billableHoursPerYear;
