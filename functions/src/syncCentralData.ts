@@ -67,6 +67,19 @@ export async function runSync() {
   logger.info("Starting centralized sheet sync");
   const supabase = getSupabase();
 
+  const updateProgress = async (progressPercent: number) => {
+    try {
+      await supabase.from("data_imports" as any).upsert(
+        { dataset: "central_sync_progress", row_count: progressPercent, last_imported_at: new Date().toISOString() } as any,
+        { onConflict: "dataset" } as any
+      );
+    } catch (e) {
+      logger.error("Failed to update central_sync_progress:", e);
+    }
+  };
+
+  await updateProgress(1);
+
   const auth = new google.auth.GoogleAuth({
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });
@@ -84,6 +97,7 @@ export async function runSync() {
 
   // 1. ROLES & RATE CARDS
   logger.info("Syncing Roles and Rate Cards...");
+  await updateProgress(10);
   const rolesResponse = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
     range: "Roles & Capacities!A2:B",
@@ -172,6 +186,7 @@ export async function runSync() {
 
   // 2. PEOPLE
   logger.info("Syncing People...");
+  await updateProgress(30);
   const peopleResponse = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
     range: "People Counter Global!A3:O", 
@@ -250,6 +265,7 @@ export async function runSync() {
 
   // Perform stale records cleanup & relinking
   logger.info("Performing people cleanup and time entry relinking...");
+  await updateProgress(50);
   try {
     const existingPeople: any[] = [];
     let pPage = 0;
@@ -320,6 +336,7 @@ export async function runSync() {
 
   // 3. PROJECTS
   logger.info("Syncing Projects...");
+  await updateProgress(70);
   
   // Load Scopes first to extract opportunity numbers
   const titleToOppNumber = new Map<string, string>();
@@ -480,6 +497,7 @@ export async function runSync() {
 
   // 4. SCOPES & ALLOCATIONS
   logger.info("Syncing Scopes...");
+  await updateProgress(90);
   const scopesResponse = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
     range: "Scopes!A2:X",
@@ -546,6 +564,7 @@ export async function runSync() {
   }
 
   // Update data_imports timestamp from server-side (bypasses any client-side RLS limits!)
+  await updateProgress(100);
   const { error: timestampError } = await supabase.from("data_imports" as any).upsert(
     { dataset: "central_sync", last_imported_at: new Date().toISOString() } as any,
     { onConflict: "dataset" } as any

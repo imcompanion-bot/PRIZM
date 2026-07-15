@@ -12,6 +12,7 @@ import { Navigate } from "react-router-dom";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Progress } from "@/components/ui/progress";
 
 import { TimesheetsImport } from "@/components/settings/TimesheetsImport";
 import { ClientAllocationDialog } from "@/components/settings/ClientAllocationDialog";
@@ -23,6 +24,8 @@ import { LegacyViewWrapper } from "@/components/pharaoh/LegacyViewWrapper";
 const DataSyncTab = () => {
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [progressStage, setProgressStage] = useState("");
 
   const { data: lastImportedAt, refetch: refetchSyncStatus } = useQuery({
     queryKey: ["sync_central_data_status"],
@@ -36,6 +39,59 @@ const DataSyncTab = () => {
       return data?.last_imported_at || null;
     },
   });
+
+  useEffect(() => {
+    let intervalId: any;
+    if (isSyncing) {
+      setProgressPercent(1);
+      setProgressStage("Connecting & initiating sheet connection...");
+
+      const fetchProgress = async () => {
+        try {
+          const { data, error } = await supabase
+            .from("data_imports" as any)
+            .select("row_count")
+            .eq("dataset", "central_sync_progress")
+            .maybeSingle();
+
+          if (!error && data) {
+            const count = data.row_count || 0;
+            setProgressPercent(count);
+
+            // Map progress values to detailed descriptive messages
+            if (count <= 1) {
+              setProgressStage("Initiating secure connection with Google Sheets...");
+            } else if (count === 10) {
+              setProgressStage("Syncing Roles, Capacities & Rate Cards...");
+            } else if (count === 30) {
+              setProgressStage("Syncing Active Team Members (People rows)...");
+            } else if (count === 50) {
+              setProgressStage("Performing database cleanups & relinking timesheets...");
+            } else if (count === 70) {
+              setProgressStage("Syncing Client Projects (can take up to 45s)...");
+            } else if (count === 90) {
+              setProgressStage("Syncing and uploading Project Scopes (11,000+ items)...");
+            } else if (count >= 100) {
+              setProgressStage("Finalizing and updating database timestamps...");
+            }
+          }
+        } catch (err) {
+          console.error("Error polling sync progress:", err);
+        }
+      };
+
+      // Poll every 2 seconds
+      fetchProgress();
+      intervalId = setInterval(fetchProgress, 2000);
+    } else {
+      setProgressPercent(0);
+      setProgressStage("");
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isSyncing]);
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -81,26 +137,46 @@ const DataSyncTab = () => {
           <p className="text-sm text-gray-600">Centralized Data - Master Sheet</p>
         </div>
 
-        <div className="flex items-center gap-4">
-          <Button 
-            onClick={handleSync} 
-            disabled={isSyncing}
-            className="w-full sm:w-auto bg-black text-white hover:bg-gray-800"
-          >
-            {isSyncing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Syncing from Google...
-              </>
-            ) : (
-              "Sync Full Database"
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={handleSync} 
+              disabled={isSyncing}
+              className="w-full sm:w-auto bg-black text-white hover:bg-gray-800 animate-none transition-all duration-200"
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Syncing from Google...
+                </>
+              ) : (
+                "Sync Full Database"
+              )}
+            </Button>
+            {lastImportedAt && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1.5 rounded-md">
+                <Clock className="h-3 w-3" />
+                Last successful sync: {new Date(lastImportedAt).toLocaleString()}
+              </span>
             )}
-          </Button>
-          {lastImportedAt && (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1.5 rounded-md">
-              <Clock className="h-3 w-3" />
-              Last successful sync: {new Date(lastImportedAt).toLocaleString()}
-            </span>
+          </div>
+
+          {isSyncing && (
+            <div className="mt-4 border-t border-gray-100 pt-5 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold text-gray-700 animate-pulse flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  {progressStage}
+                </span>
+                <span className="text-gray-500 font-mono font-bold bg-gray-100 px-2 py-0.5 rounded text-xs">
+                  {progressPercent}%
+                </span>
+              </div>
+              <Progress value={progressPercent} className="h-2 bg-gray-100 [&>div]:bg-black" />
+              <p className="text-xs text-gray-400 italic">
+                Please do not close or refresh this tab while the master sheet sync is in progress.
+              </p>
+            </div>
           )}
         </div>
       </div>
