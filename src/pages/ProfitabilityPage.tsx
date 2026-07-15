@@ -252,7 +252,6 @@ const ProfitabilityPage = () => {
       const pageSize = 1000;
       while (true) {
         const { data, error } = await supabase.rpc("get_project_costs")
-          .order("project_id")
           .range(from, from + pageSize - 1);
         if (error) throw error;
         allData.push(...(data || []));
@@ -316,8 +315,6 @@ const ProfitabilityPage = () => {
       const pageSize = 1000;
       while (true) {
         const { data, error } = await supabase.rpc("get_project_costs_monthly", { _start_date: cutoffDate, _end_date: endDateStr })
-          .order("project_id")
-          .order("month_date")
           .range(from, from + pageSize - 1);
         if (error) throw error;
         console.log("DEBUG: monthlyCosts fetched:", data?.slice(0, 5));
@@ -349,8 +346,6 @@ const ProfitabilityPage = () => {
       const pageSize = 1000;
       while (true) {
         const { data, error } = await supabase.rpc("get_project_hours_by_role")
-          .order("project_id")
-          .order("role_id")
           .range(from, from + pageSize - 1);
         if (error) throw error;
         allData.push(...(data || []));
@@ -370,8 +365,6 @@ const ProfitabilityPage = () => {
       const pageSize = 1000;
       while (true) {
         const { data, error } = await supabase.rpc("get_project_costs_by_role" as any)
-          .order("project_id")
-          .order("role_id")
           .range(from, from + pageSize - 1);
         if (error) throw error;
         allData.push(...(data || []));
@@ -412,8 +405,6 @@ const ProfitabilityPage = () => {
       let from = 0;
       while (true) {
         const { data, error } = await supabase.rpc("get_project_person_hours" as any)
-          .order("project_id")
-          .order("person_id")
           .range(from, from + PAGE_SIZE - 1);
         if (error) throw error;
         allData = allData.concat(data || []);

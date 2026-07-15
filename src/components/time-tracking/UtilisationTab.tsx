@@ -107,7 +107,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
       while (true) {
         const { data, error } = await supabase
           .from("time_entries")
-          .select("person_id, date, hours, project_id, project_name, projects(title, opportunity_record_type, revenue, stage, office)")
+          .select("person_id, date, hours")
           .gte("date", format(startDate, "yyyy-MM-dd"))
           .lte("date", format(endDate, "yyyy-MM-dd"))
           .order("date")
