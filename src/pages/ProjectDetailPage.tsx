@@ -183,8 +183,8 @@ const ProjectDetailPage = () => {
   const discountPct = project?.rate_card_discount || 0;
   const rcName = project?.rate_cards?.name;
 
-  // Project currency: from fee calc import, or rate card currency, or GBP default
-  const projectCurrency = project?.fee_calc_currency || project?.rate_cards?.currency || "GBP";
+  // Project currency: from fee calc import, or rate card currency, or office location fallback, or GBP default
+  const projectCurrency = project?.fee_calc_currency || project?.rate_cards?.currency || (project?.office === "United States" ? "USD" : "GBP");
   // Fetch real historical FX rate for projects missing stored rates
   const needsFxFallback = !!(project && !project.fx_rate_gbp && !project.fx_rate_usd);
   const { data: historicalFxRate } = useQuery({
@@ -218,12 +218,12 @@ const ProjectDetailPage = () => {
 
   // Helper to convert internal cost (based on person's office) to project currency
   const convertCostToProjectCurrency = (costInLocalCurrency: number, office?: string): number => {
-    if (projectCurrency === "GBP" && (!office || office === "UK")) return costInLocalCurrency;
-    if (projectCurrency === "USD" && office === "US") return costInLocalCurrency;
+    if (projectCurrency === "GBP" && (!office || office === "UK" || office === "United Kingdom")) return costInLocalCurrency;
+    if (projectCurrency === "USD" && (office === "US" || office === "United States")) return costInLocalCurrency;
     // Convert: if person is UK (GBP), multiply by fx_rate_gbp to get project currency
     // If person is US (USD), multiply by fx_rate_usd to get project currency
-    if (!office || office === "UK") return costInLocalCurrency * fxRateGbp;
-    if (office === "US") return costInLocalCurrency * fxRateUsd;
+    if (!office || office === "UK" || office === "United Kingdom") return costInLocalCurrency * fxRateGbp;
+    if (office === "US" || office === "United States") return costInLocalCurrency * fxRateUsd;
     return costInLocalCurrency * fxRateGbp; // fallback
   };
 
@@ -365,13 +365,7 @@ const ProjectDetailPage = () => {
   const soFarBudgetCost = (project?.project_scopes || []).reduce((sum: number, scope: any) => {
     const hours = soFarHoursPerScope[scope.id] || 0;
     const roleId = scope.role_id;
-    const rolePeople = people.filter((p) => p.role_id === roleId && p.annual_salary);
-    if (rolePeople.length === 0) return sum;
-    const avgCostPerHour = rolePeople.reduce((s, p) => {
-      const cap = p.roles?.billable_capacity_hours;
-      const cost = calculateInternalCostPerHour(p.annual_salary!, cap);
-      return s + convertCostToProjectCurrency(cost, p.office);
-    }, 0) / rolePeople.length;
+    const avgCostPerHour = budgetedCostByRole[roleId] || 0;
     return sum + hours * avgCostPerHour;
   }, 0);
 
