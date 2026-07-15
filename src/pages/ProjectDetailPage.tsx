@@ -183,8 +183,17 @@ const ProjectDetailPage = () => {
   const discountPct = project?.rate_card_discount || 0;
   const rcName = project?.rate_cards?.name;
 
-  // Project currency: from fee calc import, or rate card currency, or office location fallback, or GBP default
-  const projectCurrency = project?.fee_calc_currency || project?.rate_cards?.currency || (project?.office === "United States" ? "USD" : "GBP");
+  const [currencyMode, setCurrencyMode] = useState<"office" | "project">("office");
+
+  // Determine standard currencies
+  const officeCurrency = project?.office === "United States" ? "USD" : "GBP";
+  const extraDataProjectCurrency = (project as any)?.extra_data?.project_currency;
+  
+  // Active currency for display and FX calculations
+  const activeCurrency = currencyMode === "office" 
+    ? officeCurrency 
+    : (extraDataProjectCurrency || officeCurrency);
+
   // Fetch real historical FX rate for projects missing stored rates
   const needsFxFallback = !!(project && !project.fx_rate_gbp && !project.fx_rate_usd);
   const { data: historicalFxRate } = useQuery({
@@ -194,21 +203,24 @@ const ProjectDetailPage = () => {
     staleTime: Infinity,
   });
 
-  // When project has stored FX rates, use them directly.
-  // When missing, derive proper rates from historical GBP→USD data based on project currency.
   const storedGbp = (project as any)?.fx_rate_gbp;
   const storedUsd = (project as any)?.fx_rate_usd;
   const histRate = historicalFxRate ?? 1.35;
   let fxRateGbp: number;
   let fxRateUsd: number;
-  if (storedGbp || storedUsd) {
+  
+  // If the active currency matches the original fee_calc_currency, we use the locked rates (if any).
+  // Otherwise, we use the historical rates because we are converting to a currency that the project wasn't natively planned in.
+  const isOriginalCurrency = activeCurrency === (project?.fee_calc_currency || project?.rate_cards?.currency || officeCurrency);
+  
+  if (isOriginalCurrency && (storedGbp || storedUsd)) {
     fxRateGbp = storedGbp || 1;
     fxRateUsd = storedUsd || (fxRateGbp * histRate);
-  } else if (projectCurrency === "USD") {
+  } else if (activeCurrency === "USD") {
     // 1 GBP = X USD, 1 USD = 1 USD
     fxRateGbp = histRate;
     fxRateUsd = 1;
-  } else if (projectCurrency === "GBP") {
+  } else if (activeCurrency === "GBP") {
     fxRateGbp = 1;
     fxRateUsd = 1 / histRate;
   } else {
@@ -216,12 +228,13 @@ const ProjectDetailPage = () => {
     fxRateUsd = histRate;
   }
 
-  // Helper to convert internal cost (based on person's office) to project currency
-  const convertCostToProjectCurrency = (costInLocalCurrency: number, office?: string): number => {
-    if (projectCurrency === "GBP" && (!office || office === "UK" || office === "United Kingdom")) return costInLocalCurrency;
-    if (projectCurrency === "USD" && (office === "US" || office === "United States")) return costInLocalCurrency;
-    // Convert: if person is UK (GBP), multiply by fx_rate_gbp to get project currency
-    // If person is US (USD), multiply by fx_rate_usd to get project currency
+  // Helper to convert internal cost (based on person's office) to the active currency
+  const convertCostToActiveCurrency = (costInLocalCurrency: number, office?: string): number => {
+    if (activeCurrency === "GBP" && (!office || office === "UK" || office === "United Kingdom")) return costInLocalCurrency;
+    if (activeCurrency === "USD" && (office === "US" || office === "United States")) return costInLocalCurrency;
+    
+    // Convert: if person is UK (GBP), multiply by fx_rate_gbp
+    // If person is US (USD), multiply by fx_rate_usd
     if (!office || office === "UK" || office === "United Kingdom") return costInLocalCurrency * fxRateGbp;
     if (office === "US" || office === "United States") return costInLocalCurrency * fxRateUsd;
     return costInLocalCurrency * fxRateGbp; // fallback
@@ -237,8 +250,8 @@ const ProjectDetailPage = () => {
       .filter((rc) => (rc.name || "").trim().toLowerCase() === targetName)
       .forEach((rc) => {
         let rate = Number(rc.hourly_rate || 0) * (1 - discountPct / 100);
-        // Convert rate card rate to project currency if different
-        if (rateCardBaseCurrency !== projectCurrency) {
+        // Convert rate card rate to active currency if different
+        if (rateCardBaseCurrency !== activeCurrency) {
           if (rateCardBaseCurrency === "GBP") rate *= fxRateGbp;
           else if (rateCardBaseCurrency === "USD") rate *= fxRateUsd;
         }
@@ -285,7 +298,7 @@ const ProjectDetailPage = () => {
     // Find person's office for FX conversion
     const person = people.find(p => p.id === te.person_id);
     const office = person?.office || "UK";
-    return sum + te.hours * convertCostToProjectCurrency(costPerHour, office);
+    return sum + te.hours * convertCostToActiveCurrency(costPerHour, office);
   }, 0);
 
   // Budgeted internal cost per role (avg cost/hr for each role, converted to project currency)
@@ -304,7 +317,7 @@ const ProjectDetailPage = () => {
     const avgCostPerHour = rolePeople.reduce((s, p) => {
       const cap = p.roles?.billable_capacity_hours;
       const cost = calculateInternalCostPerHour(p.annual_salary!, cap);
-      return s + convertCostToProjectCurrency(cost, p.office);
+      return s + convertCostToActiveCurrency(cost, p.office);
     }, 0) / rolePeople.length;
     
     budgetedCostByRole[roleId] = avgCostPerHour;
@@ -384,7 +397,7 @@ const ProjectDetailPage = () => {
   useEffect(() => {
     if (!project || !allPersonEntriesFetched) return;
 
-    const currencySymbol = projectCurrency === "USD" ? "$" : projectCurrency === "EUR" ? "€" : "£";
+    const currencySymbol = activeCurrency === "USD" ? "$" : activeCurrency === "EUR" ? "€" : "£";
     const fmt = (v: number) => `${currencySymbol}${Math.round(v).toLocaleString()}`;
 
     // Build per-role breakdown with individual people costs
@@ -411,7 +424,7 @@ const ProjectDetailPage = () => {
         const costPerHour = salary ? calculateInternalCostPerHour(salary, cap) : 0;
         const person = people.find((p: any) => p.id === pid);
         const office = person?.office || "UK";
-        const convertedCost = convertCostToProjectCurrency(costPerHour, office);
+        const convertedCost = convertCostToActiveCurrency(costPerHour, office);
 
         if (!personMap[pid]) {
           personMap[pid] = { name: personName, hours: 0, costPerHour: convertedCost, totalCost: 0 };
@@ -426,7 +439,7 @@ const ProjectDetailPage = () => {
         ? rolePeople.reduce((s: number, p: any) => {
             const cap = p.roles?.billable_capacity_hours;
             const cost = calculateInternalCostPerHour(p.annual_salary, cap);
-            return s + convertCostToProjectCurrency(cost, p.office);
+            return s + convertCostToActiveCurrency(cost, p.office);
           }, 0) / rolePeople.length
         : 0;
 
@@ -488,7 +501,7 @@ const ProjectDetailPage = () => {
       },
       scopeByRole,
     });
-  }, [project, timeEntries, people, allPersonEntriesFetched, totalScopedHours, budgetedInternalCost, budgetedFee, budgetedProfit, agencyFee, agencyFeeSoFar, soFarBudgetHours, soFarBudgetCost, soFarBudgetProfit, profit, totalActualHours, totalActualCost, projectCurrency]);
+  }, [project, timeEntries, people, allPersonEntriesFetched, totalScopedHours, budgetedInternalCost, budgetedFee, budgetedProfit, agencyFee, agencyFeeSoFar, soFarBudgetHours, soFarBudgetCost, soFarBudgetProfit, profit, totalActualHours, totalActualCost, activeCurrency]);
 
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading...</div>;
   if (!project) return <div className="p-8">Project not found</div>;
@@ -519,21 +532,39 @@ const ProjectDetailPage = () => {
             <p className="text-muted-foreground text-sm mt-0.5">
               Rate Card: {project.rate_cards.name}
               {discountPct > 0 && ` (${discountPct}% discount)`}
-              {projectCurrency !== rateCardBaseCurrency && ` · ${projectCurrency} (converted from ${rateCardBaseCurrency})`}
-              {projectCurrency === rateCardBaseCurrency && projectCurrency !== "GBP" && ` · ${projectCurrency}`}
+              {activeCurrency !== rateCardBaseCurrency && ` · ${activeCurrency} (converted from ${rateCardBaseCurrency})`}
+              {activeCurrency === rateCardBaseCurrency && activeCurrency !== "GBP" && ` · ${activeCurrency}`}
             </p>
           )}
           {(project as any).fx_lock_date && projectCurrency !== "GBP" && (
             <p className="text-muted-foreground text-xs mt-0.5">
               FX Lock: {format(new Date((project as any).fx_lock_date), "dd MMM yyyy")}
-              {fxRateGbp !== 1 && ` · 1 GBP = ${fxRateGbp.toFixed(4)} ${projectCurrency}`}
-              {fxRateUsd !== 1 && ` · 1 USD = ${fxRateUsd.toFixed(4)} ${projectCurrency}`}
+              {fxRateGbp !== 1 && ` · 1 GBP = ${fxRateGbp.toFixed(4)} ${activeCurrency}`}
+              {fxRateUsd !== 1 && ` · 1 USD = ${fxRateUsd.toFixed(4)} ${activeCurrency}`}
             </p>
+          )}
+        </div>
+        <div className="flex flex-col items-end mr-6 ml-auto mt-1 justify-center">
+          {extraDataProjectCurrency && extraDataProjectCurrency !== officeCurrency && (
+            <div className="flex bg-muted/30 rounded w-max mb-2 border overflow-hidden">
+              <button
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${currencyMode === "office" ? "bg-[#4b70d8] text-white" : "bg-transparent text-foreground hover:bg-muted/50"}`}
+                onClick={() => setCurrencyMode("office")}
+              >
+                Office Currency ({officeCurrency})
+              </button>
+              <button
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${currencyMode === "project" ? "bg-[#4b70d8] text-white" : "bg-transparent text-foreground hover:bg-muted/50"}`}
+                onClick={() => setCurrencyMode("project")}
+              >
+                Project Currency ({extraDataProjectCurrency})
+              </button>
+            </div>
           )}
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground uppercase tracking-wider">Agency Fee</p>
-          <p className="text-2xl font-display font-bold mt-1">{agencyFee !== null ? formatCurrency(agencyFee, projectCurrency) : "—"}</p>
+          <p className="text-2xl font-display font-bold mt-1">{agencyFee !== null ? formatCurrency(agencyFee, activeCurrency) : "—"}</p>
           {agencyFee !== null && agencyFee > 0 && totalActualCost > 0 && (
             <p className="text-sm text-muted-foreground mt-0.5">
               {Math.round((totalActualCost / agencyFee) * 100)}% cost burn
@@ -562,12 +593,12 @@ const ProjectDetailPage = () => {
           daysRemaining: Math.max(0, differenceInDays(new Date(project.end_date), today)),
           budgetHoursSoFar: Math.round(soFarBudgetHours),
           actualHours: Math.round(totalActualHours),
-          budgetProfitSoFar: formatCurrency(soFarBudgetProfit, projectCurrency),
-          actualProfit: formatCurrency(profit, projectCurrency),
+          budgetProfitSoFar: formatCurrency(soFarBudgetProfit, activeCurrency),
+          actualProfit: formatCurrency(profit, activeCurrency),
           budgetMarginSoFar: soFarBudgetFee && soFarBudgetFee > 0 ? Math.round((soFarBudgetProfit / soFarBudgetFee) * 100) : 0,
           actualMargin: agencyFee && agencyFee > 0 ? Math.round((profit / agencyFee) * 100) : (totalActualCost > 0 ? -100 : 0),
           totalScopedHours: totalScopedHours,
-          agencyFee: agencyFee !== null ? formatCurrency(agencyFee, projectCurrency) : formatCurrency(0, projectCurrency),
+          agencyFee: agencyFee !== null ? formatCurrency(agencyFee, activeCurrency) : formatCurrency(0, activeCurrency),
         }}
         teamContext={{
           people: (() => {
@@ -799,16 +830,16 @@ const ProjectDetailPage = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-muted-foreground">Agency Fee</p>
-                      <p className="text-lg font-display font-bold">{agencyFee !== null ? formatCurrency(agencyFee, projectCurrency) : "—"}</p>
+                      <p className="text-lg font-display font-bold">{agencyFee !== null ? formatCurrency(agencyFee, activeCurrency) : "—"}</p>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">Cost</p>
-                      <p className="text-lg font-display font-bold">{formatCurrency(budgetedInternalCost, projectCurrency)}</p>
+                    <div>
+                      <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Expected Cost</p>
+                      <p className="text-lg font-display font-bold">{formatCurrency(budgetedInternalCost, activeCurrency)}</p>
                     </div>
                     <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
                       <p className="text-sm text-muted-foreground">Profit</p>
                       <p className={cn("text-lg font-display font-bold", budgetedProfit < 0 ? "text-destructive" : "")}>
-                        {formatCurrency(budgetedProfit, projectCurrency)}
+                        {formatCurrency(budgetedProfit, activeCurrency)}
                       </p>
                     </div>
                     <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
@@ -831,16 +862,16 @@ const ProjectDetailPage = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-muted-foreground">Agency Fee</p>
-                      <p className="text-lg font-display font-bold">{agencyFeeSoFar !== null ? formatCurrency(agencyFeeSoFar, projectCurrency) : "—"}</p>
+                      <p className="text-lg font-display font-bold">{agencyFeeSoFar !== null ? formatCurrency(agencyFeeSoFar, activeCurrency) : "—"}</p>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">Cost</p>
-                      <p className="text-lg font-display font-bold">{formatCurrency(soFarBudgetCost, projectCurrency)}</p>
+                    <div>
+                      <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Expected Cost</p>
+                      <p className="text-lg font-display font-bold">{formatCurrency(soFarBudgetCost, activeCurrency)}</p>
                     </div>
                     <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
                       <p className="text-sm text-muted-foreground">Profit</p>
                       <p className={cn("text-lg font-display font-bold", soFarBudgetProfit < 0 ? "text-destructive" : "")}>
-                        {formatCurrency(soFarBudgetProfit, projectCurrency)}
+                        {formatCurrency(soFarBudgetProfit, activeCurrency)}
                       </p>
                     </div>
                     <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
@@ -872,7 +903,7 @@ const ProjectDetailPage = () => {
                     <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
                       <p className="text-sm text-muted-foreground">Profit</p>
                       <p className={cn("text-lg font-display font-bold", profit < 0 ? "text-destructive" : "text-primary")}>
-                        {formatCurrency(profit, projectCurrency)}
+                        {formatCurrency(profit, activeCurrency)}
                       </p>
                     </div>
                     <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
@@ -939,7 +970,7 @@ const ProjectDetailPage = () => {
               allocations: s.allocations,
             }))}
             rateCardRates={roleRates}
-            currency={projectCurrency}
+            currency={activeCurrency}
             budgetedCostByRole={budgetedCostByRole}
           />
         </TabsContent>

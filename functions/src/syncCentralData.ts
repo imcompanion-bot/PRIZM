@@ -459,6 +459,12 @@ export async function runSync() {
       gp_full_value: parseNumber(row[16]),
       gp_check: row[17] || "",
       gp_full_value_per_day: parseNumber(row[18]),
+      extra_data: {
+        project_currency: row[212] || null,
+        project_currency_revenue: parseNumber(row[213]),
+        project_currency_media_cost: parseNumber(row[215]),
+        project_currency_gross_budget: parseNumber(row[223]),
+      },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
