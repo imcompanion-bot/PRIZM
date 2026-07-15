@@ -631,7 +631,7 @@ const ProfitabilityPage = () => {
 
     for (const project of filtered) {
       const p = project as any;
-      const projectCurrency = p.fee_calc_currency || p.rate_cards?.currency || "GBP";
+      const projectCurrency = p.fee_calc_currency || p.rate_cards?.currency || (p.office === "United States" ? "USD" : "GBP");
       const projectHistoricalRate = historicalFxRates[p.id] ?? fallbackGbpUsdRate;
       let fxRateGbp: number;
       let fxRateUsd: number;
@@ -914,7 +914,7 @@ const ProfitabilityPage = () => {
     };
 
     const getProjectFxRates = (p: any) => {
-      const projectCurrency = p.fee_calc_currency || p.rate_cards?.currency || "GBP";
+      const projectCurrency = p.fee_calc_currency || p.rate_cards?.currency || (p.office === "United States" ? "USD" : "GBP");
       const projectHistoricalRate = historicalFxRates[p.id] ?? fallbackGbpUsdRate;
       let fxRateGbp: number;
       let fxRateUsd: number;
@@ -1198,7 +1198,7 @@ const ProfitabilityPage = () => {
       const isComplete = projEnd < today;
       if (statusFilter === "ended" && !isComplete) continue;
 
-      const projectCurrency = p.fee_calc_currency || p.rate_cards?.currency || "GBP";
+      const projectCurrency = p.fee_calc_currency || p.rate_cards?.currency || (p.office === "United States" ? "USD" : "GBP");
       const roleHistRate = historicalFxRates[p.id] ?? fallbackGbpUsdRate;
       let fxRateGbp: number;
       let fxRateUsd: number;
@@ -1607,7 +1607,7 @@ const ProfitabilityPage = () => {
       const isComplete = projEnd < today;
       if (statusFilter === "ended" && !isComplete) continue;
 
-      const projectCurrency = p.fee_calc_currency || p.rate_cards?.currency || "GBP";
+      const projectCurrency = p.fee_calc_currency || p.rate_cards?.currency || (p.office === "United States" ? "USD" : "GBP");
       const roleHistRate = historicalFxRates[p.id] ?? fallbackGbpUsdRate;
       let fxRateGbp: number;
       let fxRateUsd: number;

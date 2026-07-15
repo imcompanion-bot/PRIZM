@@ -218,12 +218,12 @@ const ProjectDetailPage = () => {
 
   // Helper to convert internal cost (based on person's office) to project currency
   const convertCostToProjectCurrency = (costInLocalCurrency: number, office?: string): number => {
-    if (projectCurrency === "GBP" && (!office || office === "UK")) return costInLocalCurrency;
-    if (projectCurrency === "USD" && office === "US") return costInLocalCurrency;
+    if (projectCurrency === "GBP" && (!office || office === "UK" || office === "United Kingdom")) return costInLocalCurrency;
+    if (projectCurrency === "USD" && (office === "US" || office === "United States")) return costInLocalCurrency;
     // Convert: if person is UK (GBP), multiply by fx_rate_gbp to get project currency
     // If person is US (USD), multiply by fx_rate_usd to get project currency
-    if (!office || office === "UK") return costInLocalCurrency * fxRateGbp;
-    if (office === "US") return costInLocalCurrency * fxRateUsd;
+    if (!office || office === "UK" || office === "United Kingdom") return costInLocalCurrency * fxRateGbp;
+    if (office === "US" || office === "United States") return costInLocalCurrency * fxRateUsd;
     return costInLocalCurrency * fxRateGbp; // fallback
   };
 
