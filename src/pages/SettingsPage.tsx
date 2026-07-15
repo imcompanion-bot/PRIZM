@@ -24,7 +24,7 @@ const DataSyncTab = () => {
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const { data: lastImportedAt } = useQuery({
+  const { data: lastImportedAt, refetch: refetchSyncStatus } = useQuery({
     queryKey: ["sync_central_data_status"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -55,7 +55,7 @@ const DataSyncTab = () => {
       queryClient.invalidateQueries({ queryKey: ["utilisation_summary"] });
       queryClient.invalidateQueries({ queryKey: ["utilisation_summary_monthly"] });
       
-      queryClient.invalidateQueries({ queryKey: ["sync_central_data_status"] });
+      await refetchSyncStatus();
 
       toast.success(`Successfully synced full database from centralized sheet!`);
     } catch (e: any) {

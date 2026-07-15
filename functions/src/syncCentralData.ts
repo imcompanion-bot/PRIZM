@@ -71,8 +71,16 @@ export async function runSync() {
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });
 
+  google.options({
+    timeout: 60000,
+  });
+
   const authClient = await auth.getClient();
-  const sheets = google.sheets({ version: "v4", auth: authClient as any });
+  const sheets = google.sheets({ 
+    version: "v4", 
+    auth: authClient as any,
+    timeout: 60000,
+  });
 
   // 1. ROLES & RATE CARDS
   logger.info("Syncing Roles and Rate Cards...");
