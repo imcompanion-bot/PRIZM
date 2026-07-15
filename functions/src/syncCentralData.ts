@@ -258,21 +258,6 @@ export async function runSync() {
       pPage++;
     }
 
-    const allTimeEntries: any[] = [];
-    let tPage = 0;
-    const tPageSize = 1000;
-    while (true) {
-      const { data, error } = await supabase
-        .from("time_entries" as any)
-        .select("*")
-        .range(tPage * tPageSize, (tPage + 1) * tPageSize - 1);
-      if (error) break;
-      if (!data || data.length === 0) break;
-      allTimeEntries.push(...data);
-      if (data.length < tPageSize) break;
-      tPage++;
-    }
-    
     const deactivationsMap = new Map<string, any>();
 
     for (const p of existingPeople) {
@@ -281,16 +266,13 @@ export async function runSync() {
         const targetCurrentId = nameToCurrentId.get(normName);
 
         if (targetCurrentId) {
-          const staleEntries = allTimeEntries.filter((e: any) => e.person_id === p.id);
-          if (staleEntries.length > 0) {
-            logger.info(`Relinking ${staleEntries.length} time entries from stale ID ${p.id} to new ID ${targetCurrentId}`);
-            const { error: relinkErr } = await supabase
-              .from("time_entries" as any)
-              .update({ person_id: targetCurrentId })
-              .eq("person_id", p.id);
-            if (relinkErr) {
-              logger.error(`Error bulk relinking time entries for ${p.id}:`, relinkErr);
-            }
+          logger.info(`Checking and relinking any time entries from stale ID ${p.id} to new ID ${targetCurrentId}`);
+          const { error: relinkErr } = await supabase
+            .from("time_entries" as any)
+            .update({ person_id: targetCurrentId })
+            .eq("person_id", p.id);
+          if (relinkErr) {
+            logger.error(`Error bulk relinking time entries for ${p.id}:`, relinkErr);
           }
           await supabase.from("people" as any).delete().eq("id", p.id);
         } else {
@@ -569,7 +551,7 @@ export async function runSync() {
   logger.info(`Sync complete! Roles: ${upsertedRoles}, RateCards: ${upsertedRateCards}, People: ${upsertedPeople}, Projects: ${upsertedProjects}, Scopes: ${upsertedScopes}`);
 }
 
-export const syncCentralDataCron = onSchedule({ schedule: "0 6 * * *", timeZone: "Europe/London" }, async (event) => {
+export const syncCentralDataCron = onSchedule({ schedule: "0 6 * * *", timeZone: "Europe/London", timeoutSeconds: 500, memory: "1GiB" }, async (event) => {
   await runSync();
 });
 
