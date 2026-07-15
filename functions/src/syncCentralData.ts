@@ -67,15 +67,37 @@ export async function runSync() {
   logger.info("Starting centralized sheet sync");
   const supabase = getSupabase();
 
+  const updateProgress = async (progressPercent: number) => {
+    try {
+      await supabase.from("data_imports" as any).upsert(
+        { dataset: "central_sync_progress", row_count: progressPercent, last_imported_at: new Date().toISOString() } as any,
+        { onConflict: "dataset" } as any
+      );
+    } catch (e) {
+      logger.error("Failed to update central_sync_progress:", e);
+    }
+  };
+
+  await updateProgress(1);
+
   const auth = new google.auth.GoogleAuth({
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });
 
+  google.options({
+    timeout: 60000,
+  });
+
   const authClient = await auth.getClient();
-  const sheets = google.sheets({ version: "v4", auth: authClient as any });
+  const sheets = google.sheets({ 
+    version: "v4", 
+    auth: authClient as any,
+    timeout: 60000,
+  });
 
   // 1. ROLES & RATE CARDS
   logger.info("Syncing Roles and Rate Cards...");
+  await updateProgress(10);
   const rolesResponse = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
     range: "Roles & Capacities!A2:B",
@@ -156,14 +178,15 @@ export async function runSync() {
 
   const rateCardsBatch = Array.from(rateCardsBatchMap.values());
   if (rateCardsBatch.length > 0) {
-    for (let i = 0; i < rateCardsBatch.length; i += 500) {
-      const { error } = await supabase.from("rate_cards" as any).upsert(rateCardsBatch.slice(i, i + 500));
+    for (let i = 0; i < rateCardsBatch.length; i += 100) {
+      const { error } = await supabase.from("rate_cards" as any).upsert(rateCardsBatch.slice(i, i + 100));
       if (error) throw new Error(`RateCards Upsert Error: ${error.message}`);
     }
   }
 
   // 2. PEOPLE
   logger.info("Syncing People...");
+  await updateProgress(30);
   const peopleResponse = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
     range: "People Counter Global!A3:O", 
@@ -234,14 +257,15 @@ export async function runSync() {
 
   const peopleBatch = Array.from(peopleBatchMap.values());
   if (peopleBatch.length > 0) {
-    for (let i = 0; i < peopleBatch.length; i += 500) {
-      const { error } = await supabase.from("people" as any).upsert(peopleBatch.slice(i, i + 500));
+    for (let i = 0; i < peopleBatch.length; i += 100) {
+      const { error } = await supabase.from("people" as any).upsert(peopleBatch.slice(i, i + 100));
       if (error) throw new Error(`People Upsert Error: ${error.message}`);
     }
   }
 
   // Perform stale records cleanup & relinking
   logger.info("Performing people cleanup and time entry relinking...");
+  await updateProgress(50);
   try {
     const existingPeople: any[] = [];
     let pPage = 0;
@@ -258,21 +282,6 @@ export async function runSync() {
       pPage++;
     }
 
-    const allTimeEntries: any[] = [];
-    let tPage = 0;
-    const tPageSize = 1000;
-    while (true) {
-      const { data, error } = await supabase
-        .from("time_entries" as any)
-        .select("*")
-        .range(tPage * tPageSize, (tPage + 1) * tPageSize - 1);
-      if (error) break;
-      if (!data || data.length === 0) break;
-      allTimeEntries.push(...data);
-      if (data.length < tPageSize) break;
-      tPage++;
-    }
-    
     const deactivationsMap = new Map<string, any>();
 
     for (const p of existingPeople) {
@@ -281,16 +290,13 @@ export async function runSync() {
         const targetCurrentId = nameToCurrentId.get(normName);
 
         if (targetCurrentId) {
-          const staleEntries = allTimeEntries.filter((e: any) => e.person_id === p.id);
-          if (staleEntries.length > 0) {
-            logger.info(`Relinking ${staleEntries.length} time entries from stale ID ${p.id} to new ID ${targetCurrentId}`);
-            const { error: relinkErr } = await supabase
-              .from("time_entries" as any)
-              .update({ person_id: targetCurrentId })
-              .eq("person_id", p.id);
-            if (relinkErr) {
-              logger.error(`Error bulk relinking time entries for ${p.id}:`, relinkErr);
-            }
+          logger.info(`Checking and relinking any time entries from stale ID ${p.id} to new ID ${targetCurrentId}`);
+          const { error: relinkErr } = await supabase
+            .from("time_entries" as any)
+            .update({ person_id: targetCurrentId })
+            .eq("person_id", p.id);
+          if (relinkErr) {
+            logger.error(`Error bulk relinking time entries for ${p.id}:`, relinkErr);
           }
           await supabase.from("people" as any).delete().eq("id", p.id);
         } else {
@@ -320,8 +326,8 @@ export async function runSync() {
     
     const deactivations = Array.from(deactivationsMap.values());
     if (deactivations.length > 0) {
-      for (let i = 0; i < deactivations.length; i += 500) {
-        await supabase.from("people" as any).upsert(deactivations.slice(i, i + 500));
+      for (let i = 0; i < deactivations.length; i += 100) {
+        await supabase.from("people" as any).upsert(deactivations.slice(i, i + 100));
       }
     }
   } catch (err: any) {
@@ -330,6 +336,7 @@ export async function runSync() {
 
   // 3. PROJECTS
   logger.info("Syncing Projects...");
+  await updateProgress(70);
   
   // Load Scopes first to extract opportunity numbers
   const titleToOppNumber = new Map<string, string>();
@@ -473,8 +480,8 @@ export async function runSync() {
 
   const projectsBatch = Array.from(projectsBatchMap.values());
   if (projectsBatch.length > 0) {
-    for (let i = 0; i < projectsBatch.length; i += 500) {
-      const { error } = await supabase.from("projects" as any).upsert(projectsBatch.slice(i, i + 500));
+    for (let i = 0; i < projectsBatch.length; i += 100) {
+      const { error } = await supabase.from("projects" as any).upsert(projectsBatch.slice(i, i + 100));
       if (error) throw new Error(`Projects Upsert Error: ${error.message}`);
     }
 
@@ -486,8 +493,8 @@ export async function runSync() {
       
       if (orphanIds.length > 0) {
         logger.info(`Deleting ${orphanIds.length} orphaned projects...`);
-        for (let i = 0; i < orphanIds.length; i += 500) {
-          const chunk = orphanIds.slice(i, i + 500);
+        for (let i = 0; i < orphanIds.length; i += 100) {
+          const chunk = orphanIds.slice(i, i + 100);
           await supabase.from("projects" as any).delete().in("id", chunk);
         }
       }
@@ -496,6 +503,7 @@ export async function runSync() {
 
   // 4. SCOPES & ALLOCATIONS
   logger.info("Syncing Scopes...");
+  await updateProgress(90);
   const scopesResponse = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
     range: "Scopes!A2:X",
@@ -540,8 +548,8 @@ export async function runSync() {
   
   const scopesBatch = Array.from(scopesBatchMap.values());
   if (scopesBatch.length > 0) {
-    for (let i = 0; i < scopesBatch.length; i += 500) {
-      const { error } = await supabase.from("project_scopes" as any).upsert(scopesBatch.slice(i, i + 500));
+    for (let i = 0; i < scopesBatch.length; i += 100) {
+      const { error } = await supabase.from("project_scopes" as any).upsert(scopesBatch.slice(i, i + 100));
       if (error) throw new Error(`Project Scopes Upsert Error: ${error.message}`);
     }
 
@@ -553,8 +561,8 @@ export async function runSync() {
       
       if (orphanScopeIds.length > 0) {
         logger.info(`Deleting ${orphanScopeIds.length} orphaned project scopes...`);
-        for (let i = 0; i < orphanScopeIds.length; i += 500) {
-          const chunk = orphanScopeIds.slice(i, i + 500);
+        for (let i = 0; i < orphanScopeIds.length; i += 100) {
+          const chunk = orphanScopeIds.slice(i, i + 100);
           await supabase.from("project_scopes" as any).delete().in("id", chunk);
         }
       }
@@ -562,6 +570,7 @@ export async function runSync() {
   }
 
   // Update data_imports timestamp from server-side (bypasses any client-side RLS limits!)
+  await updateProgress(100);
   const { error: timestampError } = await supabase.from("data_imports" as any).upsert(
     { dataset: "central_sync", last_imported_at: new Date().toISOString() } as any,
     { onConflict: "dataset" } as any
@@ -575,7 +584,7 @@ export async function runSync() {
   logger.info(`Sync complete! Roles: ${upsertedRoles}, RateCards: ${upsertedRateCards}, People: ${upsertedPeople}, Projects: ${upsertedProjects}, Scopes: ${upsertedScopes}`);
 }
 
-export const syncCentralDataCron = onSchedule({ schedule: "0 6 * * *", timeZone: "Europe/London" }, async (event) => {
+export const syncCentralDataCron = onSchedule({ schedule: "0 6 * * *", timeZone: "Europe/London", timeoutSeconds: 500, memory: "1GiB" }, async (event) => {
   await runSync();
 });
 
