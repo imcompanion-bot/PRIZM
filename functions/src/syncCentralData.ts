@@ -164,8 +164,8 @@ export async function runSync() {
 
   const rateCardsBatch = Array.from(rateCardsBatchMap.values());
   if (rateCardsBatch.length > 0) {
-    for (let i = 0; i < rateCardsBatch.length; i += 500) {
-      const { error } = await supabase.from("rate_cards" as any).upsert(rateCardsBatch.slice(i, i + 500));
+    for (let i = 0; i < rateCardsBatch.length; i += 100) {
+      const { error } = await supabase.from("rate_cards" as any).upsert(rateCardsBatch.slice(i, i + 100));
       if (error) throw new Error(`RateCards Upsert Error: ${error.message}`);
     }
   }
@@ -242,8 +242,8 @@ export async function runSync() {
 
   const peopleBatch = Array.from(peopleBatchMap.values());
   if (peopleBatch.length > 0) {
-    for (let i = 0; i < peopleBatch.length; i += 500) {
-      const { error } = await supabase.from("people" as any).upsert(peopleBatch.slice(i, i + 500));
+    for (let i = 0; i < peopleBatch.length; i += 100) {
+      const { error } = await supabase.from("people" as any).upsert(peopleBatch.slice(i, i + 100));
       if (error) throw new Error(`People Upsert Error: ${error.message}`);
     }
   }
@@ -310,8 +310,8 @@ export async function runSync() {
     
     const deactivations = Array.from(deactivationsMap.values());
     if (deactivations.length > 0) {
-      for (let i = 0; i < deactivations.length; i += 500) {
-        await supabase.from("people" as any).upsert(deactivations.slice(i, i + 500));
+      for (let i = 0; i < deactivations.length; i += 100) {
+        await supabase.from("people" as any).upsert(deactivations.slice(i, i + 100));
       }
     }
   } catch (err: any) {
@@ -457,8 +457,8 @@ export async function runSync() {
 
   const projectsBatch = Array.from(projectsBatchMap.values());
   if (projectsBatch.length > 0) {
-    for (let i = 0; i < projectsBatch.length; i += 500) {
-      const { error } = await supabase.from("projects" as any).upsert(projectsBatch.slice(i, i + 500));
+    for (let i = 0; i < projectsBatch.length; i += 100) {
+      const { error } = await supabase.from("projects" as any).upsert(projectsBatch.slice(i, i + 100));
       if (error) throw new Error(`Projects Upsert Error: ${error.message}`);
     }
 
@@ -470,8 +470,8 @@ export async function runSync() {
       
       if (orphanIds.length > 0) {
         logger.info(`Deleting ${orphanIds.length} orphaned projects...`);
-        for (let i = 0; i < orphanIds.length; i += 500) {
-          const chunk = orphanIds.slice(i, i + 500);
+        for (let i = 0; i < orphanIds.length; i += 100) {
+          const chunk = orphanIds.slice(i, i + 100);
           await supabase.from("projects" as any).delete().in("id", chunk);
         }
       }
@@ -524,8 +524,8 @@ export async function runSync() {
   
   const scopesBatch = Array.from(scopesBatchMap.values());
   if (scopesBatch.length > 0) {
-    for (let i = 0; i < scopesBatch.length; i += 500) {
-      const { error } = await supabase.from("project_scopes" as any).upsert(scopesBatch.slice(i, i + 500));
+    for (let i = 0; i < scopesBatch.length; i += 100) {
+      const { error } = await supabase.from("project_scopes" as any).upsert(scopesBatch.slice(i, i + 100));
       if (error) throw new Error(`Project Scopes Upsert Error: ${error.message}`);
     }
 
@@ -537,8 +537,8 @@ export async function runSync() {
       
       if (orphanScopeIds.length > 0) {
         logger.info(`Deleting ${orphanScopeIds.length} orphaned project scopes...`);
-        for (let i = 0; i < orphanScopeIds.length; i += 500) {
-          const chunk = orphanScopeIds.slice(i, i + 500);
+        for (let i = 0; i < orphanScopeIds.length; i += 100) {
+          const chunk = orphanScopeIds.slice(i, i + 100);
           await supabase.from("project_scopes" as any).delete().in("id", chunk);
         }
       }
