@@ -388,7 +388,7 @@ export async function runSync() {
 
   const projectsResponse = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: "Data summary - P&L phased (de-risked)!B5:Z",
+    range: "Data summary - P&L phased (de-risked)!B5:ZZ",
   });
   const projectsRows = projectsResponse.data.values || [];
   let upsertedProjects = 0;

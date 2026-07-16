@@ -276,9 +276,17 @@ const ProjectDetailPage = () => {
     return null;
   };
 
-  const agencyFeePrice = project?.price ?? project?.revenue ?? getExtraNum(project, "total price", "price gbp/usd", "price");
-  const agencyFeeMediaCost = project?.media_cost ?? getExtraNum(project, "media cost", "cost - paid media budget") ?? 0;
-  const agencyFeeGrossBudget = project?.gross_budget ?? project?.budget_cost ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+  let agencyFeePrice = project?.price ?? project?.revenue ?? getExtraNum(project, "total price", "price gbp/usd", "price");
+  let agencyFeeMediaCost = project?.media_cost ?? getExtraNum(project, "media cost", "cost - paid media budget") ?? 0;
+  let agencyFeeGrossBudget = project?.gross_budget ?? project?.budget_cost ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+
+  if (currencyMode === "project") {
+    const ed = (project as any)?.extra_data || {};
+    if (ed.project_currency_revenue != null) agencyFeePrice = ed.project_currency_revenue;
+    if (ed.project_currency_media_cost != null) agencyFeeMediaCost = ed.project_currency_media_cost;
+    if (ed.project_currency_gross_budget != null) agencyFeeGrossBudget = ed.project_currency_gross_budget;
+  }
+
   const agencyFee = agencyFeePrice !== null ? agencyFeePrice - agencyFeeMediaCost - agencyFeeGrossBudget : null;
 
   // Budgeted fee from rate card (kept for internal budgeting)
@@ -477,7 +485,7 @@ const ProjectDetailPage = () => {
         endDate: project.end_date,
         office: project.office,
         agencyFee: agencyFee !== null ? fmt(agencyFee) : "N/A",
-        currency: projectCurrency,
+        currency: activeCurrency,
       },
       budget: {
         scopedHours: totalScopedHours,
@@ -536,7 +544,7 @@ const ProjectDetailPage = () => {
               {activeCurrency === rateCardBaseCurrency && activeCurrency !== "GBP" && ` · ${activeCurrency}`}
             </p>
           )}
-          {(project as any).fx_lock_date && projectCurrency !== "GBP" && (
+          {(project as any).fx_lock_date && activeCurrency !== "GBP" && (
             <p className="text-muted-foreground text-xs mt-0.5">
               FX Lock: {format(new Date((project as any).fx_lock_date), "dd MMM yyyy")}
               {fxRateGbp !== 1 && ` · 1 GBP = ${fxRateGbp.toFixed(4)} ${activeCurrency}`}
@@ -832,8 +840,8 @@ const ProjectDetailPage = () => {
                       <p className="text-sm text-muted-foreground">Agency Fee</p>
                       <p className="text-lg font-display font-bold">{agencyFee !== null ? formatCurrency(agencyFee, activeCurrency) : "—"}</p>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Expected Cost</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">Cost</p>
                       <p className="text-lg font-display font-bold">{formatCurrency(budgetedInternalCost, activeCurrency)}</p>
                     </div>
                     <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
@@ -864,8 +872,8 @@ const ProjectDetailPage = () => {
                       <p className="text-sm text-muted-foreground">Agency Fee</p>
                       <p className="text-lg font-display font-bold">{agencyFeeSoFar !== null ? formatCurrency(agencyFeeSoFar, activeCurrency) : "—"}</p>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Expected Cost</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">Cost</p>
                       <p className="text-lg font-display font-bold">{formatCurrency(soFarBudgetCost, activeCurrency)}</p>
                     </div>
                     <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
@@ -894,11 +902,11 @@ const ProjectDetailPage = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-muted-foreground">Agency Fee</p>
-                      <p className="text-lg font-display font-bold">{agencyFeeSoFar !== null ? formatCurrency(agencyFeeSoFar, projectCurrency) : "—"}</p>
+                      <p className="text-lg font-display font-bold">{agencyFeeSoFar !== null ? formatCurrency(agencyFeeSoFar, activeCurrency) : "—"}</p>
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-muted-foreground">Cost</p>
-                      <p className="text-lg font-display font-bold">{formatCurrency(totalActualCost, projectCurrency)}</p>
+                      <p className="text-lg font-display font-bold">{formatCurrency(totalActualCost, activeCurrency)}</p>
                     </div>
                     <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
                       <p className="text-sm text-muted-foreground">Profit</p>
