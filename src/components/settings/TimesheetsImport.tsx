@@ -311,7 +311,8 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
     const col = {
       date: findCol("date"),
       hours: findCol("hours"),
-      notes: findCol("notes", "task"),
+      notes: findCol("notes"),
+      task: findCol("task"),
       project_name: findCol("project_name", "project name", "project"),
       project_code: findCol("project_code", "project code", "code"),
       person_name: findCol("person_name", "person name", "name"),
@@ -444,7 +445,20 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
       }
 
       let isBillable = true;
-      const notes = col.notes !== -1 ? cleanStr(cells[col.notes] || "") : null;
+      const rawNotes = col.notes !== -1 ? cleanStr(cells[col.notes] || "") : "";
+      const rawTask = col.task !== -1 ? cleanStr(cells[col.task] || "") : "";
+
+      let notes = "";
+      if (rawTask && rawNotes) {
+        notes = `${rawTask}: ${rawNotes}`;
+      } else if (rawTask) {
+        notes = rawTask;
+      } else if (rawNotes) {
+        notes = rawNotes;
+      } else {
+        notes = "";
+      }
+
       if (notes && (notes.toLowerCase().includes("leave") || notes.toLowerCase().includes("holiday") || notes.toLowerCase().includes("closed"))) {
         isBillable = false;
       }

@@ -27,3 +27,8 @@ supabase_backup/
 
 scratch/
 sheetData.*
+
+# Firebase
+.firebase/
+.firebase
+
