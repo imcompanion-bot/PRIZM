@@ -16,6 +16,7 @@ import { format, differenceInDays, eachDayOfInterval, isWeekend } from "date-fns
 import { cn } from "@/lib/utils";
 import { ProjectPhasesTab } from "@/components/project/ProjectPhasesTab";
 import { ProjectAISummary } from "@/components/project/ProjectAISummary";
+import { MarginSentryWidget } from "@/components/project/MarginSentryWidget";
 import { formatCurrency, formatHours, calculateInternalCostPerHour, getDailyCapacity } from "@/lib/calculations";
 
 const ProjectDetailPage = () => {
@@ -823,23 +824,78 @@ const ProjectDetailPage = () => {
         })()}
 
         <TabsContent value="overview">
-          {/* Project Financials */}
-          <Card className="mb-8">
-            <CardContent className="pt-5 pb-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wider mb-5 text-primary">Project Financials</h2>
-              <div className="grid grid-cols-3 gap-0">
-                {/* Total Budget Column */}
-                <div className="pr-6">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 border-b pb-2">Total Budget</p>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">Hours</p>
-                      <p className="text-lg font-display font-bold">{Math.round(totalScopedHours).toLocaleString()}h</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <div className="lg:col-span-2">
+              {/* Project Financials */}
+              <Card className="h-full mb-0">
+                <CardContent className="pt-5 pb-5">
+                  <h2 className="text-sm font-semibold uppercase tracking-wider mb-5 text-primary">Project Financials</h2>
+                  <div className="grid grid-cols-3 gap-0">
+                    {/* Total Budget Column */}
+                    <div className="pr-6">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 border-b pb-2">Total Budget</p>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-muted-foreground">Hours</p>
+                          <p className="text-lg font-display font-bold">{Math.round(totalScopedHours).toLocaleString()}h</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-muted-foreground">Agency Fee</p>
+                          <p className="text-lg font-display font-bold">{agencyFee !== null ? formatCurrency(agencyFee, activeCurrency) : "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Expected Cost</p>
+                          <p className="text-lg font-display font-bold">{formatCurrency(budgetedInternalCost, activeCurrency)}</p>
+                        </div>
+                        <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
+                          <p className="text-sm text-muted-foreground">Profit</p>
+                          <p className={cn("text-lg font-display font-bold", budgetedProfit < 0 ? "text-destructive" : "")}>
+                            {formatCurrency(budgetedProfit, activeCurrency)}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
+                          <p className="text-sm text-muted-foreground">Margin</p>
+                          <p className={cn("text-lg font-display font-bold", budgetedProfit < 0 ? "text-destructive" : "")}>
+                            {agencyFee && agencyFee > 0
+                              ? `${Math.round((budgetedProfit / agencyFee) * 100)}%`
+                              : "—"}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">Agency Fee</p>
-                      <p className="text-lg font-display font-bold">{agencyFee !== null ? formatCurrency(agencyFee, activeCurrency) : "—"}</p>
+                    {/* Budget So Far Column */}
+                    <div className="px-6 border-l border-r">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 border-b pb-2">Budget So Far</p>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-muted-foreground">Hours</p>
+                          <p className="text-lg font-display font-bold">{Math.round(soFarBudgetHours).toLocaleString()}h</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-muted-foreground">Agency Fee</p>
+                          <p className="text-lg font-display font-bold">{agencyFeeSoFar !== null ? formatCurrency(agencyFeeSoFar, activeCurrency) : "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Expected Cost</p>
+                          <p className="text-lg font-display font-bold">{formatCurrency(soFarBudgetCost, activeCurrency)}</p>
+                        </div>
+                        <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
+                          <p className="text-sm text-muted-foreground">Profit</p>
+                          <p className={cn("text-lg font-display font-bold", soFarBudgetProfit < 0 ? "text-destructive" : "")}>
+                            {formatCurrency(soFarBudgetProfit, activeCurrency)}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
+                          <p className="text-sm text-muted-foreground">Margin</p>
+                          <p className={cn("text-lg font-display font-bold", soFarBudgetProfit < 0 ? "text-destructive" : "")}>
+                            {agencyFeeSoFar && agencyFeeSoFar > 0
+                              ? `${Math.round((soFarBudgetProfit / agencyFeeSoFar) * 100)}%`
+                              : "—"}
+                          </p>
+                        </div>
+                      </div>
                     </div>
+<<<<<<< Updated upstream
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-muted-foreground">Cost</p>
                       <p className="text-lg font-display font-bold">{formatCurrency(budgetedInternalCost, activeCurrency)}</p>
@@ -927,6 +983,60 @@ const ProjectDetailPage = () => {
               </div>
             </CardContent>
           </Card>
+=======
+                    {/* Actuals Column */}
+                    <div className="pl-6">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 border-b pb-2">Actuals</p>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-muted-foreground">Hours</p>
+                          <p className="text-lg font-display font-bold">{Math.round(totalActualHours).toLocaleString()}h</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-muted-foreground">Agency Fee</p>
+                          <p className="text-lg font-display font-bold">{agencyFeeSoFar !== null ? formatCurrency(agencyFeeSoFar, projectCurrency) : "—"}</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-muted-foreground">Cost</p>
+                          <p className="text-lg font-display font-bold">{formatCurrency(totalActualCost, activeCurrency)}</p>
+                        </div>
+                        <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
+                          <p className="text-sm text-muted-foreground">Profit</p>
+                          <p className={cn("text-lg font-display font-bold", profit < 0 ? "text-destructive" : "text-primary")}>
+                            {formatCurrency(profit, activeCurrency)}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
+                          <p className="text-sm text-muted-foreground">Margin</p>
+                          <p className={cn("text-lg font-display font-bold", profit < 0 ? "text-destructive" : "text-primary")}>
+                            {agencyFeeSoFar && agencyFeeSoFar > 0
+                              ? `${Math.round((profit / agencyFeeSoFar) * 100)}%`
+                              : totalActualCost > 0 ? "−100%" : "—"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="lg:col-span-1">
+              <MarginSentryWidget
+                projectId={id!}
+                totalScopedHours={totalScopedHours}
+                totalActualHours={totalActualHours}
+                totalActualCost={totalActualCost}
+                budgetedInternalCost={budgetedInternalCost}
+                projectStartDate={project.start_date}
+                projectEndDate={project.end_date}
+                activeCurrency={activeCurrency}
+                timeEntries={timeEntries}
+                people={people}
+              />
+            </div>
+          </div>
+>>>>>>> Stashed changes
 
 
           {/* Time Entries */}

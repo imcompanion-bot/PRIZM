@@ -20,6 +20,7 @@ import { UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { initLegacyModule } from "@/lib/pharaoh/legacyPharaoh";
 import { LegacyViewWrapper } from "@/components/pharaoh/LegacyViewWrapper";
+import { AgentCentreTab } from "@/components/settings/AgentCentreTab";
 
 const DataSyncTab = () => {
   const queryClient = useQueryClient();
@@ -360,10 +361,11 @@ export default function SettingsPage() {
       <Tabs defaultValue="data" className="space-y-6">
         <TabsList className={cn(
           "grid",
-          appUser?.role === "admin" ? "w-[600px] grid-cols-3" : "w-[400px] grid-cols-2"
+          appUser?.role === "admin" ? "w-[800px] grid-cols-4" : "w-[600px] grid-cols-3"
         )}>
           <TabsTrigger value="data">Data Sync</TabsTrigger>
           <TabsTrigger value="quality">Data Quality</TabsTrigger>
+          <TabsTrigger value="agents">Agent Centre</TabsTrigger>
           {appUser?.role === "admin" && (
             <TabsTrigger value="access">Access Control</TabsTrigger>
           )}
@@ -375,6 +377,10 @@ export default function SettingsPage() {
 
         <TabsContent value="quality">
           <DataQualityTab />
+        </TabsContent>
+
+        <TabsContent value="agents">
+          <AgentCentreTab />
         </TabsContent>
 
         {appUser?.role === "admin" && (

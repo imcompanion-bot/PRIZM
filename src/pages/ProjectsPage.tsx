@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/calculations";
 import { useNavigate } from "react-router-dom";
 
-const ProjectsPage = () => {
+const ProjectsPage = ({ isEmbedded = false }: { isEmbedded?: boolean }) => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -140,13 +140,15 @@ const ProjectsPage = () => {
   };
 
   return (
-    <div className="p-8 h-screen flex flex-col overflow-hidden border-[#faf8f5] bg-[#faf8f5]">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-[#1a1a1a]">Projects</h1>
-          <p className="text-muted-foreground text-sm mt-1">Projects imported from Data Summary</p>
+    <div className={cn("h-full flex flex-col overflow-hidden bg-background", !isEmbedded && "p-8 h-screen bg-[#faf8f5]")}>
+      {!isEmbedded && (
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-[#1a1a1a]">Projects</h1>
+            <p className="text-muted-foreground text-sm mt-1">Projects imported from Data Summary</p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Filter bar */}
       {(() => {

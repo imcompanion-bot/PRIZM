@@ -26,22 +26,19 @@ const mainNav = [
   { to: "/utilisation", icon: Users, label: "Time & Utilisation" },
   { to: "/profitability", icon: TrendingUp, label: "Profitability" },
   { to: "/client-portfolio", icon: FolderKanban, label: "Client Portfolio" },
-  { to: "/projects", icon: Briefcase, label: "All Projects" },
   { to: "/resource-planner", icon: CalendarRange, label: "Resource Planner" },
-  { to: "/kpi-explorer", icon: LineChart, label: "KPI Explorer" },
   { to: "/fee-calculator", icon: CalendarDays, label: "Fee Calculator" },
 ];
 
 const settingsNav = [
   { to: "/settings", icon: Settings, label: "Settings" },
-  { to: "/billable-work", icon: Receipt, label: "Billable Work" },
-  { to: "/settings/weekly-update", icon: FileText, label: "Weekly Update" },
+  { to: "/settings/operations", icon: Briefcase, label: "Operations Hub" },
 ];
 
 const NavItem = ({ item }: { item: { to: string; icon: React.ElementType; label: string } }) => (
   <NavLink
     to={item.to}
-    end={item.to === "/projects"}
+    end={item.to === "/settings/operations"}
     className={({ isActive }) =>
       cn(
         "flex items-center gap-3 px-3 py-2.5 text-base font-display uppercase tracking-wide transition-colors",

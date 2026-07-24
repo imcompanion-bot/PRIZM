@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { initLegacyModule } from "@/lib/pharaoh/legacyPharaoh";
 import { LegacyViewWrapper } from "@/components/pharaoh/LegacyViewWrapper";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export default function KpiExplorerPage() {
+export default function KpiExplorerPage({ isEmbedded = false }: { isEmbedded?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [legacy, setLegacy] = useState<any>(null);
 
@@ -52,17 +53,19 @@ export default function KpiExplorerPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-background overflow-hidden animate-fade-in">
-      <div className="p-6 border-b flex items-center justify-between bg-white shadow-sm ring-1 ring-black/5 z-10">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-stone-900">
-            KPI Explorer
-          </h1>
-          <p className="text-sm text-muted-foreground">Dedicated historical KPI metrics and performance tracking explorer.</p>
+      {!isEmbedded && (
+        <div className="p-6 border-b flex items-center justify-between bg-white shadow-sm ring-1 ring-black/5 z-10">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-stone-900">
+              KPI Explorer
+            </h1>
+            <p className="text-sm text-muted-foreground">Dedicated historical KPI metrics and performance tracking explorer.</p>
+          </div>
         </div>
-      </div>
+      )}
       
-      <div className="flex-1 overflow-auto bg-[#faf8f5] p-6">
-        <div className="max-w-[1600px] mx-auto bg-white rounded-lg shadow-sm border border-stone-100 p-4">
+      <div className={cn("flex-1 overflow-auto bg-[#faf8f5]", !isEmbedded && "p-6")}>
+        <div className={cn("max-w-[1600px] mx-auto bg-white rounded-lg shadow-sm border border-stone-100", !isEmbedded ? "p-4" : "p-0 border-0 shadow-none bg-transparent")}>
           <LegacyViewWrapper legacy={legacy} viewFn="renderKpix" />
         </div>
       </div>

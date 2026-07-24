@@ -71,7 +71,7 @@ type Rule = {
 };
 
 // ── Component ──────────────────────────────────────
-const BillableWorkPage = () => {
+const BillableWorkPage = ({ isEmbedded = false }: { isEmbedded?: boolean }) => {
   const queryClient = useQueryClient();
 
   // Draft rule state
@@ -384,13 +384,15 @@ const BillableWorkPage = () => {
 
   // ── Render ─────────────────────────────────────
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h1 className="font-display text-2xl font-bold text-[#1a1a1a]">Billable Work</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Define compound rules to classify time entries as billable or non-billable. Entries are <strong>non-billable by default</strong>.
-        </p>
-      </div>
+    <div className={cn("h-full flex flex-col bg-background", !isEmbedded && "p-8 bg-[#faf8f5]")}>
+      {!isEmbedded && (
+        <div className="mb-6">
+          <h1 className="font-display text-2xl font-bold text-[#1a1a1a]">Billable Work</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Define compound rules to classify time entries as billable or non-billable. Entries are <strong>non-billable by default</strong>.
+          </p>
+        </div>
+      )}
 
       <Tabs defaultValue="rules" className="space-y-6">
         <TabsList>

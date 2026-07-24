@@ -17,6 +17,7 @@ import TimeTrackingPage from "./pages/TimeTrackingPage";
 import ProfitabilityPage from "./pages/ProfitabilityPage";
 import UtilisationPage from "./pages/UtilisationPage";
 import BillableWorkPage from "./pages/BillableWorkPage";
+import OperationsPage from "./pages/OperationsPage";
 
 import ScopingToolPage from "./pages/ScopingToolPage";
 import ClientPortfolioPage from "./pages/ClientPortfolioPage";
@@ -116,6 +117,7 @@ const App = () => (
                 <Route path="/kpi-explorer" element={<KpiExplorerPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/settings/weekly-update" element={<WeeklyUpdatePage />} />
+                <Route path="/settings/operations" element={<OperationsPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
