@@ -204,6 +204,46 @@ const ProjectDetailPage = () => {
     staleTime: Infinity,
   });
 
+  // Agency fee = Price - Media Cost - Gross Budget (matching Projects page calculation)
+  const getExtraNum = (proj: any, ...keys: string[]): number | null => {
+    if (!proj) return null;
+    const extra = proj.extra_data || {};
+    const normalised = Object.fromEntries(Object.entries(extra).map(([k, v]) => [k.toLowerCase().trim(), v]));
+    for (const k of keys) {
+      const val = normalised[k.toLowerCase().trim()];
+      if (val != null) {
+        const n = parseFloat(String(val).replace(/[£$,%]/g, "").replace(/,/g, ""));
+        if (!isNaN(n)) return n;
+      }
+    }
+    return null;
+  };
+
+  // 1. Calculate Base (Office) Agency Fee
+  let baseAgencyFeePrice = project?.price ?? project?.revenue ?? getExtraNum(project, "total price", "price gbp/usd", "price");
+  let baseAgencyFeeMediaCost = project?.media_cost ?? getExtraNum(project, "media cost", "cost - paid media budget") ?? 0;
+  let baseAgencyFeeGrossBudget = project?.gross_budget ?? project?.budget_cost ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+  const baseAgencyFee = baseAgencyFeePrice !== null ? baseAgencyFeePrice - baseAgencyFeeMediaCost - baseAgencyFeeGrossBudget : null;
+
+  // 2. Calculate Project Currency Agency Fee
+  let projAgencyFeePrice = baseAgencyFeePrice;
+  let projAgencyFeeMediaCost = baseAgencyFeeMediaCost;
+  let projAgencyFeeGrossBudget = baseAgencyFeeGrossBudget;
+  const ed = (project as any)?.extra_data || {};
+  if (ed.project_currency_revenue != null) projAgencyFeePrice = ed.project_currency_revenue;
+  if (ed.project_currency_media_cost != null) projAgencyFeeMediaCost = ed.project_currency_media_cost;
+  if (ed.project_currency_gross_budget != null) projAgencyFeeGrossBudget = ed.project_currency_gross_budget;
+  const projAgencyFee = projAgencyFeePrice !== null ? projAgencyFeePrice - projAgencyFeeMediaCost - projAgencyFeeGrossBudget : null;
+
+  // 3. Final Displayed Agency Fee
+  const agencyFee = currencyMode === "project" ? projAgencyFee : baseAgencyFee;
+
+  // 4. Calculate Implicit FX Ratio (ensures margin % stays identical across currencies)
+  let implicitFxRatio: number | null = null;
+  if (currencyMode === "project" && projAgencyFee !== null && baseAgencyFee !== null && baseAgencyFee !== 0) {
+    implicitFxRatio = projAgencyFee / baseAgencyFee;
+  }
+
   const storedGbp = (project as any)?.fx_rate_gbp;
   const storedUsd = (project as any)?.fx_rate_usd;
   const histRate = historicalFxRate ?? 1.35;
@@ -231,6 +271,23 @@ const ProjectDetailPage = () => {
 
   // Helper to convert internal cost (based on person's office) to the active currency
   const convertCostToActiveCurrency = (costInLocalCurrency: number, office?: string): number => {
+    // If we have an implicit FX ratio from the revenue, we MUST use it to maintain identical margin %
+    if (currencyMode === "project" && implicitFxRatio !== null) {
+      const personIsUs = office === "US" || office === "United States";
+      let costInOfficeCurrency = costInLocalCurrency;
+      
+      // Normalize cost back to the office's base currency using the standard system FX rate
+      if (officeCurrency === "GBP") {
+        if (personIsUs) costInOfficeCurrency = costInLocalCurrency / histRate;
+      } else if (officeCurrency === "USD") {
+        if (!personIsUs) costInOfficeCurrency = costInLocalCurrency * histRate;
+      }
+      
+      // Project to the target currency using the EXACT same multiplier as the revenue
+      return costInOfficeCurrency * implicitFxRatio;
+    }
+
+    // Original fallback logic
     if (activeCurrency === "GBP" && (!office || office === "UK" || office === "United Kingdom")) return costInLocalCurrency;
     if (activeCurrency === "USD" && (office === "US" || office === "United States")) return costInLocalCurrency;
     
@@ -253,42 +310,23 @@ const ProjectDetailPage = () => {
         let rate = Number(rc.hourly_rate || 0) * (1 - discountPct / 100);
         // Convert rate card rate to active currency if different
         if (rateCardBaseCurrency !== activeCurrency) {
-          if (rateCardBaseCurrency === "GBP") rate *= fxRateGbp;
-          else if (rateCardBaseCurrency === "USD") rate *= fxRateUsd;
+          if (currencyMode === "project" && implicitFxRatio !== null) {
+             if (rateCardBaseCurrency === officeCurrency) {
+                 rate *= implicitFxRatio;
+             } else {
+                 if (rateCardBaseCurrency === "GBP") rate *= fxRateGbp;
+                 else if (rateCardBaseCurrency === "USD") rate *= fxRateUsd;
+             }
+          } else {
+            if (rateCardBaseCurrency === "GBP") rate *= fxRateGbp;
+            else if (rateCardBaseCurrency === "USD") rate *= fxRateUsd;
+          }
         }
         roleRates[rc.role_id] = rate;
       });
   }
 
   const hasRoleRates = Object.keys(roleRates).length > 0;
-
-  // Agency fee = Price - Media Cost - Gross Budget (matching Projects page calculation)
-  const getExtraNum = (proj: any, ...keys: string[]): number | null => {
-    if (!proj) return null;
-    const extra = proj.extra_data || {};
-    const normalised = Object.fromEntries(Object.entries(extra).map(([k, v]) => [k.toLowerCase().trim(), v]));
-    for (const k of keys) {
-      const val = normalised[k.toLowerCase().trim()];
-      if (val != null) {
-        const n = parseFloat(String(val).replace(/[£$,%]/g, "").replace(/,/g, ""));
-        if (!isNaN(n)) return n;
-      }
-    }
-    return null;
-  };
-
-  let agencyFeePrice = project?.price ?? project?.revenue ?? getExtraNum(project, "total price", "price gbp/usd", "price");
-  let agencyFeeMediaCost = project?.media_cost ?? getExtraNum(project, "media cost", "cost - paid media budget") ?? 0;
-  let agencyFeeGrossBudget = project?.gross_budget ?? project?.budget_cost ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
-
-  if (currencyMode === "project") {
-    const ed = (project as any)?.extra_data || {};
-    if (ed.project_currency_revenue != null) agencyFeePrice = ed.project_currency_revenue;
-    if (ed.project_currency_media_cost != null) agencyFeeMediaCost = ed.project_currency_media_cost;
-    if (ed.project_currency_gross_budget != null) agencyFeeGrossBudget = ed.project_currency_gross_budget;
-  }
-
-  const agencyFee = agencyFeePrice !== null ? agencyFeePrice - agencyFeeMediaCost - agencyFeeGrossBudget : null;
 
   // Budgeted fee from rate card (kept for internal budgeting)
   const budgetedFee = hasRoleRates
