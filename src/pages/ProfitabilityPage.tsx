@@ -771,6 +771,7 @@ const ProfitabilityPage = () => {
 
       const totalScoped = soFarBudgetHours;
       const effectiveScopedHoursByScopeId = soFarHoursPerScope;
+      
       const projCost = costMap[p.id] || { totalHours: 0, costGbp: 0, costUsd: 0 };
       // Use totalHours from get_project_costs RPC so displayed hours are consistent
       // with the cost calculation (which includes all people with salaries, even those without a role_id).
@@ -1702,7 +1703,7 @@ const ProfitabilityPage = () => {
             Client profitability for the last {periodLabel.toLowerCase()} · {displayCurrency}
           </p>
           <p className="text-muted-foreground text-[11px] mt-1 max-w-2xl">
-            Includes all projects that were live during the selected period. For projects still in progress, agency fee is proportioned by working days elapsed.
+            Includes all projects that were live during the selected period. Project financials shown here (Agency Fee, Cost, Profit) are strictly constrained to the selected timeframe and may differ from the total project financials.
           </p>
         </div>
         <div className="flex items-stretch gap-3">
