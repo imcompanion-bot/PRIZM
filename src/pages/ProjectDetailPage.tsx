@@ -712,7 +712,6 @@ const ProjectDetailPage = () => {
                         </div>
                       </div>
                     </div>
-
                     {/* Actuals Column */}
                     <div className="pl-6">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 border-b pb-2">Actuals</p>
