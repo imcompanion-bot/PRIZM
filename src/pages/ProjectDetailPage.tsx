@@ -659,8 +659,8 @@ const ProjectDetailPage = () => {
                           <p className="text-sm text-muted-foreground">Agency Fee</p>
                           <p className="text-lg font-display font-bold">{agencyFee !== null ? formatCurrency(agencyFee, activeCurrency) : "—"}</p>
                         </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Expected Cost</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-muted-foreground">Cost</p>
                           <p className="text-lg font-display font-bold">{formatCurrency(budgetedInternalCost, activeCurrency)}</p>
                         </div>
                         <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
@@ -692,8 +692,8 @@ const ProjectDetailPage = () => {
                           <p className="text-sm text-muted-foreground">Agency Fee</p>
                           <p className="text-lg font-display font-bold">{agencyFeeSoFar !== null ? formatCurrency(agencyFeeSoFar, activeCurrency) : "—"}</p>
                         </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Expected Cost</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-muted-foreground">Cost</p>
                           <p className="text-lg font-display font-bold">{formatCurrency(soFarBudgetCost, activeCurrency)}</p>
                         </div>
                         <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
