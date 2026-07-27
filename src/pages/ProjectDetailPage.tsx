@@ -584,191 +584,7 @@ const ProjectDetailPage = () => {
 
       {/* Timeline moved below tabs header */}
 
-      {/* AI Summary */}
-      <ProjectAISummary
-        projectId={id!}
-        timeEntries={timeEntries}
-        projectStartDate={project.start_date}
-        projectEndDate={project.end_date}
-        metrics={{
-          title: project.title,
-          timelineElapsedPct: (() => {
-            const start = new Date(project.start_date);
-            const end = new Date(project.end_date);
-            const totalDays = differenceInDays(end, start);
-            const elapsed = Math.max(0, differenceInDays(today < start ? start : today > end ? end : today, start));
-            return totalDays > 0 ? Math.round((elapsed / totalDays) * 100) : 0;
-          })(),
-          daysRemaining: Math.max(0, differenceInDays(new Date(project.end_date), today)),
-          budgetHoursSoFar: Math.round(soFarBudgetHours),
-          actualHours: Math.round(totalActualHours),
-          budgetProfitSoFar: formatCurrency(soFarBudgetProfit, activeCurrency),
-          actualProfit: formatCurrency(profit, activeCurrency),
-          budgetMarginSoFar: soFarBudgetFee && soFarBudgetFee > 0 ? Math.round((soFarBudgetProfit / soFarBudgetFee) * 100) : 0,
-          actualMargin: agencyFee && agencyFee > 0 ? Math.round((profit / agencyFee) * 100) : (totalActualCost > 0 ? -100 : 0),
-          totalScopedHours: totalScopedHours,
-          agencyFee: agencyFee !== null ? formatCurrency(agencyFee, activeCurrency) : formatCurrency(0, activeCurrency),
-        }}
-        teamContext={{
-          people: (() => {
-            if (!allPersonEntriesFetched) return []; // Wait for all-project entries before computing completeness
-            if (people.length === 0) return []; // Wait for people records so employment dates can clip expected hours
-            // Build per-person context from allocations and time entries
-            const personMap: Record<string, { name: string; role: string; loggedHours: number; allocatedHours: number; lastEntry: string | null; employmentStart: string | null; employmentEnd: string | null; capacityPerDay: number }> = {};
-            // From allocations
-            (project.project_scopes || []).forEach((scope: any) => {
-              (scope.allocations || []).forEach((alloc: any) => {
-                const pid = alloc.person_id;
-                const person = people.find(p => p.id === pid);
-                if (!personMap[pid]) {
-                  personMap[pid] = {
-                    name: alloc.people?.name || "Unknown",
-                    role: scope.roles?.name || "Unknown",
-                    loggedHours: 0,
-                    allocatedHours: 0,
-                    lastEntry: null,
-                    employmentStart: person?.overall_start_date || person?.employment_start_date || null,
-                    employmentEnd: person?.overall_end_date || person?.employment_end_date || null,
-                    capacityPerDay: scope.roles?.billable_capacity_hours ? getDailyCapacity(scope.roles.billable_capacity_hours) : 7.5,
-                  };
-                }
-                personMap[pid].allocatedHours += alloc.allocated_hours || 0;
-              });
-            });
-            // From time entries
-            timeEntries.forEach((te: any) => {
-              const pid = te.person_id;
-              const person = people.find(p => p.id === pid);
-              if (!personMap[pid]) {
-                personMap[pid] = {
-                  name: te.people?.name || "Unknown",
-                  role: (te.people?.roles?.name) || "Unknown",
-                  loggedHours: 0,
-                  allocatedHours: 0,
-                  lastEntry: null,
-                  employmentStart: person?.overall_start_date || person?.employment_start_date || null,
-                  employmentEnd: person?.overall_end_date || person?.employment_end_date || null,
-                  capacityPerDay: te.people?.roles?.billable_capacity_hours ? getDailyCapacity(te.people.roles.billable_capacity_hours) : 7.5,
-                };
-              }
-              personMap[pid].loggedHours += te.hours;
-              if (!personMap[pid].lastEntry || te.date > personMap[pid].lastEntry!) {
-                personMap[pid].lastEntry = te.date;
-              }
-            });
-            // Calculate expected hours and completeness using ALL time entries (across all projects)
-            const projStart = new Date(project.start_date);
-            const effectiveEnd = today < new Date(project.end_date) ? today : new Date(project.end_date);
-            const workingDaysElapsed = projStart <= effectiveEnd
-              ? eachDayOfInterval({ start: projStart, end: effectiveEnd }).filter(d => !isWeekend(d)).length
-              : 0;
-            // Build total hours and last entry date per person from DB function results
-            const totalHoursByPerson: Record<string, number> = {};
-            const globalLastEntryByPerson: Record<string, string | null> = {};
-            personHourTotals.forEach((row: any) => {
-              totalHoursByPerson[row.person_id] = Number(row.total_hours) || 0;
-              globalLastEntryByPerson[row.person_id] = row.last_entry_date || null;
-            });
 
-            // Build a map of name -> overall employment bounds (earliest overall_start, latest overall_end)
-            // This handles people with multiple records across employment periods / role changes
-            const overallBoundsByName: Record<string, { employmentStart: string | null; employmentEnd: string | null }> = {};
-            const allIdsByName: Record<string, string[]> = {};
-            people.forEach((person: any) => {
-              const normName = person.name?.toLowerCase()?.trim();
-              if (!normName) return;
-              if (!allIdsByName[normName]) allIdsByName[normName] = [];
-              allIdsByName[normName].push(person.id);
-              const existing = overallBoundsByName[normName];
-              const pStart = person.overall_start_date || person.employment_start_date;
-              const pEnd = person.overall_end_date || person.employment_end_date;
-              if (!existing) {
-                overallBoundsByName[normName] = { employmentStart: pStart || null, employmentEnd: pEnd || null };
-              } else {
-                // Use earliest start
-                if (pStart && (!existing.employmentStart || pStart < existing.employmentStart)) {
-                  existing.employmentStart = pStart;
-                }
-                // Use latest end
-                if (pEnd && (!existing.employmentEnd || pEnd > existing.employmentEnd)) {
-                  existing.employmentEnd = pEnd;
-                }
-              }
-            });
-
-            // Filter out people who started after today (new joiners not yet active)
-            return Object.entries(personMap).filter(([_, p]) => {
-              const normName = p.name?.toLowerCase()?.trim();
-              const bounds = normName ? overallBoundsByName[normName] : null;
-              const empStartStr = bounds?.employmentStart || p.employmentStart;
-              if (!empStartStr) return true;
-              const empStart = new Date(empStartStr);
-              const twoWeeksAgo = new Date();
-              twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-              return empStart <= twoWeeksAgo;
-            }).map(([pid, p]) => {
-              const normName = p.name?.toLowerCase()?.trim();
-              const bounds = normName ? overallBoundsByName[normName] : null;
-              const empStartStr = bounds?.employmentStart || p.employmentStart;
-              const empEndStr = bounds?.employmentEnd || p.employmentEnd;
-              const empStart = empStartStr ? new Date(empStartStr) : projStart;
-              const empEnd = empEndStr ? new Date(empEndStr) : null;
-              const effectiveStart = empStart > projStart ? empStart : projStart;
-              const effectiveEndDate = empEnd && empEnd < effectiveEnd ? empEnd : effectiveEnd;
-              // Exclude parental-leave days from expected hours (sum across all of this
-              // person's parental-leave windows that overlap the project span).
-              const leaveIntervals = (people as any[])
-                .filter(pp => (pp.team || "").toLowerCase().trim() === "parental leave"
-                  && (pp.name || "").trim().toLowerCase() === normName
-                  && pp.employment_start_date && pp.employment_end_date)
-                .map(pp => ({ start: new Date(pp.employment_start_date), end: new Date(pp.employment_end_date) }));
-              const personWorkingDays = effectiveStart <= effectiveEndDate
-                ? eachDayOfInterval({ start: effectiveStart, end: effectiveEndDate }).filter(d => {
-                    if (isWeekend(d)) return false;
-                    const t = d.getTime();
-                    return !leaveIntervals.some(iv => t >= iv.start.getTime() && t <= iv.end.getTime());
-                  }).length
-                : 0;
-              const expectedHours = Math.round(personWorkingDays * 7.5);
-              // Aggregate hours across ALL person IDs with the same name
-              const siblingIds = normName ? (allIdsByName[normName] || [pid]) : [pid];
-              let totalLogged = 0;
-              let latestEntry: string | null = null;
-              for (const sibId of siblingIds) {
-                totalLogged += totalHoursByPerson[sibId] || 0;
-                const entry = globalLastEntryByPerson[sibId];
-                if (entry && (!latestEntry || entry > latestEntry)) latestEntry = entry;
-              }
-              const completeness = expectedHours > 0 ? Math.round((totalLogged / expectedHours) * 100) : 0;
-              return { personId: pid, ...p, employmentStart: empStartStr, employmentEnd: empEndStr, lastEntry: latestEntry || p.lastEntry, expectedHours, completeness, totalLoggedHours: Math.round(totalLogged * 10) / 10 };
-            });
-          })(),
-          phases: (() => {
-            const phaseIdsWithHours = new Set(
-              phaseAllocations
-                .filter((pa: any) => Number(pa.hours) > 0)
-                .map((pa: any) => pa.phase_id)
-            );
-
-            return projectPhases
-              .filter((p) => phaseIdsWithHours.has(p.id))
-              .map((p) => ({
-                name: p.phase_name,
-                startDate: p.start_date,
-                endDate: p.end_date,
-                status: p.end_date && new Date(p.end_date) <= today
-                  ? "complete"
-                  : p.start_date && new Date(p.start_date) <= today
-                  ? "in progress"
-                  : "upcoming",
-              }));
-          })(),
-        }}
-        onGoToPhases={() => {
-          tabsHeaderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-          setActiveTab("phases");
-        }}
-      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div ref={tabsHeaderRef} className="flex items-center justify-between mb-6">
@@ -863,6 +679,7 @@ const ProjectDetailPage = () => {
                         </div>
                       </div>
                     </div>
+
                     {/* Budget So Far Column */}
                     <div className="px-6 border-l border-r">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 border-b pb-2">Budget So Far</p>
@@ -895,95 +712,7 @@ const ProjectDetailPage = () => {
                         </div>
                       </div>
                     </div>
-<<<<<<< Updated upstream
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">Cost</p>
-                      <p className="text-lg font-display font-bold">{formatCurrency(budgetedInternalCost, activeCurrency)}</p>
-                    </div>
-                    <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
-                      <p className="text-sm text-muted-foreground">Profit</p>
-                      <p className={cn("text-lg font-display font-bold", budgetedProfit < 0 ? "text-destructive" : "")}>
-                        {formatCurrency(budgetedProfit, activeCurrency)}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
-                      <p className="text-sm text-muted-foreground">Margin</p>
-                      <p className={cn("text-lg font-display font-bold", budgetedProfit < 0 ? "text-destructive" : "")}>
-                        {agencyFee && agencyFee > 0
-                          ? `${Math.round((budgetedProfit / agencyFee) * 100)}%`
-                          : "—"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                {/* Budget So Far Column */}
-                <div className="px-6 border-l border-r">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 border-b pb-2">Budget So Far</p>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">Hours</p>
-                      <p className="text-lg font-display font-bold">{Math.round(soFarBudgetHours).toLocaleString()}h</p>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">Agency Fee</p>
-                      <p className="text-lg font-display font-bold">{agencyFeeSoFar !== null ? formatCurrency(agencyFeeSoFar, activeCurrency) : "—"}</p>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">Cost</p>
-                      <p className="text-lg font-display font-bold">{formatCurrency(soFarBudgetCost, activeCurrency)}</p>
-                    </div>
-                    <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
-                      <p className="text-sm text-muted-foreground">Profit</p>
-                      <p className={cn("text-lg font-display font-bold", soFarBudgetProfit < 0 ? "text-destructive" : "")}>
-                        {formatCurrency(soFarBudgetProfit, activeCurrency)}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
-                      <p className="text-sm text-muted-foreground">Margin</p>
-                      <p className={cn("text-lg font-display font-bold", soFarBudgetProfit < 0 ? "text-destructive" : "")}>
-                        {agencyFeeSoFar && agencyFeeSoFar > 0
-                          ? `${Math.round((soFarBudgetProfit / agencyFeeSoFar) * 100)}%`
-                          : "—"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                {/* Actuals Column */}
-                <div className="pl-6">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 border-b pb-2">Actuals</p>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">Hours</p>
-                      <p className="text-lg font-display font-bold">{Math.round(totalActualHours).toLocaleString()}h</p>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">Agency Fee</p>
-                      <p className="text-lg font-display font-bold">{agencyFeeSoFar !== null ? formatCurrency(agencyFeeSoFar, activeCurrency) : "—"}</p>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">Cost</p>
-                      <p className="text-lg font-display font-bold">{formatCurrency(totalActualCost, activeCurrency)}</p>
-                    </div>
-                    <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
-                      <p className="text-sm text-muted-foreground">Profit</p>
-                      <p className={cn("text-lg font-display font-bold", profit < 0 ? "text-destructive" : "text-primary")}>
-                        {formatCurrency(profit, activeCurrency)}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between bg-muted/40 rounded-md px-2 py-1 -mx-2">
-                      <p className="text-sm text-muted-foreground">Margin</p>
-                      <p className={cn("text-lg font-display font-bold", profit < 0 ? "text-destructive" : "text-primary")}>
-                        {agencyFeeSoFar && agencyFeeSoFar > 0
-                          ? `${Math.round((profit / agencyFeeSoFar) * 100)}%`
-                          : totalActualCost > 0 ? "−100%" : "—"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-=======
+
                     {/* Actuals Column */}
                     <div className="pl-6">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 border-b pb-2">Actuals</p>
@@ -994,7 +723,7 @@ const ProjectDetailPage = () => {
                         </div>
                         <div className="flex items-center justify-between">
                           <p className="text-sm text-muted-foreground">Agency Fee</p>
-                          <p className="text-lg font-display font-bold">{agencyFeeSoFar !== null ? formatCurrency(agencyFeeSoFar, projectCurrency) : "—"}</p>
+                          <p className="text-lg font-display font-bold">{agencyFeeSoFar !== null ? formatCurrency(agencyFeeSoFar, activeCurrency) : "—"}</p>
                         </div>
                         <div className="flex items-center justify-between">
                           <p className="text-sm text-muted-foreground">Cost</p>
@@ -1036,7 +765,6 @@ const ProjectDetailPage = () => {
               />
             </div>
           </div>
->>>>>>> Stashed changes
 
 
           {/* Time Entries */}

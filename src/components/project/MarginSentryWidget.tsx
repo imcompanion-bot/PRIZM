@@ -15,9 +15,10 @@ import {
   Users, 
   DollarSign, 
   ArrowUpRight,
-  ArrowRight
+  ArrowRight,
+  UserPlus
 } from "lucide-react";
-import { formatCurrency, calculateInternalCostPerHour } from "@/lib/calculations";
+import { formatCurrency } from "@/lib/calculations";
 import { differenceInDays } from "date-fns";
 
 interface MarginSentryWidgetProps {
@@ -31,6 +32,15 @@ interface MarginSentryWidgetProps {
   activeCurrency: string;
   timeEntries: any[];
   people: any[];
+}
+
+interface JuniorUnderTimeResource {
+  id: string;
+  name: string;
+  roleName: string;
+  targetHours: number;
+  loggedHours: number;
+  spareHours: number;
 }
 
 export const MarginSentryWidget = ({
@@ -47,6 +57,10 @@ export const MarginSentryWidget = ({
 }: MarginSentryWidgetProps) => {
   const [sentryStatus, setSentryStatus] = useState<"live" | "stopped" | "failed">("live");
   const [loading, setLoading] = useState(true);
+
+  // Harvest Under-Time States
+  const [juniorUnderTimeList, setJuniorUnderTimeList] = useState<JuniorUnderTimeResource[]>([]);
+  const [loadingJuniorUnderTime, setLoadingJuniorUnderTime] = useState(false);
 
   useEffect(() => {
     const fetchSentryStatus = async () => {
@@ -108,6 +122,94 @@ export const MarginSentryWidget = ({
     };
   }, [totalScopedHours, totalActualHours, totalActualCost, budgetedInternalCost, projectStartDate, projectEndDate]);
 
+  // Dynamic Harvest Timesheet Scan for Underutilized Junior Staff
+  useEffect(() => {
+    const runHarvestUnderTimeAudit = async () => {
+      if (!metrics.hasSeniorityImbalance) {
+        setJuniorUnderTimeList([]);
+        return;
+      }
+
+      try {
+        setLoadingJuniorUnderTime(true);
+
+        // 1. Identify Junior Staff across the entire agency
+        const juniorStaff = people.filter(p => 
+          p.roles?.name?.toLowerCase().includes("junior")
+        );
+
+        if (juniorStaff.length === 0) {
+          setJuniorUnderTimeList([]);
+          return;
+        }
+
+        const juniorIds = juniorStaff.map(p => p.id);
+
+        // 2. Query total actual hours logged by these junior staff members across ALL campaigns/projects in Harvest during project dates
+        const { data: timesheetData, error: tErr } = await supabase
+          .from("time_entries")
+          .select("person_id, hours")
+          .in("person_id", juniorIds)
+          .gte("date", projectStartDate)
+          .lte("date", projectEndDate);
+
+        if (tErr) throw tErr;
+
+        // 3. Precise Monday-to-Friday calendar working days calculation
+        let workingDays = 0;
+        let curr = new Date(projectStartDate);
+        const end = new Date(projectEndDate);
+        while (curr <= end) {
+          const day = curr.getDay();
+          if (day !== 0 && day !== 6) { // Exclude weekends
+            workingDays++;
+          }
+          curr.setDate(curr.getDate() + 1);
+        }
+
+        // Avoid infinite capacity calculation if dates are invalid
+        if (workingDays <= 0) workingDays = 1;
+
+        // 4. Map logged hours per person
+        const loggedHoursMap: Record<string, number> = {};
+        timesheetData?.forEach(entry => {
+          loggedHoursMap[entry.person_id] = (loggedHoursMap[entry.person_id] || 0) + Number(entry.hours);
+        });
+
+        // 5. Compute target capacity, actual logged hours, and spare under-time
+        const results: JuniorUnderTimeResource[] = juniorStaff.map(p => {
+          const weeklyCapacity = p.roles?.billable_capacity_hours || 37.5;
+          const targetHours = (weeklyCapacity / 5) * workingDays;
+          const loggedHours = loggedHoursMap[p.id] || 0;
+          const spareHours = Number((targetHours - loggedHours).toFixed(1));
+
+          return {
+            id: p.id,
+            name: p.name,
+            roleName: p.roles?.name || "Junior Resource",
+            targetHours,
+            loggedHours,
+            spareHours
+          };
+        });
+
+        // Sort by spare hours descending (highest spare resource first)
+        // Filter out anyone who has logged extra overtime (spareHours <= 0)
+        const availableJuniors = results
+          .filter(r => r.spareHours > 1)
+          .sort((a, b) => b.spareHours - a.spareHours);
+
+        setJuniorUnderTimeList(availableJuniors);
+      } catch (err) {
+        console.error("Failed to run Harvest under-time audit:", err);
+      } finally {
+        setLoadingJuniorUnderTime(false);
+      }
+    };
+
+    runHarvestUnderTimeAudit();
+  }, [metrics.hasSeniorityImbalance, projectStartDate, projectEndDate, people]);
+
   if (loading) {
     return (
       <Card className="border-gray-200 bg-white">
@@ -164,7 +266,7 @@ export const MarginSentryWidget = ({
             </div>
             <div>
               <CardTitle className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                Margin Sentry CoPilot
+                Margin Sentry
               </CardTitle>
               <CardDescription className="text-xs">
                 Active gross margin and scoping integrity guardian
@@ -173,7 +275,7 @@ export const MarginSentryWidget = ({
           </div>
           <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            LIVE GUARD
+            LIVE
           </Badge>
         </div>
       </CardHeader>
@@ -183,31 +285,71 @@ export const MarginSentryWidget = ({
         {metrics.hasVelocityAnomaly || metrics.hasSeniorityImbalance ? (
           <div className="space-y-3">
             {metrics.hasVelocityAnomaly && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex gap-3 text-red-700">
+              <div className="bg-red-50/50 border border-red-200 rounded-lg p-4 flex gap-3 text-red-700">
                 <AlertTriangle className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
-                <div className="space-y-1">
+                <div className="space-y-1 w-full">
                   <h4 className="font-bold text-xs text-red-900 uppercase tracking-wider">Velocity Burn Anomaly</h4>
                   <p className="text-xs text-red-700 leading-relaxed">
                     Delivery cost burn is currently running at <strong>{metrics.costBurnPct}%</strong>, outpacing elapsed project schedule (<strong>{metrics.timelineElapsedPct}%</strong>) by <strong>{metrics.velocityCreepGap}%</strong>.
                   </p>
-                  <p className="text-[10px] text-red-600 font-medium pt-1">
-                    👉 CFO RECOMMENDATION: Immediately re-verify active deliverable priorities or scale down high-cost task scoping.
+                  <p className="text-[10px] text-red-600 font-semibold pt-1">
+                    RECOMMENDATION: Immediately re-verify active deliverable priorities or scale down high-cost task scoping.
                   </p>
                 </div>
               </div>
             )}
 
             {metrics.hasSeniorityImbalance && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex gap-3 text-amber-700">
+              <div className="bg-amber-50/50 border border-amber-200 rounded-lg p-4 flex gap-3 text-amber-700">
                 <Users className="w-5 h-5 shrink-0 text-amber-500 mt-0.5" />
-                <div className="space-y-1">
-                  <h4 className="font-bold text-xs text-amber-900 uppercase tracking-wider">Seniority Mix Inflation</h4>
-                  <p className="text-xs text-amber-700 leading-relaxed">
-                    The average actual delivery cost rate is <strong>{formatCurrency(metrics.actualAvgRate, activeCurrency)}/hr</strong>, which is <strong>{metrics.rateIncreasePct}% higher</strong> than the budgeted average of <strong>{formatCurrency(metrics.budgetedAvgRate, activeCurrency)}/hr</strong>.
-                  </p>
-                  <p className="text-[10px] text-amber-600 font-medium pt-1">
-                    👉 CFO RECOMMENDATION: Rebalance the active staffing mix; delegate execution tasks to junior/mid resource allocations.
-                  </p>
+                <div className="space-y-2.5 w-full">
+                  <div>
+                    <h4 className="font-bold text-xs text-amber-900 uppercase tracking-wider">Resource Mix Inflation</h4>
+                    <p className="text-xs text-amber-700 leading-relaxed mt-0.5">
+                      The average actual delivery cost rate is <strong>{formatCurrency(metrics.actualAvgRate, activeCurrency)}/hr</strong>, which is <strong>{metrics.rateIncreasePct}% higher</strong> than the budgeted average of <strong>{formatCurrency(metrics.budgetedAvgRate, activeCurrency)}/hr</strong>.
+                    </p>
+                  </div>
+
+                  {/* Harvest Under-Time Live Scan Box */}
+                  <div className="border-t border-amber-200/50 pt-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 block mb-1">
+                      Harvest Capacity Audit
+                    </span>
+
+                    {loadingJuniorUnderTime ? (
+                      <div className="flex items-center gap-1.5 py-1 text-xs text-amber-600">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                        Scanning agency timesheets for under-time...
+                      </div>
+                    ) : juniorUnderTimeList.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-amber-800 leading-normal">
+                          The following junior staff have logged **under-time (spare resource)** in Harvest during this campaign timeline and can be brought on board:
+                        </p>
+                        <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                          {juniorUnderTimeList.map(res => (
+                            <div key={res.id} className="flex items-center justify-between text-xs bg-white/70 border border-amber-200/40 rounded px-2 py-1 shadow-2xs">
+                              <span className="font-semibold text-gray-800 truncate max-w-[140px]" title={res.name}>
+                                {res.name} <span className="font-normal text-gray-500 text-[10px]">({res.roleName})</span>
+                              </span>
+                              <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-100 text-[10px] font-semibold font-mono py-0 px-1.5">
+                                {res.spareHours}h spare
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="bg-red-50/50 border border-red-100 rounded px-2.5 py-1.5 text-xs text-red-800 font-medium">
+                          ⚠️ AGENCY AT CAPACITY
+                        </div>
+                        <p className="text-[11px] text-amber-800 leading-normal">
+                          All junior staff are currently operating at maximum capacity in Harvest. Other strategic routes must be considered: engage freelance contractors or renegotiate scoped caps with the client.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -264,7 +406,7 @@ export const MarginSentryWidget = ({
             </div>
             <Progress 
               value={metrics.costBurnPct} 
-              className={`h-1.5 bg-gray-100 [&>div]:bg-[${metrics.hasVelocityAnomaly ? "#ef4444" : "#4b70d8"}]`} 
+              className="h-1.5 bg-gray-100 [&>div]:bg-blue-500" 
             />
           </div>
         </div>
