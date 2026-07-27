@@ -1703,7 +1703,7 @@ const ProfitabilityPage = () => {
             Client profitability for the last {periodLabel.toLowerCase()} · {displayCurrency}
           </p>
           <p className="text-muted-foreground text-[11px] mt-1 max-w-2xl">
-            Includes all projects that were live during the selected period. Project financials shown here (Agency Fee, Cost, Profit) are strictly constrained to the selected timeframe and may differ from the total project financials.
+            Project financials shown here (Agency Fee, Cost, Profit) are strictly constrained to the selected timeframe and may differ from the total project financials where the project's start and/or end date is outside the selected timeframe.
           </p>
         </div>
         <div className="flex items-stretch gap-3">
