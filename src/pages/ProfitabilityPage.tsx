@@ -398,15 +398,17 @@ const ProfitabilityPage = () => {
   });
 
   const { data: projectPersonHours = [] } = useQuery({
-    queryKey: ["profitability_project_person_hours"],
+    queryKey: ["profitability_project_person_hours", appliedStartDate, appliedEndDate],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const PAGE_SIZE = 1000;
       let allData: any[] = [];
       let from = 0;
       while (true) {
-        const { data, error } = await supabase.rpc("get_project_person_hours" as any)
-          .range(from, from + PAGE_SIZE - 1);
+        const { data, error } = await supabase.rpc("get_project_person_hours_windowed" as any, {
+          _start_date: appliedStartDate,
+          _end_date: appliedEndDate
+        }).range(from, from + PAGE_SIZE - 1);
         if (error) throw error;
         allData = allData.concat(data || []);
         if (!data || data.length < PAGE_SIZE) break;
@@ -1300,8 +1302,16 @@ const ProfitabilityPage = () => {
         if (!person) continue;
         const empStart = person.overall_start_date || person.employment_start_date;
         const empEnd = person.overall_end_date || person.employment_end_date;
-        const effectiveStart = empStart && new Date(empStart) > projStart ? new Date(empStart) : projStart;
-        const effectiveEnd = empEnd && new Date(empEnd) < projEnd ? new Date(empEnd) : projEnd;
+        let effectiveStart = empStart && new Date(empStart) > projStart ? new Date(empStart) : projStart;
+        let effectiveEnd = empEnd && new Date(empEnd) < projEnd ? new Date(empEnd) : projEnd;
+
+        const windowStart = new Date(appliedStartDate);
+        const windowEndRaw = new Date(appliedEndDate);
+        const windowEnd = windowEndRaw > today ? today : windowEndRaw;
+
+        effectiveStart = effectiveStart > windowStart ? effectiveStart : windowStart;
+        effectiveEnd = effectiveEnd < windowEnd ? effectiveEnd : windowEnd;
+
         if (effectiveStart > effectiveEnd) continue;
 
         const normName = (person.name || "").trim().toLowerCase();
@@ -1331,7 +1341,7 @@ const ProfitabilityPage = () => {
     }
 
     return { projectComp, clientComp, projectPeopleMap };
-  }, [projectPersonHours, projectsById, peopleById, clientGroups, parentalLeaveMap]);
+  }, [projectPersonHours, projectsById, peopleById, clientGroups, parentalLeaveMap, appliedStartDate, appliedEndDate]);
 
   // ── Gross-up adjusted data ──
 
