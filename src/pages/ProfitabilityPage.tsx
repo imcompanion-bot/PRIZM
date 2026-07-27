@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -163,6 +163,7 @@ const ProfitabilityPage = () => {
     setProjectMonthlyData(data.byProject);
   }, []);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const customStartDate = searchParams.get("cs") || format(subMonths(new Date(), 6), "yyyy-MM-dd");
   const customEndDate = searchParams.get("ce") || format(new Date(), "yyyy-MM-dd");
   const setCustomStartDate = useCallback((v: string) => setParam("cs", v), [setParam]);
@@ -1686,6 +1687,15 @@ const ProfitabilityPage = () => {
     });
   };
 
+  const toggleAccount = (account: string) => {
+    setExpandedAccounts(prev => {
+      const next = new Set(prev);
+      if (next.has(account)) next.delete(account);
+      else next.add(account);
+      return next;
+    });
+  };
+
   const periodLabel = timePeriod === "3" ? "3 Months" : timePeriod === "6" ? "6 Months" : timePeriod === "12" ? "12 Months" : (() => {
     const s = new Date(customStartDate + "T00:00:00");
     const e = new Date(customEndDate + "T00:00:00");
@@ -2348,62 +2358,151 @@ const ProfitabilityPage = () => {
                               return { acct, projs, rev, cst, pft, mgn };
                             })
                             .sort((a, b) => b.pft - a.pft)
-                            .map(({ acct, projs, rev, cst, pft, mgn }) => (
-                              <TableRow key={acct} className="bg-muted/20">
-                                <TableCell className="text-sm pl-10">
-                                  <span className="text-muted-foreground">{acct}</span>
-                                  <span className="text-[10px] text-muted-foreground ml-1">({projs.length})</span>
-                                </TableCell>
-                                <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(rev, displayCurrency)}</TableCell>
-                                <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(cst, displayCurrency)}</TableCell>
-                                <TableCell className={cn("text-right text-sm", pft < 0 ? "text-destructive" : "text-success")}>
-                                  {formatCurrency(pft, displayCurrency)}
-                                </TableCell>
-                                <TableCell className="text-right text-sm">
-                                  <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getMarginColor(mgn))}>
-                                    {Math.round(mgn)}%
-                                  </span>
-                                </TableCell>
-                                <TableCell className="text-sm">
-                                  {(() => {
-                                    const bRev = projs.reduce((s, p) => s + p.budgetRevenue, 0);
-                                    const bCst = projs.reduce((s, p) => s + p.budgetCost, 0);
-                                    const bMgn = bRev > 0 ? ((bRev - bCst) / bRev) * 100 : bCst > 0 ? -100 : 0;
-                                    const mgnDiff = mgn - bMgn;
-                                    return (
-                                      <div className="flex items-center gap-1 text-[11px]">
-                                        <span className="text-muted-foreground">Budget margin:</span>
-                                        <span className={cn("font-semibold px-1.5 py-0 rounded text-[10px]", getMarginColor(bMgn))}>
-                                          {Math.round(bMgn)}%
-                                        </span>
-                                        {Math.abs(mgnDiff) >= 0.5 && (
-                                          <span className={cn("flex items-center gap-0.5 text-[10px] font-medium", mgnDiff > 0 ? "text-success" : "text-destructive")}>
-                                            {mgnDiff > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
-                                            {Math.round(Math.abs(mgnDiff))}pp
-                                          </span>
-                                        )}
+                            .map(({ acct, projs, rev, cst, pft, mgn }) => {
+                              const isAccountExpanded = expandedAccounts.has(acct);
+                              return (
+                                <Fragment key={acct}>
+                                  <TableRow 
+                                    className="cursor-pointer hover:bg-muted/50"
+                                    onClick={() => toggleAccount(acct)}
+                                  >
+                                    <TableCell className="text-sm pl-10 font-medium">
+                                      <div className="flex items-center gap-1.5">
+                                        {isAccountExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                                        <span className="text-muted-foreground">{acct}</span>
+                                        <span className="text-[10px] text-muted-foreground ml-1">({projs.length})</span>
                                       </div>
-                                    );
-                                  })()}
-                                </TableCell>
-                                <TableCell className="text-right text-sm">
-                                  {(() => {
-                                    const vals: number[] = [];
-                                    for (const proj of projs) {
-                                      const v = completenessData.projectComp.get(proj.id);
-                                      if (v !== undefined) vals.push(v);
-                                    }
-                                    if (vals.length === 0) return <span className="text-[10px] text-muted-foreground">—</span>;
-                                    const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
-                                    return (
-                                      <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getCompletenessColor(avg))}>
-                                        {Math.round(avg)}%
+                                    </TableCell>
+                                    <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(rev, displayCurrency)}</TableCell>
+                                    <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(cst, displayCurrency)}</TableCell>
+                                    <TableCell className={cn("text-right text-sm font-semibold", pft < 0 ? "text-destructive" : "text-success")}>
+                                      <div className="flex items-center justify-end gap-1">
+                                        {pft >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                        {formatCurrency(pft, displayCurrency)}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-right text-sm font-medium">
+                                      <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getMarginColor(mgn))}>
+                                        {Math.round(mgn)}%
                                       </span>
-                                    );
-                                  })()}
-                                </TableCell>
-                              </TableRow>
-                            ));
+                                    </TableCell>
+                                    <TableCell className="text-sm">
+                                      {(() => {
+                                        const bRev = projs.reduce((s, p) => s + p.budgetRevenue, 0);
+                                        const bCst = projs.reduce((s, p) => s + p.budgetCost, 0);
+                                        const bMgn = bRev > 0 ? ((bRev - bCst) / bRev) * 100 : bCst > 0 ? -100 : 0;
+                                        const mgnDiff = mgn - bMgn;
+                                        return (
+                                          <div className="flex items-center gap-1 text-[11px]">
+                                            <span className="text-muted-foreground">Budget margin:</span>
+                                            <span className={cn("font-semibold px-1.5 py-0 rounded text-[10px]", getMarginColor(bMgn))}>
+                                              {Math.round(bMgn)}%
+                                            </span>
+                                            {Math.abs(mgnDiff) >= 0.5 && (
+                                              <span className={cn("flex items-center gap-0.5 text-[10px] font-medium", mgnDiff > 0 ? "text-success" : "text-destructive")}>
+                                                {mgnDiff > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+                                                {Math.round(Math.abs(mgnDiff))}pp
+                                              </span>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
+                                    </TableCell>
+                                    <TableCell className="text-right text-sm">
+                                      {(() => {
+                                        const vals: number[] = [];
+                                        for (const proj of projs) {
+                                          const v = completenessData.projectComp.get(proj.id);
+                                          if (v !== undefined) vals.push(v);
+                                        }
+                                        if (vals.length === 0) return <span className="text-[10px] text-muted-foreground">—</span>;
+                                        const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
+                                        return (
+                                          <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getCompletenessColor(avg))}>
+                                            {Math.round(avg)}%
+                                          </span>
+                                        );
+                                      })()}
+                                    </TableCell>
+                                  </TableRow>
+                                  {isAccountExpanded && projs.map((proj) => (
+                                    <TableRow key={proj.id} className="bg-muted/10">
+                                      <TableCell className="text-sm pl-16">
+                                        <div className="flex items-center gap-1.5">
+                                          <button
+                                            type="button"
+                                            className="text-muted-foreground hover:text-primary hover:underline transition-colors text-left"
+                                            onClick={(e) => { e.stopPropagation(); navigate(`/projects/${proj.id}`); }}
+                                          >
+                                            {proj.title}
+                                          </button>
+                                          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 leading-4 font-medium shrink-0",
+                                            proj.status === "Live" ? "border-success text-success" :
+                                            proj.status === "Ended" ? "border-muted-foreground text-muted-foreground" :
+                                            "border-amber-500 text-amber-500"
+                                          )}>
+                                            {proj.status === "Live" ? "Live — Agency Fees are Pro Rata" : proj.status}
+                                          </Badge>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(proj.revenue, displayCurrency)}</TableCell>
+                                      <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(proj.cost, displayCurrency)}</TableCell>
+                                      <TableCell className={cn("text-right text-sm", proj.profit < 0 ? "text-destructive" : "text-success")}>
+                                        {formatCurrency(proj.profit, displayCurrency)}
+                                      </TableCell>
+                                      <TableCell className="text-right text-sm">
+                                        <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getMarginColor(proj.margin))}>
+                                          {Math.round(proj.margin)}%
+                                        </span>
+                                      </TableCell>
+                                      <TableCell className="text-sm">
+                                        {(() => {
+                                          const marginDiff = proj.margin - proj.budgetMargin;
+                                          const hoursDiff = proj.actualHours - proj.scopedHours;
+                                          const hoursPct = proj.scopedHours > 0 ? (hoursDiff / proj.scopedHours) * 100 : 0;
+                                          const isOverBurn = hoursDiff > 0;
+                                          return (
+                                            <div className="space-y-0.5">
+                                              <div className="flex items-center gap-1 text-[11px]">
+                                                <span className="text-muted-foreground">Budget margin:</span>
+                                                <span className={cn("font-semibold px-1.5 py-0 rounded text-[10px]", getMarginColor(proj.budgetMargin))}>
+                                                  {Math.round(proj.budgetMargin)}%
+                                                </span>
+                                                {Math.abs(marginDiff) >= 0.5 && (
+                                                  <span className={cn("flex items-center gap-0.5 text-[10px] font-medium", marginDiff > 0 ? "text-success" : "text-destructive")}>
+                                                    {marginDiff > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+                                                    {Math.round(Math.abs(marginDiff))}pp
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="text-[10px] text-muted-foreground">
+                                                Hours: {Math.round(proj.actualHours).toLocaleString()} / {Math.round(proj.scopedHours).toLocaleString()}
+                                                {proj.scopedHours > 0 && (
+                                                  <span className={cn("ml-1 font-medium", isOverBurn ? "text-destructive" : "text-success")}>
+                                                    ({isOverBurn ? "+" : ""}{hoursPct.toFixed(0)}%)
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
+                                      </TableCell>
+                                      <TableCell className="text-right text-sm">
+                                        {(() => {
+                                          const comp = completenessData.projectComp.get(proj.id);
+                                          if (comp === undefined) return <span className="text-[10px] text-muted-foreground">—</span>;
+                                          return (
+                                            <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getCompletenessColor(comp))}>
+                                              {Math.round(comp)}%
+                                            </span>
+                                          );
+                                        })()}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </Fragment>
+                              );
+                            });
                         })()}
                       </>
                     );
