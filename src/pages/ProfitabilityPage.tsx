@@ -1295,7 +1295,8 @@ const ProfitabilityPage = () => {
       if (projStart > projEnd) continue;
 
       const hoursMap = projectPersonHoursMap.get(projId);
-      const completenessValues: number[] = [];
+      let projectExpected = 0;
+      let projectActual = 0;
 
       for (const pid of personIds) {
         const person = peopleById.get(pid);
@@ -1321,26 +1322,39 @@ const ProfitabilityPage = () => {
         if (expected === 0) continue;
 
         const actual = hoursMap?.get(pid) || 0;
-        completenessValues.push(Math.min((actual / expected) * 100, 100));
+        projectExpected += expected;
+        projectActual += actual;
       }
 
-      if (completenessValues.length > 0) {
-        projectComp.set(projId, completenessValues.reduce((s, v) => s + v, 0) / completenessValues.length);
+      if (projectExpected > 0) {
+        projectComp.set(projId, { expected: projectExpected, actual: projectActual, comp: Math.min((projectActual / projectExpected) * 100, 100) });
       }
     }
 
-    // Client-level: average of project completeness values (weighted equally per project)
+    // Client-level: aggregate total expected and total actual across all projects for the client
     const clientComp = new Map<string, number>();
     for (const group of clientGroups) {
-      const vals: number[] = [];
+      let clientExpected = 0;
+      let clientActual = 0;
       for (const proj of group.projects) {
-        const v = projectComp.get(proj.id);
-        if (v !== undefined) vals.push(v);
+        const pData = projectComp.get(proj.id);
+        if (pData) {
+          clientExpected += pData.expected;
+          clientActual += pData.actual;
+        }
       }
-      if (vals.length > 0) clientComp.set(group.client, vals.reduce((s, v) => s + v, 0) / vals.length);
+      if (clientExpected > 0) {
+        clientComp.set(group.client, Math.min((clientActual / clientExpected) * 100, 100));
+      }
     }
 
-    return { projectComp, clientComp, projectPeopleMap };
+    // Map projectComp back to just the number so the rest of the app doesn't break
+    const projectCompFinal = new Map<string, number>();
+    for (const [projId, data] of projectComp) {
+      projectCompFinal.set(projId, data.comp);
+    }
+
+    return { projectComp: projectCompFinal, clientComp, projectPeopleMap };
   }, [projectPersonHours, projectsById, peopleById, clientGroups, parentalLeaveMap, appliedStartDate, appliedEndDate]);
 
   // ── Gross-up adjusted data ──
