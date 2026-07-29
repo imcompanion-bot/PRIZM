@@ -202,7 +202,7 @@ const ProfitabilityPage = () => {
   // ── Data Fetching ──
 
   const { data: projects = [] } = useQuery({
-    queryKey: ["profitability_projects"],
+    queryKey: ["profitability_projects_v2"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const allData: any[] = [];
@@ -597,7 +597,7 @@ const ProfitabilityPage = () => {
     const today = new Date();
     const todayStr = format(today, "yyyy-MM-dd");
 
-    const EXCLUDED_RECORD_TYPES = ["agency - talent savings", "agency - passthrough costs", "agency - rfp / rfi"];
+    const EXCLUDED_RECORD_TYPES = ["agency - talent savings", "agency - passthrough costs", "agency - rfp / rfi", "agency - holding pot"];
 
     const TIMESHEET_DATA_START = "2024-01-01";
 
@@ -756,7 +756,16 @@ const ProfitabilityPage = () => {
         : null;
       const soFarBudgetHours = Object.values(soFarHoursPerScope).reduce((s, h) => s + h, 0);
 
-      let revenue = fullRevenue * windowPct;
+      let fallbackWindowPct = 0;
+      if (totalScopedFull === 0) {
+        const effStart = projStart > windowStart ? projStart : windowStart;
+        const effEnd = projEnd < windowEnd ? projEnd : windowEnd;
+        const projWD = countWorkingDays(projStart, projEnd);
+        const winWD = countWorkingDays(effStart, effEnd);
+        fallbackWindowPct = projWD > 0 ? winWD / projWD : 0;
+      }
+
+      let revenue = fullRevenue * (totalScopedFull > 0 ? windowPct : fallbackWindowPct);
       if (fullAgencyFee !== null && fullAgencyFee > 0) {
         if (soFarBudgetFee !== null && rateCardRevenue > 0) {
           // Match the budget-fee shape (role-rate weighted) within the window
@@ -764,12 +773,14 @@ const ProfitabilityPage = () => {
         } else if (totalScopedFull > 0) {
           revenue = fullAgencyFee * (soFarBudgetHours / totalScopedFull);
         } else {
-          revenue = 0;
+          revenue = fullAgencyFee * fallbackWindowPct;
         }
       } else if (soFarBudgetFee !== null) {
         revenue = soFarBudgetFee;
       } else if (totalScopedFull > 0) {
         revenue = rateCardRevenue * (soFarBudgetHours / totalScopedFull);
+      } else {
+        revenue = rateCardRevenue * fallbackWindowPct;
       }
 
       const totalScoped = soFarBudgetHours;
