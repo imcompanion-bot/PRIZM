@@ -799,6 +799,8 @@ const ProjectDetailPage = () => {
                 activeCurrency={activeCurrency}
                 timeEntries={timeEntries}
                 people={people}
+                agencyFee={agencyFee}
+                agencyFeeSoFar={agencyFeeSoFar}
               />
             </div>
           </div>

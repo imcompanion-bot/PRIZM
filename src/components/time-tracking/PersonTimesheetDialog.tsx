@@ -132,6 +132,7 @@ export function PersonTimesheetDialog({
   const allIds = personIds && personIds.length > 0 ? personIds : [personId];
   const [entries, setEntries] = useState<Array<{ date: string; hours: number }>>([]);
   const [loading, setLoading] = useState(false);
+  const [realLastEntryDate, setRealLastEntryDate] = useState<Date | null>(null);
 
   // Fetch detailed time entries with project info for non-billable analysis
   const [detailedEntries, setDetailedEntries] = useState<Array<{
@@ -163,6 +164,23 @@ export function PersonTimesheetDialog({
       }
       
       setEntries(allData);
+
+      // Fetch absolute latest entry in the entire database for this person for true recency calculation
+      try {
+        const { data: latestRow, error: latestErr } = await supabase
+          .from("time_entries")
+          .select("date")
+          .in("person_id", allIds)
+          .order("date", { ascending: false })
+          .limit(1);
+        if (!latestErr && latestRow && latestRow.length > 0) {
+          setRealLastEntryDate(new Date(latestRow[0].date));
+        } else {
+          setRealLastEntryDate(null);
+        }
+      } catch (err) {
+        console.error("Failed to fetch real last entry date:", err);
+      }
 
       // Fetch detailed entries with project info for billability classification
       from = 0;
@@ -335,7 +353,7 @@ export function PersonTimesheetDialog({
 
   const effectiveEnd = today < endDate ? today : endDate;
   const pct = expectedHours > 0 ? Math.round((actualHours / expectedHours) * 100) : 0;
-  const recency = getRecencyLabel(lastEntry, today);
+  const recency = getRecencyLabel(realLastEntryDate || lastEntry, today);
   const weekCount = weeks.length;
   const dynamicMaxWidth = Math.max(500, Math.min(weekCount * 32 + 250, 1600));
 

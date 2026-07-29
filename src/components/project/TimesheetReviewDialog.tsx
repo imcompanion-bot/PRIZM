@@ -126,6 +126,7 @@ export function TimesheetReviewDialog({ open, onOpenChange, timeEntries, flagged
   const [allPersonEntries, setAllPersonEntries] = useState<TimeEntry[]>([]);
   const [extraPeople, setExtraPeople] = useState<{ id: string; name: string; role: string; capacity: number; employmentStart: string | null; employmentEnd: string | null }[]>([]);
   const [allPeopleRowsForLeave, setAllPeopleRowsForLeave] = useState<any[]>([]);
+  const [unfilteredLastEntries, setUnfilteredLastEntries] = useState<Record<string, Date | null>>({});
 
   useEffect(() => {
     if (!open || flaggedNames.length === 0) return;
@@ -208,6 +209,32 @@ export function TimesheetReviewDialog({ open, onOpenChange, timeEntries, flagged
         from += pageSize;
       }
       setAllPersonEntries(allData);
+
+      // Fetch absolute latest time entries overall (without date filters)
+      const unfilteredMap: Record<string, Date | null> = {};
+      if (personIds.length > 0) {
+        await Promise.all(
+          personIds.map(async (pid) => {
+            try {
+              const { data, error } = await supabase
+                .from("time_entries")
+                .select("date")
+                .eq("person_id", pid)
+                .order("date", { ascending: false })
+                .limit(1);
+              if (!error && data && data.length > 0) {
+                unfilteredMap[pid] = new Date(data[0].date);
+              } else {
+                unfilteredMap[pid] = null;
+              }
+            } catch (err) {
+              console.error("Failed to query last entry for person:", pid, err);
+              unfilteredMap[pid] = null;
+            }
+          })
+        );
+      }
+      setUnfilteredLastEntries(unfilteredMap);
     };
     fetchAllEntries();
   }, [open, flaggedNames, timeEntries, projectStartDate, projectEndDate]);
@@ -442,12 +469,12 @@ export function TimesheetReviewDialog({ open, onOpenChange, timeEntries, flagged
         <DialogHeader>
           <DialogTitle className="font-display">Timesheet Review</DialogTitle>
         </DialogHeader>
-
         {/* Per-person cards with recency + completeness */}
         <div className="space-y-4 mb-4">
           {people.map((p) => {
             const comp = completeness.find(c => c.personId === p.personId);
-            const recency = getRecencyLabel(personLastEntry[p.personId], today);
+            const absoluteLastEntry = unfilteredLastEntries[p.personId] || personLastEntry[p.personId];
+            const recency = getRecencyLabel(absoluteLastEntry, today);
             const missingWeeks = getMissingWeeks(p.personId, p.name);
             const emp = personEmployment[p.personId];
             const hasEmploymentBounds = !!(emp?.start || emp?.end);
