@@ -104,7 +104,7 @@ exports.sendCompletenessReminders = (0, https_1.onCall)({ secrets: [gmailEmail, 
     });
     try {
         const info = await transporter.sendMail({
-            from: `"PRIZM Timesheets" <${gmailEmail.value()}>`,
+            from: `"James Brazier" <${gmailEmail.value()}>`,
             to: toHeader,
             cc: ccList.length > 0 ? ccList : undefined,
             subject: subject,
