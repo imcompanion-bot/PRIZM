@@ -41,6 +41,7 @@ interface ProjectProfit {
   budgetRevenue: number;
   budgetCost: number;
   status: "Live" | "Ended" | "Not Started";
+  hasNoScope?: boolean;
 }
 
 interface ClientGroup {
@@ -210,7 +211,7 @@ const ProfitabilityPage = () => {
       while (true) {
         const { data, error } = await supabase
           .from("projects")
-          .select("id, title, ultimate_parent, sf_account, office, start_date, end_date, rate_card_id, rate_card_discount, fee_calc_currency, fx_rate_gbp, fx_rate_usd, revenue, price, media_cost, gross_budget, budget_cost, extra_data, opportunity_record_type, project_scopes(id, scoped_hours, role_id, phase_percentages), rate_cards(name, hourly_rate, currency)")
+          .select("id, title, ultimate_parent, sf_account, parent_account, office, start_date, end_date, rate_card_id, rate_card_discount, fee_calc_currency, fx_rate_gbp, fx_rate_usd, revenue, price, media_cost, gross_budget, budget_cost, extra_data, opportunity_record_type, project_scopes(id, scoped_hours, role_id, phase_percentages), rate_cards(name, hourly_rate, currency)")
           .order("title")
           .order("id") // Ensure deterministic pagination
           .range(from, from + pageSize - 1);
@@ -611,8 +612,7 @@ const ProfitabilityPage = () => {
       // Exclude passthrough / talent savings record types
       const recordType = (p.opportunity_record_type || "").trim().toLowerCase();
       if (EXCLUDED_RECORD_TYPES.includes(recordType)) return false;
-      const totalScoped = (p.project_scopes || []).reduce((s: number, sc: any) => s + (sc.scoped_hours || 0), 0);
-      return totalScoped > 0;
+      return true;
     });
 
     // Helper: count working days between two dates
@@ -850,21 +850,24 @@ const ProfitabilityPage = () => {
 
       const status: "Live" | "Ended" | "Not Started" = isComplete ? "Ended" : projStart > today ? "Not Started" : "Live";
 
+      const hasNoScope = totalScopedFull === 0;
+
       clientMap[client].push({
         id: p.id,
         title: p.title,
         office: p.office,
         sfAccount: p.parent_account || p.sf_account || null,
-        scopedHours: totalScoped,
+        scopedHours: hasNoScope ? actualHours : totalScoped,
         actualHours,
         revenue: revenueDisplay,
         cost: costDisplay,
         profit: profitDisplay,
         margin: revenueDisplay > 0 ? (profitDisplay / revenueDisplay) * 100 : profitDisplay < 0 ? -100 : 0,
-        budgetMargin: budgetMarginEst,
-        budgetRevenue: budgetRevenueForMargin,
-        budgetCost: budgetCostEst,
+        budgetMargin: hasNoScope ? (revenueDisplay > 0 ? (profitDisplay / revenueDisplay) * 100 : profitDisplay < 0 ? -100 : 0) : budgetMarginEst,
+        budgetRevenue: hasNoScope ? revenueDisplay : budgetRevenueForMargin,
+        budgetCost: hasNoScope ? costDisplay : budgetCostEst,
         status,
+        hasNoScope,
       });
     }
 
@@ -2322,6 +2325,13 @@ const ProfitabilityPage = () => {
                             </TableCell>
                             <TableCell className="text-sm">
                               {(() => {
+                                if (proj.hasNoScope) {
+                                  return (
+                                    <div className="text-[11px] text-muted-foreground italic">
+                                      No scope data available for budget comparison
+                                    </div>
+                                  );
+                                }
                                 const marginDiff = proj.margin - proj.budgetMargin;
                                 const hoursDiff = proj.actualHours - proj.scopedHours;
                                 const hoursPct = proj.scopedHours > 0 ? (hoursDiff / proj.scopedHours) * 100 : 0;
@@ -2481,6 +2491,13 @@ const ProfitabilityPage = () => {
                                       </TableCell>
                                       <TableCell className="text-sm">
                                         {(() => {
+                                          if (proj.hasNoScope) {
+                                            return (
+                                              <div className="text-[11px] text-muted-foreground italic">
+                                                No scope data available for budget comparison
+                                              </div>
+                                            );
+                                          }
                                           const marginDiff = proj.margin - proj.budgetMargin;
                                           const hoursDiff = proj.actualHours - proj.scopedHours;
                                           const hoursPct = proj.scopedHours > 0 ? (hoursDiff / proj.scopedHours) * 100 : 0;
