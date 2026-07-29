@@ -60,7 +60,7 @@ const AppLayout = () => {
     <div className="flex h-screen overflow-hidden">
       <aside className="w-60 bg-sidebar text-sidebar-foreground flex flex-col shrink-0 sticky top-0 h-screen overflow-y-auto border-r border-border">
         <Link to="/" className="p-5 border-none bg-transparent rounded-none border-0 px-[20px] flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <img src="/logo.png" alt="PRISM Logo" className="h-8 w-auto object-contain" />
+          <img src="/logo_white.png" alt="PRISM Logo" className="h-8 w-auto object-contain" />
           <h1 className="font-display text-4xl font-bold tracking-tight text-[#4b70d8] leading-none mt-1">
             PRISM
           </h1>
