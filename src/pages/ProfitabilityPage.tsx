@@ -211,7 +211,7 @@ const ProfitabilityPage = () => {
       while (true) {
         const { data, error } = await supabase
           .from("projects")
-          .select("id, title, ultimate_parent, sf_account, office, start_date, end_date, rate_card_id, rate_card_discount, fee_calc_currency, fx_rate_gbp, fx_rate_usd, revenue, price, media_cost, gross_budget, budget_cost, extra_data, opportunity_record_type, project_scopes(id, scoped_hours, role_id, phase_percentages), rate_cards(name, hourly_rate, currency)")
+          .select("id, title, ultimate_parent, sf_account, parent_account, office, start_date, end_date, rate_card_id, rate_card_discount, fee_calc_currency, fx_rate_gbp, fx_rate_usd, revenue, price, media_cost, gross_budget, budget_cost, extra_data, opportunity_record_type, project_scopes(id, scoped_hours, role_id, phase_percentages), rate_cards(name, hourly_rate, currency)")
           .order("title")
           .order("id") // Ensure deterministic pagination
           .range(from, from + pageSize - 1);
