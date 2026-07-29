@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -163,6 +163,7 @@ const ProfitabilityPage = () => {
     setProjectMonthlyData(data.byProject);
   }, []);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const customStartDate = searchParams.get("cs") || format(subMonths(new Date(), 6), "yyyy-MM-dd");
   const customEndDate = searchParams.get("ce") || format(new Date(), "yyyy-MM-dd");
   const setCustomStartDate = useCallback((v: string) => setParam("cs", v), [setParam]);
@@ -397,15 +398,17 @@ const ProfitabilityPage = () => {
   });
 
   const { data: projectPersonHours = [] } = useQuery({
-    queryKey: ["profitability_project_person_hours"],
+    queryKey: ["profitability_project_person_hours", appliedStartDate, appliedEndDate],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const PAGE_SIZE = 1000;
       let allData: any[] = [];
       let from = 0;
       while (true) {
-        const { data, error } = await supabase.rpc("get_project_person_hours" as any)
-          .range(from, from + PAGE_SIZE - 1);
+        const { data, error } = await supabase.rpc("get_project_person_hours_windowed" as any, {
+          _start_date: appliedStartDate,
+          _end_date: appliedEndDate
+        }).range(from, from + PAGE_SIZE - 1);
         if (error) throw error;
         allData = allData.concat(data || []);
         if (!data || data.length < PAGE_SIZE) break;
@@ -771,6 +774,7 @@ const ProfitabilityPage = () => {
 
       const totalScoped = soFarBudgetHours;
       const effectiveScopedHoursByScopeId = soFarHoursPerScope;
+      
       const projCost = costMap[p.id] || { totalHours: 0, costGbp: 0, costUsd: 0 };
       // Use totalHours from get_project_costs RPC so displayed hours are consistent
       // with the cost calculation (which includes all people with salaries, even those without a role_id).
@@ -1291,15 +1295,24 @@ const ProfitabilityPage = () => {
       if (projStart > projEnd) continue;
 
       const hoursMap = projectPersonHoursMap.get(projId);
-      const completenessValues: number[] = [];
+      let projectExpected = 0;
+      let projectActual = 0;
 
       for (const pid of personIds) {
         const person = peopleById.get(pid);
         if (!person) continue;
         const empStart = person.overall_start_date || person.employment_start_date;
         const empEnd = person.overall_end_date || person.employment_end_date;
-        const effectiveStart = empStart && new Date(empStart) > projStart ? new Date(empStart) : projStart;
-        const effectiveEnd = empEnd && new Date(empEnd) < projEnd ? new Date(empEnd) : projEnd;
+        let effectiveStart = empStart && new Date(empStart) > projStart ? new Date(empStart) : projStart;
+        let effectiveEnd = empEnd && new Date(empEnd) < projEnd ? new Date(empEnd) : projEnd;
+
+        const windowStart = new Date(appliedStartDate);
+        const windowEndRaw = new Date(appliedEndDate);
+        const windowEnd = windowEndRaw > today ? today : windowEndRaw;
+
+        effectiveStart = effectiveStart > windowStart ? effectiveStart : windowStart;
+        effectiveEnd = effectiveEnd < windowEnd ? effectiveEnd : windowEnd;
+
         if (effectiveStart > effectiveEnd) continue;
 
         const normName = (person.name || "").trim().toLowerCase();
@@ -1309,27 +1322,40 @@ const ProfitabilityPage = () => {
         if (expected === 0) continue;
 
         const actual = hoursMap?.get(pid) || 0;
-        completenessValues.push(Math.min((actual / expected) * 100, 100));
+        projectExpected += expected;
+        projectActual += actual;
       }
 
-      if (completenessValues.length > 0) {
-        projectComp.set(projId, completenessValues.reduce((s, v) => s + v, 0) / completenessValues.length);
+      if (projectExpected > 0) {
+        projectComp.set(projId, { expected: projectExpected, actual: projectActual, comp: Math.min((projectActual / projectExpected) * 100, 100) });
       }
     }
 
-    // Client-level: average of project completeness values (weighted equally per project)
+    // Client-level: aggregate total expected and total actual across all projects for the client
     const clientComp = new Map<string, number>();
     for (const group of clientGroups) {
-      const vals: number[] = [];
+      let clientExpected = 0;
+      let clientActual = 0;
       for (const proj of group.projects) {
-        const v = projectComp.get(proj.id);
-        if (v !== undefined) vals.push(v);
+        const pData = projectComp.get(proj.id);
+        if (pData) {
+          clientExpected += pData.expected;
+          clientActual += pData.actual;
+        }
       }
-      if (vals.length > 0) clientComp.set(group.client, vals.reduce((s, v) => s + v, 0) / vals.length);
+      if (clientExpected > 0) {
+        clientComp.set(group.client, Math.min((clientActual / clientExpected) * 100, 100));
+      }
     }
 
-    return { projectComp, clientComp, projectPeopleMap };
-  }, [projectPersonHours, projectsById, peopleById, clientGroups, parentalLeaveMap]);
+    // Map projectComp back to just the number so the rest of the app doesn't break
+    const projectCompFinal = new Map<string, number>();
+    for (const [projId, data] of projectComp) {
+      projectCompFinal.set(projId, data.comp);
+    }
+
+    return { projectComp: projectCompFinal, clientComp, projectPeopleMap };
+  }, [projectPersonHours, projectsById, peopleById, clientGroups, parentalLeaveMap, appliedStartDate, appliedEndDate]);
 
   // ── Gross-up adjusted data ──
 
@@ -1685,6 +1711,15 @@ const ProfitabilityPage = () => {
     });
   };
 
+  const toggleAccount = (account: string) => {
+    setExpandedAccounts(prev => {
+      const next = new Set(prev);
+      if (next.has(account)) next.delete(account);
+      else next.add(account);
+      return next;
+    });
+  };
+
   const periodLabel = timePeriod === "3" ? "3 Months" : timePeriod === "6" ? "6 Months" : timePeriod === "12" ? "12 Months" : (() => {
     const s = new Date(customStartDate + "T00:00:00");
     const e = new Date(customEndDate + "T00:00:00");
@@ -1702,7 +1737,7 @@ const ProfitabilityPage = () => {
             Client profitability for the last {periodLabel.toLowerCase()} · {displayCurrency}
           </p>
           <p className="text-muted-foreground text-[11px] mt-1 max-w-2xl">
-            Includes all projects that were live during the selected period. For projects still in progress, agency fee is proportioned by working days elapsed.
+            Project financials shown here (Agency Fee, Cost, Profit) are strictly constrained to the selected timeframe and may differ from the total project financials where the project's start and/or end date is outside the selected timeframe.
           </p>
         </div>
         <div className="flex items-stretch gap-3">
@@ -2347,62 +2382,151 @@ const ProfitabilityPage = () => {
                               return { acct, projs, rev, cst, pft, mgn };
                             })
                             .sort((a, b) => b.pft - a.pft)
-                            .map(({ acct, projs, rev, cst, pft, mgn }) => (
-                              <TableRow key={acct} className="bg-muted/20">
-                                <TableCell className="text-sm pl-10">
-                                  <span className="text-muted-foreground">{acct}</span>
-                                  <span className="text-[10px] text-muted-foreground ml-1">({projs.length})</span>
-                                </TableCell>
-                                <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(rev, displayCurrency)}</TableCell>
-                                <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(cst, displayCurrency)}</TableCell>
-                                <TableCell className={cn("text-right text-sm", pft < 0 ? "text-destructive" : "text-success")}>
-                                  {formatCurrency(pft, displayCurrency)}
-                                </TableCell>
-                                <TableCell className="text-right text-sm">
-                                  <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getMarginColor(mgn))}>
-                                    {Math.round(mgn)}%
-                                  </span>
-                                </TableCell>
-                                <TableCell className="text-sm">
-                                  {(() => {
-                                    const bRev = projs.reduce((s, p) => s + p.budgetRevenue, 0);
-                                    const bCst = projs.reduce((s, p) => s + p.budgetCost, 0);
-                                    const bMgn = bRev > 0 ? ((bRev - bCst) / bRev) * 100 : bCst > 0 ? -100 : 0;
-                                    const mgnDiff = mgn - bMgn;
-                                    return (
-                                      <div className="flex items-center gap-1 text-[11px]">
-                                        <span className="text-muted-foreground">Budget margin:</span>
-                                        <span className={cn("font-semibold px-1.5 py-0 rounded text-[10px]", getMarginColor(bMgn))}>
-                                          {Math.round(bMgn)}%
-                                        </span>
-                                        {Math.abs(mgnDiff) >= 0.5 && (
-                                          <span className={cn("flex items-center gap-0.5 text-[10px] font-medium", mgnDiff > 0 ? "text-success" : "text-destructive")}>
-                                            {mgnDiff > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
-                                            {Math.round(Math.abs(mgnDiff))}pp
-                                          </span>
-                                        )}
+                            .map(({ acct, projs, rev, cst, pft, mgn }) => {
+                              const isAccountExpanded = expandedAccounts.has(acct);
+                              return (
+                                <Fragment key={acct}>
+                                  <TableRow 
+                                    className="cursor-pointer hover:bg-muted/50"
+                                    onClick={() => toggleAccount(acct)}
+                                  >
+                                    <TableCell className="text-sm pl-10 font-medium">
+                                      <div className="flex items-center gap-1.5">
+                                        {isAccountExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                                        <span className="text-muted-foreground">{acct}</span>
+                                        <span className="text-[10px] text-muted-foreground ml-1">({projs.length})</span>
                                       </div>
-                                    );
-                                  })()}
-                                </TableCell>
-                                <TableCell className="text-right text-sm">
-                                  {(() => {
-                                    const vals: number[] = [];
-                                    for (const proj of projs) {
-                                      const v = completenessData.projectComp.get(proj.id);
-                                      if (v !== undefined) vals.push(v);
-                                    }
-                                    if (vals.length === 0) return <span className="text-[10px] text-muted-foreground">—</span>;
-                                    const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
-                                    return (
-                                      <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getCompletenessColor(avg))}>
-                                        {Math.round(avg)}%
+                                    </TableCell>
+                                    <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(rev, displayCurrency)}</TableCell>
+                                    <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(cst, displayCurrency)}</TableCell>
+                                    <TableCell className={cn("text-right text-sm font-semibold", pft < 0 ? "text-destructive" : "text-success")}>
+                                      <div className="flex items-center justify-end gap-1">
+                                        {pft >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                        {formatCurrency(pft, displayCurrency)}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-right text-sm font-medium">
+                                      <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getMarginColor(mgn))}>
+                                        {Math.round(mgn)}%
                                       </span>
-                                    );
-                                  })()}
-                                </TableCell>
-                              </TableRow>
-                            ));
+                                    </TableCell>
+                                    <TableCell className="text-sm">
+                                      {(() => {
+                                        const bRev = projs.reduce((s, p) => s + p.budgetRevenue, 0);
+                                        const bCst = projs.reduce((s, p) => s + p.budgetCost, 0);
+                                        const bMgn = bRev > 0 ? ((bRev - bCst) / bRev) * 100 : bCst > 0 ? -100 : 0;
+                                        const mgnDiff = mgn - bMgn;
+                                        return (
+                                          <div className="flex items-center gap-1 text-[11px]">
+                                            <span className="text-muted-foreground">Budget margin:</span>
+                                            <span className={cn("font-semibold px-1.5 py-0 rounded text-[10px]", getMarginColor(bMgn))}>
+                                              {Math.round(bMgn)}%
+                                            </span>
+                                            {Math.abs(mgnDiff) >= 0.5 && (
+                                              <span className={cn("flex items-center gap-0.5 text-[10px] font-medium", mgnDiff > 0 ? "text-success" : "text-destructive")}>
+                                                {mgnDiff > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+                                                {Math.round(Math.abs(mgnDiff))}pp
+                                              </span>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
+                                    </TableCell>
+                                    <TableCell className="text-right text-sm">
+                                      {(() => {
+                                        const vals: number[] = [];
+                                        for (const proj of projs) {
+                                          const v = completenessData.projectComp.get(proj.id);
+                                          if (v !== undefined) vals.push(v);
+                                        }
+                                        if (vals.length === 0) return <span className="text-[10px] text-muted-foreground">—</span>;
+                                        const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
+                                        return (
+                                          <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getCompletenessColor(avg))}>
+                                            {Math.round(avg)}%
+                                          </span>
+                                        );
+                                      })()}
+                                    </TableCell>
+                                  </TableRow>
+                                  {isAccountExpanded && projs.map((proj) => (
+                                    <TableRow key={proj.id} className="bg-muted/10">
+                                      <TableCell className="text-sm pl-16">
+                                        <div className="flex items-center gap-1.5">
+                                          <button
+                                            type="button"
+                                            className="text-muted-foreground hover:text-primary hover:underline transition-colors text-left"
+                                            onClick={(e) => { e.stopPropagation(); navigate(`/projects/${proj.id}`); }}
+                                          >
+                                            {proj.title}
+                                          </button>
+                                          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 leading-4 font-medium shrink-0",
+                                            proj.status === "Live" ? "border-success text-success" :
+                                            proj.status === "Ended" ? "border-muted-foreground text-muted-foreground" :
+                                            "border-amber-500 text-amber-500"
+                                          )}>
+                                            {proj.status === "Live" ? "Live — Agency Fees are Pro Rata" : proj.status}
+                                          </Badge>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(proj.revenue, displayCurrency)}</TableCell>
+                                      <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(proj.cost, displayCurrency)}</TableCell>
+                                      <TableCell className={cn("text-right text-sm", proj.profit < 0 ? "text-destructive" : "text-success")}>
+                                        {formatCurrency(proj.profit, displayCurrency)}
+                                      </TableCell>
+                                      <TableCell className="text-right text-sm">
+                                        <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getMarginColor(proj.margin))}>
+                                          {Math.round(proj.margin)}%
+                                        </span>
+                                      </TableCell>
+                                      <TableCell className="text-sm">
+                                        {(() => {
+                                          const marginDiff = proj.margin - proj.budgetMargin;
+                                          const hoursDiff = proj.actualHours - proj.scopedHours;
+                                          const hoursPct = proj.scopedHours > 0 ? (hoursDiff / proj.scopedHours) * 100 : 0;
+                                          const isOverBurn = hoursDiff > 0;
+                                          return (
+                                            <div className="space-y-0.5">
+                                              <div className="flex items-center gap-1 text-[11px]">
+                                                <span className="text-muted-foreground">Budget margin:</span>
+                                                <span className={cn("font-semibold px-1.5 py-0 rounded text-[10px]", getMarginColor(proj.budgetMargin))}>
+                                                  {Math.round(proj.budgetMargin)}%
+                                                </span>
+                                                {Math.abs(marginDiff) >= 0.5 && (
+                                                  <span className={cn("flex items-center gap-0.5 text-[10px] font-medium", marginDiff > 0 ? "text-success" : "text-destructive")}>
+                                                    {marginDiff > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+                                                    {Math.round(Math.abs(marginDiff))}pp
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="text-[10px] text-muted-foreground">
+                                                Hours: {Math.round(proj.actualHours).toLocaleString()} / {Math.round(proj.scopedHours).toLocaleString()}
+                                                {proj.scopedHours > 0 && (
+                                                  <span className={cn("ml-1 font-medium", isOverBurn ? "text-destructive" : "text-success")}>
+                                                    ({isOverBurn ? "+" : ""}{hoursPct.toFixed(0)}%)
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
+                                      </TableCell>
+                                      <TableCell className="text-right text-sm">
+                                        {(() => {
+                                          const comp = completenessData.projectComp.get(proj.id);
+                                          if (comp === undefined) return <span className="text-[10px] text-muted-foreground">—</span>;
+                                          return (
+                                            <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getCompletenessColor(comp))}>
+                                              {Math.round(comp)}%
+                                            </span>
+                                          );
+                                        })()}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </Fragment>
+                              );
+                            });
                         })()}
                       </>
                     );
