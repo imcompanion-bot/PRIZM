@@ -306,8 +306,7 @@ const ProjectsPage = ({ isEmbedded = false }: { isEmbedded?: boolean }) => {
                 <TableHead>Burn (Hours)</TableHead>
                 <TableHead>Dates</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>SF Account</TableHead>
-                <TableHead>Parent Account</TableHead>
+                <TableHead>Account</TableHead>
                 <TableHead>Ultimate Parent</TableHead>
                 <TableHead>Stage</TableHead>
                 <TableHead>Office</TableHead>
@@ -410,8 +409,7 @@ const ProjectsPage = ({ isEmbedded = false }: { isEmbedded?: boolean }) => {
                           return <span className="text-green-600 font-medium">Live</span>;
                         })()}
                       </TableCell>
-                      <TableCell className="text-sm">{(project as any).sf_account || "—"}</TableCell>
-                      <TableCell className="text-sm">{(project as any).parent_account || "—"}</TableCell>
+                      <TableCell className="text-sm">{(project as any).parent_account || (project as any).sf_account || "—"}</TableCell>
                       <TableCell className="text-sm">{(project as any).ultimate_parent || "—"}</TableCell>
                       <TableCell className="text-sm">{(project as any).stage || "—"}</TableCell>
                       <TableCell className="text-sm">{(project as any).office || "—"}</TableCell>

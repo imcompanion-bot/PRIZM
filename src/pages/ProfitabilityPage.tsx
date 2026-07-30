@@ -687,9 +687,9 @@ const ProfitabilityPage = () => {
         return null;
       };
 
-      const afPrice = p.price ?? p.revenue ?? getExtraNum(p, "total price", "price gbp/usd", "price");
-      const afMediaCost = p.media_cost ?? getExtraNum(p, "media cost", "cost - paid media budget") ?? 0;
-      const afGrossBudget = p.gross_budget ?? p.budget_cost ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+      const afPrice = p.price ?? p.revenue ?? getExtraNum(p, "project_currency_revenue", "total price", "price gbp/usd", "price");
+      const afMediaCost = p.media_cost ?? getExtraNum(p, "project_currency_media_cost", "media cost", "cost - paid media budget") ?? 0;
+      const afGrossBudget = p.gross_budget ?? p.budget_cost ?? getExtraNum(p, "project_currency_gross_budget", "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
       const fullAgencyFee = afPrice !== null ? afPrice - afMediaCost - afGrossBudget : null;
 
       const rateCardRevenue = (p.project_scopes || []).reduce((sum: number, sc: any) => {

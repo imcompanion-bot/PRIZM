@@ -433,7 +433,7 @@ export async function runSync() {
     }
 
     const price = parseNumber(row[11]);
-    let oppRecordType = row[189];
+    let oppRecordType = row[188];
     if (!oppRecordType) {
       oppRecordType = title.toLowerCase().includes("rfp") || title.toLowerCase().includes("rfi")
         ? "Agency - RFP / RFI"

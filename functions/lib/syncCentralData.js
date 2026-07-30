@@ -436,9 +436,12 @@ async function runSync() {
             }
         }
         const price = parseNumber(row[11]);
-        const oppRecordType = title.toLowerCase().includes("rfp") || title.toLowerCase().includes("rfi")
-            ? "Agency - RFP / RFI"
-            : "Agency - Execution";
+        let oppRecordType = row[188];
+        if (!oppRecordType) {
+            oppRecordType = title.toLowerCase().includes("rfp") || title.toLowerCase().includes("rfi")
+                ? "Agency - RFP / RFI"
+                : "Agency - Execution";
+        }
         projectsBatchMap.set(projectId, {
             id: projectId,
             title,
