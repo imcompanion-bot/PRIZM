@@ -612,6 +612,17 @@ const ProfitabilityPage = () => {
       // Exclude passthrough / talent savings record types
       const recordType = (p.opportunity_record_type || "").trim().toLowerCase();
       if (EXCLUDED_RECORD_TYPES.includes(recordType)) return false;
+
+      const titleLower = (p.title || "").toLowerCase();
+      if (
+        titleLower.includes("talent savings") ||
+        titleLower.includes("talent efficiencies") ||
+        titleLower.includes("holding pot") ||
+        titleLower.includes("passthrough costs")
+      ) {
+        return false;
+      }
+
       return true;
     });
 
