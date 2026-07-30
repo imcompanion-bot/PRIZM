@@ -797,7 +797,7 @@ const ProfitabilityPage = () => {
       const totalScoped = soFarBudgetHours;
       const effectiveScopedHoursByScopeId = soFarHoursPerScope;
       
-      const projCost = costMap[p.id] || { totalHours: 0, costGbp: 0, costUsd: 0 };
+      const projCost = costMap[p.id] || allTimeCostMap[p.id] || { totalHours: 0, costGbp: 0, costUsd: 0 };
       // Use totalHours from get_project_costs RPC so displayed hours are consistent
       // with the cost calculation (which includes all people with salaries, even those without a role_id).
       const actualHours = projCost.totalHours;
@@ -923,7 +923,7 @@ const ProfitabilityPage = () => {
       .filter((g): g is ClientGroup => g !== null);
 
     return groups.sort((a, b) => b.profit - a.profit);
-  }, [projects, costMap, allRateCards, officeFilter, cutoffDate, displayCurrency, projectPhases, phaseAllocations, statusFilter, fallbackGbpUsdRate, historicalFxRates, companyRoleCostStats, projectRoleCostStats]);
+  }, [projects, costMap, allTimeCostMap, allRateCards, officeFilter, cutoffDate, displayCurrency, projectPhases, phaseAllocations, statusFilter, fallbackGbpUsdRate, historicalFxRates, companyRoleCostStats, projectRoleCostStats]);
 
   // ── Role-level burn by client ──
   const roleBurnByClient = useMemo(() => {
@@ -1132,7 +1132,7 @@ const ProfitabilityPage = () => {
         }
 
         // Add unassigned hours (people without roles) from cost-based totals
-        const costTotal = costMap[proj.id]?.totalHours || 0;
+        const costTotal = (costMap[proj.id] || allTimeCostMap[proj.id])?.totalHours || 0;
         const unassignedHours = costTotal - roleAssignedHours;
         if (unassignedHours > 0.5) {
           if (!roleMap["Unassigned (no role)"]) roleMap["Unassigned (no role)"] = { scoped: 0, actual: 0, roleId: null, actualCost: 0, budgetCost: 0 };
@@ -1176,7 +1176,7 @@ const ProfitabilityPage = () => {
     }
 
     return result;
-  }, [clientGroups, projects, hoursByProjectRole, roleNameMap, roleTeamMap, projectPhases, phaseAllocations, costMap, costsByProjectRole, projectRoleCostStats, companyRoleCostStats, displayCurrency, fallbackGbpUsdRate, historicalFxRates]);
+  }, [clientGroups, projects, hoursByProjectRole, roleNameMap, roleTeamMap, projectPhases, phaseAllocations, costMap, allTimeCostMap, costsByProjectRole, projectRoleCostStats, companyRoleCostStats, displayCurrency, fallbackGbpUsdRate, historicalFxRates]);
 
   // ── Totals ──
 
@@ -1236,7 +1236,7 @@ const ProfitabilityPage = () => {
         fxRateUsd = roleHistRate;
       }
 
-      const projCost = costMap[p.id] || { totalHours: 0, costGbp: 0, costUsd: 0 };
+      const projCost = costMap[p.id] || allTimeCostMap[p.id] || { totalHours: 0, costGbp: 0, costUsd: 0 };
 
       // Convert staff costs to project currency using direct rates
       let costInProject = projCost.costGbp * fxRateGbp + projCost.costUsd * fxRateUsd;
@@ -1273,7 +1273,7 @@ const ProfitabilityPage = () => {
     const totalCost = filtered.reduce((s, p) => s + p.cost, 0);
 
     return { projects: filtered, totalHours, totalCost };
-  }, [projects, costMap, officeFilter, cutoffDate, displayCurrency, statusFilter, fallbackGbpUsdRate, historicalFxRates]);
+  }, [projects, costMap, allTimeCostMap, officeFilter, cutoffDate, displayCurrency, statusFilter, fallbackGbpUsdRate, historicalFxRates]);
 
 
 
