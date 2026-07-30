@@ -2401,7 +2401,7 @@ const ProfitabilityPage = () => {
                           // Group projects by Parent Account
                           const accountMap: Record<string, ProjectProfit[]> = {};
                           for (const proj of group.projects) {
-                            const acct = proj.sfAccount || "(No Account)";
+                            const acct = proj.parentAccount || proj.sfAccount || "(No Account)";
                             if (!accountMap[acct]) accountMap[acct] = [];
                             accountMap[acct].push(proj);
                           }
