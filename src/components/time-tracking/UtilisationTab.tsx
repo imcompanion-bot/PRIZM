@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
@@ -63,6 +64,7 @@ function getUtilisationColorClass(utilisation: number, expected: number) {
 }
 
 const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: UtilisationTabProps) => {
+  const { isCore, allocatedClients } = usePermissions();
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [selectedPerson, setSelectedPerson] = useState<{
     id: string; personIds: string[]; name: string; role: string;
@@ -188,6 +190,16 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
     const map = new Map<string, { total: number; billable: number; leave: number }>();
     for (const row of utilisationSummary) {
       if (!row.person_id) continue;
+
+      // Core check: restrict hours to assigned clients strictly
+      if (isCore && row.project_id) {
+        const proj = projectsMap.get(row.project_id);
+        const client = proj?.ultimate_parent || proj?.title || "";
+        if (!allocatedClients.some(ac => ac.toLowerCase() === client.toLowerCase())) {
+          continue;
+        }
+      }
+
       if (!map.has(row.person_id)) map.set(row.person_id, { total: 0, billable: 0, leave: 0 });
       const rec = map.get(row.person_id)!;
       const hrs = Number(row.total_hours);
@@ -218,7 +230,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
       }
     }
     return map;
-  }, [utilisationSummary, rules, projectIds, projectsMap]);
+  }, [utilisationSummary, rules, projectIds, projectsMap, isCore, allocatedClients]);
 
   // Build lightweight per-person summary, deduplicated by name+team
   // People may have multiple records (employment periods) — aggregate expected hours across records,

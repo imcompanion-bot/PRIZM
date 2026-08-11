@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { useMemo, useState, useEffect } from "react";
@@ -129,6 +130,7 @@ const matchesOffice = (office: string | null, filter: "Global" | "UK" | "US") =>
 };
 
 const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisTabProps) => {
+  const { isCore, allocatedClients } = usePermissions();
   const { data: people = [] } = useQuery({
     queryKey: ["people_with_roles"],
     queryFn: async () => {
@@ -175,6 +177,18 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
         hasMore = data.length === PAGE_SIZE;
         from += PAGE_SIZE;
       }
+
+      if (isCore) {
+        allData = allData.filter(entry => {
+          const client = entry.projects?.title || entry.project_name || "";
+          return allocatedClients.some(ac => {
+            const lowAc = ac.toLowerCase();
+            const lowClient = client.toLowerCase();
+            return lowClient === lowAc || lowClient.includes(lowAc);
+          });
+        });
+      }
+
       return allData as Array<{
         id: string;
         person_id: string;
@@ -301,6 +315,15 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
     const map = new Map<string, { total: number; billable: number; leave: number }>();
 
     for (const row of utilisationSummary) {
+      // Core check: restrict to allocated clients
+      if (isCore && row.project_id) {
+        const proj = projectsMap.get(row.project_id);
+        const client = proj?.ultimate_parent || proj?.title || "";
+        if (!allocatedClients.some(ac => ac.toLowerCase() === client.toLowerCase())) {
+          continue;
+        }
+      }
+
       if (!map.has(row.person_id)) map.set(row.person_id, { total: 0, billable: 0, leave: 0 });
       const rec = map.get(row.person_id)!;
 
@@ -1121,6 +1144,16 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
     const map = new Map<string, { total: number; billable: number; leave: number }>();
     for (const row of utilisationSummaryMonthly) {
       if (!row.person_id) continue;
+
+      // Core check: restrict to allocated clients
+      if (isCore && row.project_id) {
+        const proj = projectsMap.get(row.project_id);
+        const client = proj?.ultimate_parent || proj?.title || "";
+        if (!allocatedClients.some(ac => ac.toLowerCase() === client.toLowerCase())) {
+          continue;
+        }
+      }
+
       const mk = format(new Date(row.month_date), "yyyy-MM");
       const key = `${row.person_id}::${mk}`;
       if (!map.has(key)) map.set(key, { total: 0, billable: 0, leave: 0 });

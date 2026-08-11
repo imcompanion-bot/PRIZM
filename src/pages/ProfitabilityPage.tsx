@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalyticsContext } from "@/contexts/AnalyticsContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -122,6 +123,7 @@ function getWorkingDaysInRange(start: Date, end: Date): number {
 // ── Main Component ──
 
 const ProfitabilityPage = () => {
+  const { isCore, allocatedClients } = usePermissions();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -607,8 +609,16 @@ const ProfitabilityPage = () => {
       if (p.start_date < TIMESHEET_DATA_START) return false;
       // Include projects that were "live" during the period: started before today AND ended after cutoff
       if (p.end_date < cutoffDate || p.start_date > todayStr) return false;
-      const client = (p.ultimate_parent || p.title || "").toLowerCase();
-      if (client.includes("billion dollar boy")) return false;
+      const client = p.ultimate_parent || p.title || "";
+      if (client.toLowerCase().includes("billion dollar boy")) return false;
+
+      // Core check: restrict to allocated clients strictly
+      if (isCore) {
+        if (!allocatedClients.some(ac => ac.toLowerCase() === client.toLowerCase())) {
+          return false;
+        }
+      }
+
       // Exclude passthrough / talent savings record types
       const recordType = (p.opportunity_record_type || "").trim().toLowerCase();
       if (EXCLUDED_RECORD_TYPES.includes(recordType)) return false;

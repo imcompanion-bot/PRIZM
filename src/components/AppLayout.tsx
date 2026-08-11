@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { LogOut } from "lucide-react";
 
 const mainNav = [
@@ -54,25 +55,42 @@ const NavItem = ({ item }: { item: { to: string; icon: React.ElementType; label:
 );
 
 const AppLayout = () => {
-  const { appUser, signOut, user } = useAuth();
+  const { signOut, user } = useAuth();
+  const { hasFeature } = usePermissions();
+
+  const visibleMainNav = mainNav.filter(item => {
+    if (item.to === "/") return hasFeature("home");
+    if (item.to === "/utilisation") return hasFeature("utilisation");
+    if (item.to === "/profitability") return hasFeature("profitability");
+    if (item.to === "/client-portfolio") return hasFeature("clientPortfolio");
+    if (item.to === "/resource-planner") return hasFeature("resourcePlanner");
+    if (item.to === "/fee-calculator") return hasFeature("feeCalculator");
+    return true;
+  });
+
+  const visibleSettingsNav = settingsNav.filter(item => {
+    if (item.to === "/settings") return hasFeature("settings");
+    if (item.to === "/settings/operations") return hasFeature("operationsHub");
+    return true;
+  });
 
   return (
     <div className="flex h-screen overflow-hidden">
       <aside className="w-60 bg-sidebar text-sidebar-foreground flex flex-col shrink-0 sticky top-0 h-screen overflow-y-auto border-r border-border">
-        <Link to="/" className="p-5 border-none bg-transparent rounded-none border-0 px-[20px] flex items-center gap-3 hover:opacity-80 transition-opacity">
+         <Link to="/" className="p-5 border-none bg-transparent rounded-none border-0 px-[20px] flex items-center gap-3 hover:opacity-80 transition-opacity">
           <img src="/logo_white.png" alt="PRISM Logo" className="h-8 w-auto object-contain" />
           <h1 className="font-display text-4xl font-bold tracking-tight text-[#4b70d8] leading-none mt-1">
             PRISM
           </h1>
         </Link>
         <nav className="flex-1 p-3 space-y-0.5 bg-transparent rounded-none">
-          {mainNav.map((item) => (
+          {visibleMainNav.map((item) => (
             <NavItem key={item.to} item={item} />
           ))}
         </nav>
 
         <div className="p-3 pt-3 border-t border-border mt-auto space-y-0.5 bg-transparent">
-          {settingsNav.map((item) => (
+          {visibleSettingsNav.map((item) => (
             <NavItem key={item.to} item={item} />
           ))}
         </div>

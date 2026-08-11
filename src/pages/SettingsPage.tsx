@@ -7,7 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Trash2, UserPlus, Loader2, Database, Clock } from "lucide-react";
+import { Trash2, UserPlus, Loader2, Database, Clock, ShieldCheck } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DEFAULT_ROLE_PERMISSIONS, FeaturePermissions } from "@/lib/permissions";
 import { Navigate } from "react-router-dom";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -258,9 +260,43 @@ export default function SettingsPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newEmail, setNewEmail] = useState("");
-  const [newRole, setNewRole] = useState("user");
+  const [newRole, setNewRole] = useState("Core");
   const [adding, setAdding] = useState(false);
   const [allocationUser, setAllocationUser] = useState<any>(null);
+
+  const checkboxColors: Record<string, string> = {
+    Master: "data-[state=checked]:bg-[#fe4f2a] data-[state=checked]:border-[#fe4f2a] border-stone-300 focus-visible:ring-[#fe4f2a]",
+    Ambassador: "data-[state=checked]:bg-[#4b70d8] data-[state=checked]:border-[#4b70d8] border-stone-300 focus-visible:ring-[#4b70d8]",
+    Champion: "data-[state=checked]:bg-[#ff7daa] data-[state=checked]:border-[#ff7daa] border-stone-300 focus-visible:ring-[#ff7daa]",
+    Core: "data-[state=checked]:bg-[#ffc300] data-[state=checked]:border-[#ffc300] data-[state=checked]:text-black border-stone-300 focus-visible:ring-[#ffc300]"
+  };
+
+  const isAdmin = appUser?.role === "admin" || appUser?.role === "Master";
+
+  const [matrix, setMatrix] = useState<Record<string, FeaturePermissions>>(() => {
+    const stored = localStorage.getItem("prism_role_permissions");
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.error("Failed to parse stored permissions matrix", e);
+      }
+    }
+    return DEFAULT_ROLE_PERMISSIONS;
+  });
+
+  const handleToggleMatrix = (role: string, feature: keyof FeaturePermissions) => {
+    const updated = {
+      ...matrix,
+      [role]: {
+        ...matrix[role],
+        [feature]: !matrix[role][feature]
+      }
+    };
+    setMatrix(updated);
+    localStorage.setItem("prism_role_permissions", JSON.stringify(updated));
+    toast.success(`Updated ${feature} access for ${role}`);
+  };
 
   const { data: allClients = [] } = useQuery({
     queryKey: ["all_pharaoh_clients"],
@@ -276,10 +312,10 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    if (appUser?.role === "admin") {
+    if (isAdmin) {
       fetchUsers();
     }
-  }, [appUser]);
+  }, [appUser, isAdmin]);
 
   const fetchUsers = async () => {
     try {
@@ -361,12 +397,12 @@ export default function SettingsPage() {
       <Tabs defaultValue="data" className="space-y-6">
         <TabsList className={cn(
           "grid",
-          appUser?.role === "admin" ? "w-[800px] grid-cols-4" : "w-[600px] grid-cols-3"
+          isAdmin ? "w-[800px] grid-cols-4" : "w-[600px] grid-cols-3"
         )}>
           <TabsTrigger value="data">Data Sync</TabsTrigger>
           <TabsTrigger value="quality">Data Quality</TabsTrigger>
           <TabsTrigger value="agents">Agent Centre</TabsTrigger>
-          {appUser?.role === "admin" && (
+          {isAdmin && (
             <TabsTrigger value="access">Access Control</TabsTrigger>
           )}
         </TabsList>
@@ -406,8 +442,10 @@ export default function SettingsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="Master">Master (Admin)</SelectItem>
+                        <SelectItem value="Ambassador">Ambassador</SelectItem>
+                        <SelectItem value="Champion">Champion</SelectItem>
+                        <SelectItem value="Core">Core</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -447,9 +485,15 @@ export default function SettingsPage() {
                       users.map((user) => (
                         <TableRow key={user.id}>
                           <TableCell className="font-medium">{user.email}</TableCell>
-                          <TableCell>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                              {user.role}
+                           <TableCell>
+                            <span className={cn(
+                              "px-2.5 py-1 rounded-full text-xs font-semibold border",
+                              (user.role === 'admin' || user.role === 'Master') && "bg-[#fe4f2a]/10 text-[#fe4f2a] border-[#fe4f2a]/30",
+                              user.role === 'Ambassador' && "bg-[#4b70d8]/10 text-[#4b70d8] border-[#4b70d8]/30",
+                              user.role === 'Champion' && "bg-[#ff7daa]/10 text-[#ff7daa] border-[#ff7daa]/30",
+                              (user.role === 'user' || user.role === 'Core') && "bg-[#ffc300]/10 text-[#b28400] border-[#ffc300]/40"
+                            )}>
+                              {user.role === 'admin' ? 'Master' : user.role === 'user' ? 'Core' : user.role}
                             </span>
                           </TableCell>
                           <TableCell className="text-muted-foreground">{user.addedBy || '-'}</TableCell>
@@ -467,12 +511,12 @@ export default function SettingsPage() {
                           <TableCell className="text-muted-foreground">
                             {new Date(user.createdAt).toLocaleDateString()}
                           </TableCell>
-                          <TableCell className="text-right">
+                           <TableCell className="text-right">
                             <Button 
                               variant="ghost" 
                               size="icon" 
                               onClick={() => handleDeleteUser(user.id, user.email)}
-                              disabled={user.email === appUser.email}
+                              disabled={user.email === appUser?.email}
                             >
                               <Trash2 className="w-4 h-4 text-destructive" />
                             </Button>
@@ -480,6 +524,64 @@ export default function SettingsPage() {
                         </TableRow>
                       ))
                     )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Feature Access Matrix Configurator */}
+            <div className="bg-card border rounded-xl overflow-hidden p-6 shadow-sm">
+              <div className="mb-6">
+                <h3 className="text-lg font-bold text-stone-950 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-[#4b70d8]" />
+                  Feature Access Matrix Dashboard
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Configure which platform modules and analytics screens are visible to each access tier in real-time.
+                </p>
+              </div>
+
+              <div className="overflow-x-auto border rounded-lg bg-white">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead className="w-64 font-semibold text-stone-900 text-xs uppercase tracking-wider">Feature Module</TableHead>
+                      <TableHead className="text-center font-bold text-xs uppercase tracking-wider text-[#fe4f2a]">Master</TableHead>
+                      <TableHead className="text-center font-bold text-xs uppercase tracking-wider text-[#4b70d8]">Ambassador</TableHead>
+                      <TableHead className="text-center font-bold text-xs uppercase tracking-wider text-[#ff7daa]">Champion</TableHead>
+                      <TableHead className="text-center font-bold text-xs uppercase tracking-wider text-[#b28400]">Core</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[
+                      { key: "home", label: "Home Dashboard", desc: "Main summary dashboard, key metrics, and Margin Sentry copilot" },
+                      { key: "utilisation", label: "Time & Utilisation", desc: "Roster lists, capacity charts, and hours analytics" },
+                      { key: "profitability", label: "Profitability Analytics", desc: "Revenue burn rate tracking and margin calculations" },
+                      { key: "clientPortfolio", label: "Client Portfolio", desc: "Accounts management and client roster" },
+                      { key: "resourcePlanner", label: "Resource Planner", desc: "Cross-office resource allocations and forecast timeline" },
+                      { key: "feeCalculator", label: "Fee Calculator", desc: "Billing rate models and project cost modeling" },
+                      { key: "operationsHub", label: "Operations Hub", desc: "Master administrative operations controls" },
+                      { key: "settings", label: "Settings Screen", desc: "Data synchronization and access control parameters" }
+                    ].map((feature) => (
+                      <TableRow key={feature.key} className="hover:bg-muted/10">
+                        <TableCell className="py-3">
+                          <div>
+                            <span className="font-semibold text-xs text-stone-900">{feature.label}</span>
+                            <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{feature.desc}</p>
+                          </div>
+                        </TableCell>
+                        {["Master", "Ambassador", "Champion", "Core"].map((roleName) => (
+                          <TableCell key={roleName} className="text-center py-3">
+                            <Checkbox 
+                              checked={matrix[roleName]?.[feature.key as keyof FeaturePermissions] ?? false}
+                              onCheckedChange={() => handleToggleMatrix(roleName, feature.key as keyof FeaturePermissions)}
+                              disabled={roleName === "Master" && feature.key === "settings"} // Safeguard settings module from Master lockout
+                              className={cn("mx-auto", checkboxColors[roleName])}
+                            />
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
