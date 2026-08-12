@@ -37,6 +37,7 @@ export function CustomDateRangePicker({
   const [currentYear, setCurrentYear] = useState(start ? start.getFullYear() : new Date().getFullYear());
   const [open, setOpen] = useState(false);
   const [isSelectingRange, setIsSelectingRange] = useState(false);
+  const [rangeStart, setRangeStart] = useState<Date | undefined>(undefined);
   
   const [hoveredDay, setHoveredDay] = useState<Date | undefined>(undefined);
   const [hoveredMonth, setHoveredMonth] = useState<Date | undefined>(undefined);
@@ -55,15 +56,21 @@ export function CustomDateRangePicker({
 
     if (!isSelectingRange) {
       // First click: select this month perfectly, but prime the picker for a range
+      setRangeStart(clickedStart);
       onSelect({ start: clickedStart, end: clickedEnd });
       setIsSelectingRange(true);
     } else {
       // Second click: complete the range
-      if (start && isBefore(clickedStart, start)) {
+      if (rangeStart && isBefore(clickedStart, rangeStart)) {
         // Clicked before the original start month
+        onSelect({ start: clickedStart, end: endOfMonth(rangeStart) });
+      } else if (rangeStart) {
+        // Clicked after the original start month
+        onSelect({ start: rangeStart, end: clickedEnd });
+      } else if (start && isBefore(clickedStart, start)) {
+        // Fallback to start prop if rangeStart is missing for some reason
         onSelect({ start: clickedStart, end: endOfMonth(start) });
       } else if (start) {
-        // Clicked after the original start month
         onSelect({ start, end: clickedEnd });
       }
       setIsSelectingRange(false);
