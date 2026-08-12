@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Trash2, UserPlus, Loader2, Database, Clock, ShieldCheck } from "lucide-react";
+import { Trash2, UserPlus, Loader2, Database, Clock, ShieldCheck, ArchiveRestore } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DEFAULT_ROLE_PERMISSIONS, FeaturePermissions } from "@/lib/permissions";
 import { Navigate } from "react-router-dom";
@@ -255,6 +255,84 @@ const DataQualityTab = () => {
   );
 };
 
+const ClientArchiveTab = () => {
+  const [archivedClients, setArchivedClients] = useState<string[]>(() => {
+    const stored = localStorage.getItem("prism_inactive_clients");
+    return stored ? JSON.parse(stored) : [];
+  });
+
+  const handleRestoreClient = (clientName: string) => {
+    const next = archivedClients.filter(c => c !== clientName);
+    setArchivedClients(next);
+    localStorage.setItem("prism_inactive_clients", JSON.stringify(next));
+    
+    toast.success(`Client "${clientName}" has been successfully restored to the main roster!`, {
+      icon: "🎉",
+    });
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 max-w-4xl">
+        <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+          <ArchiveRestore className="w-5 h-5 text-primary" />
+          Client Archive & Deactivation
+        </h2>
+        <p className="text-gray-500 mb-6 text-sm">
+          Deactivated and archived client accounts are listed below. Restoring a client instantly returns their profile, projects, actual hours, and workspace command centers back to the main Client Portfolio.
+        </p>
+
+        {archivedClients.length === 0 ? (
+          <div className="text-center py-16 border border-dashed rounded-lg bg-gray-50/50 border-gray-200 flex flex-col items-center justify-center space-y-3">
+            <div className="p-3 rounded-full bg-gray-100 text-gray-400">
+              <ArchiveRestore className="w-8 h-8" />
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900">Your archive is completely empty</h3>
+            <p className="text-xs text-gray-500 max-w-sm">All clients are currently active and showing inside the Client Portfolio workspaces.</p>
+          </div>
+        ) : (
+          <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+            <Table>
+              <TableHeader className="bg-gray-50">
+                <TableRow>
+                  <TableHead className="font-semibold text-gray-900 text-xs">Client Name</TableHead>
+                  <TableHead className="font-semibold text-gray-900 text-xs text-center">Status</TableHead>
+                  <TableHead className="font-semibold text-gray-900 text-xs text-right pr-6">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {archivedClients.map((client) => (
+                  <TableRow key={client} className="hover:bg-gray-50/50 transition-colors">
+                    <TableCell className="font-semibold text-sm text-gray-900 py-3.5 pl-6">
+                      {client}
+                    </TableCell>
+                    <TableCell className="text-center py-3.5">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium">
+                        Inactive / Archived
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right pr-6 py-3.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRestoreClient(client)}
+                        className="h-8 text-xs font-semibold hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all gap-1.5"
+                      >
+                        <ArchiveRestore className="w-3.5 h-3.5" />
+                        Restore Client
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function SettingsPage() {
   const { appUser } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
@@ -397,11 +475,12 @@ export default function SettingsPage() {
       <Tabs defaultValue="data" className="space-y-6">
         <TabsList className={cn(
           "grid",
-          isAdmin ? "w-[800px] grid-cols-4" : "w-[600px] grid-cols-3"
+          isAdmin ? "w-[1000px] grid-cols-5" : "w-[800px] grid-cols-4"
         )}>
           <TabsTrigger value="data">Data Sync</TabsTrigger>
           <TabsTrigger value="quality">Data Quality</TabsTrigger>
           <TabsTrigger value="agents">Agent Centre</TabsTrigger>
+          <TabsTrigger value="archive">Client Archive</TabsTrigger>
           {isAdmin && (
             <TabsTrigger value="access">Access Control</TabsTrigger>
           )}
@@ -417,6 +496,10 @@ export default function SettingsPage() {
 
         <TabsContent value="agents">
           <AgentCentreTab />
+        </TabsContent>
+
+        <TabsContent value="archive">
+          <ClientArchiveTab />
         </TabsContent>
 
         {appUser?.role === "admin" && (
