@@ -184,6 +184,14 @@ const ProjectDetailPage = () => {
   const discountPct = project?.rate_card_discount || 0;
   const rcName = project?.rate_cards?.name;
 
+  const [sentryMetrics, setSentryMetrics] = useState<{
+    costBurnPct: number;
+    effectiveCost: number;
+    completenessPct: number;
+  } | null>(null);
+
+  const [hoveredBar, setHoveredBar] = useState<"timeline" | "cost" | null>(null);
+
   const [currencyMode, setCurrencyMode] = useState<"office" | "project">("office");
 
   // Determine standard currencies
@@ -647,7 +655,7 @@ const ProjectDetailPage = () => {
           </div>
         </div>
 
-        {/* Timeline progress bar */}
+        {/* Timeline & Cost progress bars */}
         {(() => {
           const start = new Date(project.start_date);
           const end = new Date(project.end_date);
@@ -657,21 +665,86 @@ const ProjectDetailPage = () => {
           const pct = totalDays > 0 ? Math.round((elapsed / totalDays) * 100) : 0;
           const remaining = Math.max(0, differenceInDays(end, now));
           const isComplete = now > end;
+          const displayText = isComplete ? "Complete" : `${pct}% elapsed and ${remaining} days remaining`;
+
+          // Cost progress calculations
+          const rawCostPct = budgetedInternalCost && budgetedInternalCost > 0 ? Math.round((totalActualCost / budgetedInternalCost) * 100) : 0;
+          
+          // Use sentryMetrics if available, falling back to raw calculations
+          const costPct = sentryMetrics !== null ? sentryMetrics.costBurnPct : rawCostPct;
+          const currentCostSpent = sentryMetrics !== null ? sentryMetrics.effectiveCost : totalActualCost;
+
+          const costRemaining = Math.max(0, (budgetedInternalCost ?? 0) - currentCostSpent);
+          const isOverburned = currentCostSpent > (budgetedInternalCost ?? 0);
+          
+          const costDisplayText = isOverburned
+            ? `${costPct}% burned (${formatCurrency(currentCostSpent - (budgetedInternalCost ?? 0), activeCurrency)} overspend)`
+            : `${costPct}% burned and ${formatCurrency(costRemaining, activeCurrency)} remaining`;
+
+          // Hover labels
+          const timelineLabel = hoveredBar === "timeline" ? displayText : "Project Timeline";
+          const costLabel = hoveredBar === "cost" ? costDisplayText : "Cost Burn";
 
           return (
-            <div className="mb-6">
-              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                <span>{format(start, "dd MMM yyyy")}</span>
-                <span className="font-medium text-foreground">
-                  {isComplete ? "Complete" : `${pct}% elapsed · ${remaining} days remaining`}
-                </span>
-                <span>{format(end, "dd MMM yyyy")}</span>
+            <div className="mb-6 space-y-4">
+              {/* Timeline Progress Bar */}
+              <div 
+                className="relative w-full h-11 bg-stone-100 border border-stone-200/60 rounded-full overflow-hidden shadow-2xs select-none cursor-pointer hover:border-stone-300 transition-all duration-300 ease-in-out"
+                onMouseEnter={() => setHoveredBar("timeline")}
+                onMouseLeave={() => setHoveredBar(null)}
+              >
+                {/* Background Text Layer: Rendered inside the unfilled portion */}
+                <div className="absolute inset-0 flex items-center justify-between px-5 font-display text-[10px] tracking-wider uppercase font-semibold text-stone-700 transition-all duration-200">
+                  <span>Start: {format(start, "dd MMM yyyy")}</span>
+                  <span className="text-[13px] font-black tracking-widest text-stone-950">
+                    {timelineLabel}
+                  </span>
+                  <span>End: {format(end, "dd MMM yyyy")}</span>
+                </div>
+
+                {/* Foreground Filled Layer with dynamic clip-path */}
+                <div 
+                  className="absolute inset-0 bg-stone-950 flex items-center justify-between px-5 font-display text-[10px] tracking-wider uppercase font-semibold text-white transition-all duration-500 ease-out"
+                  style={{ 
+                    clipPath: `inset(0 ${100 - pct}% 0 0)`
+                  }}
+                >
+                  <span>Start: {format(start, "dd MMM yyyy")}</span>
+                  <span className="text-[13px] font-black tracking-widest text-white">
+                    {timelineLabel}
+                  </span>
+                  <span>End: {format(end, "dd MMM yyyy")}</span>
+                </div>
               </div>
-              <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className={cn("h-full rounded-full transition-all", isComplete ? "bg-muted-foreground" : "bg-primary")}
-                  style={{ width: `${pct}%` }}
-                />
+
+              {/* Cost Progress Bar */}
+              <div 
+                className="relative w-full h-11 bg-stone-100 border border-stone-200/60 rounded-full overflow-hidden shadow-2xs select-none cursor-pointer hover:border-stone-300 transition-all duration-300 ease-in-out"
+                onMouseEnter={() => setHoveredBar("cost")}
+                onMouseLeave={() => setHoveredBar(null)}
+              >
+                {/* Background Text Layer: Rendered inside the unfilled portion */}
+                <div className="absolute inset-0 flex items-center justify-between px-5 font-display text-[10px] tracking-wider uppercase font-semibold text-stone-700 transition-all duration-200">
+                  <span>Spent: {formatCurrency(currentCostSpent, activeCurrency)}</span>
+                  <span className="text-[13px] font-black tracking-widest text-stone-950">
+                    {costLabel}
+                  </span>
+                  <span>Budget: {budgetedInternalCost !== null && budgetedInternalCost > 0 ? formatCurrency(budgetedInternalCost, activeCurrency) : "—"}</span>
+                </div>
+
+                {/* Foreground Filled Layer with dynamic clip-path */}
+                <div 
+                  className="absolute inset-0 bg-[#4b70d8] flex items-center justify-between px-5 font-display text-[10px] tracking-wider uppercase font-semibold text-white transition-all duration-500 ease-out"
+                  style={{ 
+                    clipPath: `inset(0 ${Math.max(0, 100 - costPct)}% 0 0)`
+                  }}
+                >
+                  <span>Spent: {formatCurrency(currentCostSpent, activeCurrency)}</span>
+                  <span className="text-[13px] font-black tracking-widest text-white">
+                    {costLabel}
+                  </span>
+                  <span>Budget: {budgetedInternalCost !== null && budgetedInternalCost > 0 ? formatCurrency(budgetedInternalCost, activeCurrency) : "—"}</span>
+                </div>
               </div>
             </div>
           );
@@ -801,6 +874,7 @@ const ProjectDetailPage = () => {
                 people={people}
                 agencyFee={agencyFee}
                 agencyFeeSoFar={agencyFeeSoFar}
+                onMetricsCalculated={setSentryMetrics}
               />
             </div>
           </div>

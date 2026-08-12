@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, TrendingUp, BarChart, Target, Globe } from "lucide-react";
@@ -51,6 +52,7 @@ const monthName = (YYYYMM: string) => {
 
 export default function HomePage() {
   const { appUser } = useAuth();
+  const { isCore, isChampion, allocatedClients } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [legacy, setLegacy] = useState<any>(null);
@@ -58,6 +60,12 @@ export default function HomePage() {
   const [viewMode, setViewMode] = useState("group"); 
   const [marketTab, setMarketTab] = useState("group"); 
   const [clientTab, setClientTab] = useState("all");
+
+  useEffect(() => {
+    if (isCore || isChampion) {
+      setViewMode("my_clients");
+    }
+  }, [isCore, isChampion]);
 
   useEffect(() => {
     async function loadData() {
@@ -303,10 +311,12 @@ export default function HomePage() {
           <h1 className="font-display text-3xl font-bold text-[#1a1a1a] tracking-tight">Revenue Dashboard</h1>
           <p className="text-muted-foreground mt-1 text-sm">Live metrics and expected landings.</p>
         </div>
-        <ToggleGroup type="single" value={viewMode} onValueChange={(v) => { if(v){ setViewMode(v); if(v==='group') setMarketTab("group"); else setClientTab("all"); } }} className="bg-white border rounded-md p-1 shadow-sm">
-          <ToggleGroupItem value="group" className="text-sm px-4 h-8 text-stone-600 data-[state=on]:bg-primary data-[state=on]:text-black">Group</ToggleGroupItem>
-          <ToggleGroupItem value="my_clients" className="text-sm px-4 h-8 text-stone-600 data-[state=on]:bg-primary data-[state=on]:text-black">My Clients</ToggleGroupItem>
-        </ToggleGroup>
+        {!isCore && (
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => { if(v){ setViewMode(v); if(v==='group') setMarketTab("group"); else setClientTab("all"); } }} className="bg-white border rounded-md p-1 shadow-sm">
+            <ToggleGroupItem value="group" className="text-sm px-4 h-8 text-stone-600 data-[state=on]:bg-primary data-[state=on]:text-black">Group</ToggleGroupItem>
+            <ToggleGroupItem value="my_clients" className="text-sm px-4 h-8 text-stone-600 data-[state=on]:bg-primary data-[state=on]:text-black">My Clients</ToggleGroupItem>
+          </ToggleGroup>
+        )}
       </div>
 
       <Tabs value={isMyClients ? clientTab : marketTab} onValueChange={isMyClients ? setClientTab : setMarketTab} className="space-y-6">
@@ -314,7 +324,7 @@ export default function HomePage() {
           {isMyClients ? (
             <>
               <TabsTrigger value="all">All</TabsTrigger>
-              {(appUser?.allocatedClients || []).map((c: string) => (
+              {(allocatedClients || []).map((c: string) => (
                 <TabsTrigger key={c} value={c}>{c}</TabsTrigger>
               ))}
             </>
