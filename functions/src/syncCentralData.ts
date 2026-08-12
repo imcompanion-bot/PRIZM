@@ -754,6 +754,7 @@ export const syncMonitorAgentCron = onSchedule(
   async (event) => {
     logger.info("[Monitor Agent] Commencing daily Live Sync validation check...");
     const supabase = getSupabase();
+    let alertSent = false;
     try {
       const { data, error } = await supabase
         .from("data_imports" as any)
@@ -797,13 +798,48 @@ export const syncMonitorAgentCron = onSchedule(
           { onConflict: "dataset" } as any
         );
 
-        await runSync();
-        
-        logger.info("[Monitor Agent] FORCED retry sync completed successfully!");
-        await supabase.from("data_imports" as any).upsert(
-          { dataset: "sync_monitor_status", last_imported_at: new Date().toISOString(), row_count: 1 } as any, // row_count 1 means retry succeeded
-          { onConflict: "dataset" } as any
-        );
+        let syncSuccess = false;
+        let lastSyncError: any = null;
+        const maxAttempts = 3;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            logger.info(`[Monitor Agent] Forced sync retry attempt ${attempt} of ${maxAttempts}...`);
+            await runSync();
+            syncSuccess = true;
+            logger.info(`[Monitor Agent] Forced sync retry attempt ${attempt} succeeded!`);
+            break;
+          } catch (syncErr: any) {
+            lastSyncError = syncErr;
+            logger.error(`[Monitor Agent] Forced sync retry attempt ${attempt} failed:`, syncErr);
+            if (attempt < maxAttempts) {
+              logger.info(`[Monitor Agent] Waiting 10 seconds before retry attempt ${attempt + 1}...`);
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+          }
+        }
+
+        if (syncSuccess) {
+          logger.info("[Monitor Agent] FORCED retry sync completed successfully after retries!");
+          await supabase.from("data_imports" as any).upsert(
+            { dataset: "sync_monitor_status", last_imported_at: new Date().toISOString(), row_count: 1 } as any, // row_count 1 means retry succeeded
+            { onConflict: "dataset" } as any
+          );
+        } else {
+          logger.error("[Monitor Agent] All 3 forced retry attempts failed. Sending alert email...");
+          alertSent = true;
+          await sendFailureAlert(
+            lastSyncError || new Error("Sync failed after 3 forced retry attempts."),
+            "Daily Monitor Agent Forced Auto-Recovery (failed after 3 attempts)"
+          );
+
+          await supabase.from("data_imports" as any).upsert(
+            { dataset: "sync_monitor_status", last_imported_at: new Date().toISOString(), row_count: -2 } as any, // row_count -2 means failure
+            { onConflict: "dataset" } as any
+          );
+          
+          throw lastSyncError || new Error("Sync failed after 3 forced retry attempts.");
+        }
       } else {
         logger.info("[Monitor Agent] Live Sync validated successfully. No action required.");
         await supabase.from("data_imports" as any).upsert(
@@ -813,7 +849,9 @@ export const syncMonitorAgentCron = onSchedule(
       }
     } catch (err: any) {
       logger.error("[Monitor Agent] Fatal monitoring error:", err);
-      await sendFailureAlert(err, "Daily Monitor Agent check & forced sync retry (06:15 AM Europe/London)");
+      if (!alertSent) {
+        await sendFailureAlert(err, "Daily Monitor Agent check & forced sync retry (06:15 AM Europe/London)");
+      }
       try {
         await supabase.from("data_imports" as any).upsert(
           { dataset: "sync_monitor_status", last_imported_at: new Date().toISOString(), row_count: -2 } as any, // row_count -2 means monitor error
