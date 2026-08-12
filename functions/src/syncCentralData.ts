@@ -13,9 +13,10 @@ if (!getApps().length) {
   initializeApp();
 }
 
-const SUPABASE_SERVICE_ROLE_KEY = defineSecret("SUPABASE_SERVICE_ROLE_KEY");
+const SUPABASE_SERVICE_ROLE_SECRET = defineSecret("SUPABASE_SERVICE_ROLE_SECRET");
 const gmailEmail = defineSecret("GMAIL_EMAIL");
 const gmailAppPassword = defineSecret("GMAIL_APP_PASSWORD");
+const NOTIFICATION_RECIPIENTS = defineSecret("NOTIFICATION_RECIPIENTS");
 
 const escapeHtml = (s: string) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as any));
 
@@ -25,6 +26,16 @@ async function sendFailureAlert(error: any, context: string): Promise<void> {
   if (!email || !password) {
     logger.warn("[Alert] GMAIL_EMAIL or GMAIL_APP_PASSWORD not set. Skipping email alert.");
     return;
+  }
+
+  let recipients = email;
+  try {
+    const customRecipients = NOTIFICATION_RECIPIENTS.value();
+    if (customRecipients && customRecipients.trim()) {
+      recipients = customRecipients;
+    }
+  } catch (e) {
+    logger.info("[Alert] NOTIFICATION_RECIPIENTS secret not configured or available. Defaulting to GMAIL_EMAIL.");
   }
 
   const transporter = nodemailer.createTransport({
@@ -37,28 +48,86 @@ async function sendFailureAlert(error: any, context: string): Promise<void> {
     },
   });
 
-  const subject = `🚨 Project Zen Sync Failure Alert — ${context}`;
+  const subject = "PRISM: DATABASE SYNC FAILURE";
   const html = `
     <!doctype html>
     <html>
-    <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#333;line-height:1.6;padding:24px;max-width:600px;margin:0 auto;border:1px solid #eee;border-radius:8px;">
-      <h2 style="color:#d32f2f;margin-top:0;display:flex;align-items:center;">
-        <span style="font-size:28px;margin-right:8px;">🚨</span> Database Sync Failed
-      </h2>
-      <p>Hi Admin,</p>
-      <p>An error occurred during a database sync task for <strong>Project Zen</strong>.</p>
-      
-      <div style="background:#f9f9f9;border-left:4px solid #d32f2f;padding:16px;margin:18px 0;border-radius:4px;font-family:monospace;font-size:14px;white-space:pre-wrap;word-break:break-all;">
-        <strong>Context:</strong> ${escapeHtml(context)}
-        <br/><br/>
-        <strong>Error Details:</strong>
-        <br/>
-        ${escapeHtml(error?.stack || error?.message || String(error))}
-      </div>
+    <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#333;line-height:1.6;padding:24px;max-width:650px;margin:0 auto;background-color:#fafafa;">
+      <div style="background:#ffffff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+        
+        <!-- Header -->
+        <div style="background:#1e1e24;padding:24px;text-align:center;border-bottom:3px solid #d32f2f;">
+          <h1 style="color:#ffffff;margin:0;font-size:22px;letter-spacing:1px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px;">
+            <span style="font-size:24px;">🚨</span> PRISM SYSTEM ALERT
+          </h1>
+        </div>
+        
+        <!-- Body Content -->
+        <div style="padding:32px 24px;">
+          <h2 style="color:#d32f2f;margin-top:0;font-size:18px;font-weight:600;">PRISM Database Synchronization Failed</h2>
+          <p style="font-size:15px;color:#555;">Hello,</p>
+          <p style="font-size:15px;color:#555;margin-bottom:24px;">
+            The automated pipeline was unable to synchronize data between the <strong>Centralized Google Sheet</strong> and the <strong>PRISM (Supabase) Database</strong>. Below are the context and specific technical details of the failure:
+          </p>
 
-      <p>Please log in to the <a href="https://console.firebase.google.com/project/pharaoh-54a0e/functions" style="color:#0288d1;text-decoration:none;font-weight:600;">Firebase Console Logs</a> or <a href="https://supabase.com/dashboard/project/hyfgyfuvligacjwxjnce" style="color:#0288d1;text-decoration:none;font-weight:600;">Supabase Dashboard</a> to investigate.</p>
-      <hr style="border:0;border-top:1px solid #eee;margin:24px 0;"/>
-      <p style="font-size:12px;color:#999;margin-bottom:0;">This is an automated security alert from the Project Zen Backend.</p>
+          <!-- Context & Technical Details Card -->
+          <div style="background:#fff5f5;border-left:4px solid #d32f2f;border-radius:4px;padding:16px;margin-bottom:28px;">
+            <h4 style="margin:0 0 8px 0;color:#c62828;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">Failure Context</h4>
+            <p style="margin:0 0 16px 0;font-size:14px;color:#444;"><strong>Trigger Event:</strong> ${escapeHtml(context)}</p>
+            
+            <h4 style="margin:0 0 8px 0;color:#c62828;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">Technical Error Stack</h4>
+            <pre style="margin:0;padding:12px;background:#1e1e1e;color:#b5cea8;border-radius:6px;font-family:'Courier New',Courier,monospace;font-size:12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;">${escapeHtml(error?.stack || error?.message || String(error))}</pre>
+          </div>
+
+          <!-- Why Did This Happen? -->
+          <h3 style="color:#1e1e24;font-size:16px;margin:0 0 10px 0;border-bottom:1px solid #e0e0e0;padding-bottom:6px;">🔍 Why Did This Happen?</h3>
+          <p style="font-size:14px;color:#555;margin:0 0 20px 0;">
+            Typically, sync failures are caused by one of the following events:
+          </p>
+          <ul style="font-size:14px;color:#555;margin:0 0 24px 0;padding-left:20px;line-height:1.8;">
+            <li><strong>Authentication / API Expiry:</strong> Google Drive or Sheets service credentials have expired, or the service account lacks access to the file.</li>
+            <li><strong>Sheet Schema Modifications:</strong> Row columns or tabs have been renamed or shifted in the spreadsheet.</li>
+            <li><strong>Supabase Constraints:</strong> Data validation constraints (e.g., duplicate values or missing keys) conflicted during the insert/update process.</li>
+            <li><strong>Network Timeouts:</strong> Temporary communication lag between Google Cloud and Supabase hosts.</li>
+          </ul>
+
+          <!-- Action Steps -->
+          <h3 style="color:#1e1e24;font-size:16px;margin:0 0 10px 0;border-bottom:1px solid #e0e0e0;padding-bottom:6px;">🛠️ What Should You Do Next?</h3>
+          <ol style="font-size:14px;color:#555;margin:0 0 28px 0;padding-left:20px;line-height:1.8;">
+            <li>
+              <strong>Verify Spreadsheet Layout:</strong> Check the source spreadsheet to confirm no critical columns have been modified or left blank.
+            </li>
+            <li>
+              <strong>Examine Complete GCP Logs:</strong> Open the Google Cloud Console logs to view the chronological execution flow and pinpoint the breakdown line.
+            </li>
+            <li>
+              <strong>Trigger a Manual Sync:</strong> Once verified, trigger a manual HTTP execution to verify that the pipeline can run to completion.
+            </li>
+          </ol>
+
+          <!-- Resources & Links Grid -->
+          <h3 style="color:#1e1e24;font-size:16px;margin:0 0 14px 0;border-bottom:1px solid #e0e0e0;padding-bottom:6px;">🔗 Quick Access Resources</h3>
+          <div style="display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:8px;">
+            <a href="https://docs.google.com/spreadsheets/d/1kHXAbVe-EAD-l63C7o4c1bJcvL0ECEyylXrspV8fJCQ/edit" target="_blank" style="display:block;background:#34a853;color:#ffffff;text-decoration:none;padding:12px;border-radius:6px;text-align:center;font-weight:600;font-size:14px;box-shadow:0 2px 4px rgba(0,0,0,0.08);">
+              🟢 Open PRISM Central Spreadsheet
+            </a>
+            <a href="https://console.firebase.google.com/project/pharaoh-54a0e/functions" target="_blank" style="display:block;background:#ffca28;color:#1e1e24;text-decoration:none;padding:12px;border-radius:6px;text-align:center;font-weight:600;font-size:14px;box-shadow:0 2px 4px rgba(0,0,0,0.08);">
+              🟡 Open Firebase Functions Console
+            </a>
+            <a href="https://supabase.com/dashboard/project/hyfgyfuvligacjwxjnce" target="_blank" style="display:block;background:#3ecf8e;color:#ffffff;text-decoration:none;padding:12px;border-radius:6px;text-align:center;font-weight:600;font-size:14px;box-shadow:0 2px 4px rgba(0,0,0,0.08);">
+              🟢 Open Supabase Project Dashboard
+            </a>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div style="background:#f4f4f7;padding:20px;text-align:center;border-top:1px solid #e8e8eb;">
+          <p style="font-size:12px;color:#7e8299;margin:0 0 4px 0;">This is an automated system monitoring alert from the PRISM Backend.</p>
+          <p style="font-size:11px;color:#a1a5b7;margin:0;">Do not reply directly to this email.</p>
+        </div>
+
+      </div>
     </body>
     </html>
   `;
@@ -66,11 +135,11 @@ async function sendFailureAlert(error: any, context: string): Promise<void> {
   try {
     await transporter.sendMail({
       from: `"Project Zen Alerts" <${email}>`,
-      to: email,
+      to: recipients,
       subject: subject,
       html: html,
     });
-    logger.info("[Alert] Failure alert email sent successfully.");
+    logger.info(`[Alert] Failure alert email sent successfully to: ${recipients}`);
   } catch (err) {
     logger.error("[Alert] Failed to send failure alert email:", err);
   }
@@ -86,9 +155,9 @@ let _supabase: any = null;
 function getSupabase(): any {
   if (!_supabase) {
     const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.");
+      throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_SECRET environment variables.");
     }
     _supabase = createClient(supabaseUrl, supabaseKey, {
       auth: { persistSession: false },
@@ -662,7 +731,7 @@ export const syncCentralDataCron = onSchedule(
     timeZone: "Europe/London",
     timeoutSeconds: 500,
     memory: "1GiB",
-    secrets: [SUPABASE_SERVICE_ROLE_KEY, gmailEmail, gmailAppPassword]
+    secrets: [SUPABASE_SERVICE_ROLE_SECRET, gmailEmail, gmailAppPassword, NOTIFICATION_RECIPIENTS]
   },
   async (event) => {
     try {
@@ -680,7 +749,7 @@ export const syncMonitorAgentCron = onSchedule(
     timeZone: "Europe/London",
     timeoutSeconds: 500,
     memory: "1GiB",
-    secrets: [SUPABASE_SERVICE_ROLE_KEY, gmailEmail, gmailAppPassword]
+    secrets: [SUPABASE_SERVICE_ROLE_SECRET, gmailEmail, gmailAppPassword, NOTIFICATION_RECIPIENTS]
   },
   async (event) => {
     logger.info("[Monitor Agent] Commencing daily Live Sync validation check...");
@@ -763,10 +832,19 @@ export const syncCentralDataHttp = onRequest(
     serviceAccount: "pharaoh-54a0e@appspot.gserviceaccount.com",
     timeoutSeconds: 500,
     memory: "512MiB",
-    secrets: [SUPABASE_SERVICE_ROLE_KEY, gmailEmail, gmailAppPassword]
+    secrets: [SUPABASE_SERVICE_ROLE_SECRET, gmailEmail, gmailAppPassword, NOTIFICATION_RECIPIENTS]
   },
   async (req, res) => {
     try {
+      if (req.query.testAlert === "true") {
+        logger.info("[Test Alert] Triggering test alert email...");
+        await sendFailureAlert(
+          new Error("This is a mock diagnostic error to test your notification channel."),
+          "Project Zen Alert Test Route (triggered manually)"
+        );
+        res.status(200).send({ success: true, message: "Mock failure alert email triggered successfully!" });
+        return;
+      }
       await runSync();
       res.status(200).send({ success: true, timestamp: new Date().toISOString() });
     } catch (err: any) {
@@ -781,7 +859,7 @@ export const syncCentralDataCallable = onCall(
     region: "us-east4",
     timeoutSeconds: 500,
     memory: "1GiB",
-    secrets: [SUPABASE_SERVICE_ROLE_KEY, gmailEmail, gmailAppPassword]
+    secrets: [SUPABASE_SERVICE_ROLE_SECRET, gmailEmail, gmailAppPassword, NOTIFICATION_RECIPIENTS]
   },
   async (request) => {
     try {
