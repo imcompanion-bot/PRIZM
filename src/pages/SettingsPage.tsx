@@ -7,8 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Trash2, UserPlus, Loader2, Database, Clock, ShieldCheck, ArchiveRestore } from "lucide-react";
+import { Trash2, UserPlus, Loader2, Database, Clock, ShieldCheck, ArchiveRestore, Zap, RefreshCw, FileSpreadsheet } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { DEFAULT_ROLE_PERMISSIONS, FeaturePermissions } from "@/lib/permissions";
 import { Navigate } from "react-router-dom";
 import { getFunctions, httpsCallable } from "firebase/functions";
@@ -29,6 +30,17 @@ const DataSyncTab = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
   const [progressStage, setProgressStage] = useState("");
+  
+  const [autoSync, setAutoSync] = useState(() => {
+    const stored = localStorage.getItem("prism_autosync_enabled");
+    return stored ? JSON.parse(stored) : true;
+  });
+
+  const handleToggleAutoSync = (checked: boolean) => {
+    setAutoSync(checked);
+    localStorage.setItem("prism_autosync_enabled", JSON.stringify(checked));
+    toast.success(checked ? "Autosync enabled. Master sheet data will sync daily at 06:00 London time." : "Autosync disabled. Background updates paused.");
+  };
 
   const { data: lastImportedAt, refetch: refetchSyncStatus } = useQuery({
     queryKey: ["sync_central_data_status"],
@@ -40,6 +52,19 @@ const DataSyncTab = () => {
         .maybeSingle();
       if (error) return null;
       return data?.last_imported_at || null;
+    },
+  });
+
+  const { data: monitorStatus, refetch: refetchMonitorStatus } = useQuery({
+    queryKey: ["sync_monitor_status"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("data_imports" as any)
+        .select("last_imported_at, row_count")
+        .eq("dataset", "sync_monitor_status")
+        .maybeSingle();
+      if (error) return null;
+      return data ? { lastCheck: data.last_imported_at, status: data.row_count } : null;
     },
   });
 
@@ -115,6 +140,7 @@ const DataSyncTab = () => {
       queryClient.invalidateQueries({ queryKey: ["utilisation_summary_monthly"] });
       
       await refetchSyncStatus();
+      await refetchMonitorStatus();
 
       toast.success(`Successfully synced full database from centralized sheet!`);
     } catch (e: any) {
@@ -126,7 +152,7 @@ const DataSyncTab = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 max-w-3xl">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 max-w-4xl">
         <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
           <Database className="w-5 h-5 text-primary" />
           Live Sync: Full Database
@@ -135,9 +161,87 @@ const DataSyncTab = () => {
           Clicking the button below will securely connect to the centralized master Google Sheet and instantly synchronize all Roles, Rate Cards, People, Projects, and Scopes into the application.
         </p>
 
-        <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 mb-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-1">Data Source:</h3>
-          <p className="text-sm text-gray-600">Centralized Data - Master Sheet</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 flex flex-col justify-between">
+            <div>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Data Source</h3>
+              <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                Centralized Data - Master Sheet
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Automatic Sync</h3>
+              <p className="text-xs text-gray-500">Scheduled 06:00 London daily</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch 
+                id="autosync-switch"
+                checked={autoSync}
+                onCheckedChange={handleToggleAutoSync}
+                className="data-[state=checked]:bg-[#4b70d8]"
+              />
+              <Label htmlFor="autosync-switch" className="text-xs font-bold text-gray-700 uppercase w-8 text-right">
+                {autoSync ? "ON" : "OFF"}
+              </Label>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 flex flex-col justify-between gap-2">
+            <div>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#4b70d8]" />
+                Sync Monitor Agent
+              </h3>
+              <p className="text-[10px] text-gray-500 leading-tight">
+                Daily health check & auto-recovery agent (scheduled 06:15 Europe/London)
+              </p>
+            </div>
+            
+            <div className="mt-2 pt-2 border-t border-gray-200/50 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-400 font-medium">Status:</span>
+                {monitorStatus ? (
+                  monitorStatus.status === 0 ? (
+                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Healthy
+                    </span>
+                  ) : monitorStatus.status === 1 ? (
+                    <span className="inline-flex items-center gap-1 font-semibold text-amber-600">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                      Recovered
+                    </span>
+                  ) : monitorStatus.status === -1 ? (
+                    <span className="inline-flex items-center gap-1 font-semibold text-blue-600 animate-pulse">
+                      <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
+                      Retrying...
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 font-semibold text-red-600">
+                      <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                      Degraded
+                    </span>
+                  )
+                ) : (
+                  <span className="inline-flex items-center gap-1 font-semibold text-gray-600">
+                    <span className="h-1.5 w-1.5 rounded-full bg-gray-400"></span>
+                    Standby
+                  </span>
+                )}
+              </div>
+              
+              {monitorStatus?.lastCheck && (
+                <div className="flex items-center justify-between text-[10px] text-gray-400">
+                  <span>Last check:</span>
+                  <span className="font-mono">{new Date(monitorStatus.lastCheck).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">

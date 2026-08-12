@@ -3,10 +3,13 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, AlertTriangle, Clock, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Upload, AlertTriangle, Clock, FileSpreadsheet, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { format, parse, formatDistanceToNow, isValid } from "date-fns";
 import Papa from "papaparse";
+import { cn } from "@/lib/utils";
 
 interface ImportProgress {
   current: number;
@@ -191,6 +194,16 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
   const queryClient = useQueryClient();
   const [isDragging, setIsDragging] = useState(false);
   const [parsing, setParsing] = useState(false);
+  const [overrideExisting, setOverrideExisting] = useState(() => {
+    const stored = localStorage.getItem("prism_import_override");
+    return stored ? JSON.parse(stored) : true;
+  });
+
+  const handleToggleOverride = (checked: boolean) => {
+    setOverrideExisting(checked);
+    localStorage.setItem("prism_import_override", JSON.stringify(checked));
+    toast.info(checked ? "Override mode active: Matching date range will be cleared before import." : "Append mode active: Timesheets will be added without clearing existing data.");
+  };
 
   // Fetch current database timeframe
   const { data: timeframe, isLoading: isLoadingTimeframe } = useQuery({
@@ -231,16 +244,18 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
       await saveImportQueue(entries, fromDate, toDate, 0);
 
       try {
-        if (fromDate && toDate) {
-          const { error } = await supabase.from('time_entries').delete().gte('date', fromDate).lte('date', toDate);
-          if (error) throw error;
-        } else if (fromDate) {
-          const { error } = await supabase.from('time_entries').delete().gte('date', fromDate);
-          if (error) throw error;
-        } else {
-          // Instead of deleting all one by one, use a raw SQL RPC or a not.is.null filter to delete all
-          const { error } = await supabase.from('time_entries').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-          if (error) throw error;
+        if (overrideExisting) {
+          if (fromDate && toDate) {
+            const { error } = await supabase.from('time_entries').delete().gte('date', fromDate).lte('date', toDate);
+            if (error) throw error;
+          } else if (fromDate) {
+            const { error } = await supabase.from('time_entries').delete().gte('date', fromDate);
+            if (error) throw error;
+          } else {
+            // Instead of deleting all one by one, use a raw SQL RPC or a not.is.null filter to delete all
+            const { error } = await supabase.from('time_entries').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            if (error) throw error;
+          }
         }
 
         // Supabase (PostgreSQL) handles bulk inserts well, but we need to stay under the statement timeout
@@ -574,9 +589,44 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
           )}
         </div>
 
-        <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700">
-          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-          <span>When you upload a file, the system will automatically find the earliest and latest date in your CSV and <strong>safely replace existing timesheets within that exact date range</strong> to prevent duplicates.</span>
+        {/* Override/Append Toggle Card */}
+        <div className="bg-gray-50 border border-gray-150 rounded-lg p-4 flex items-center justify-between gap-4">
+          <div className="space-y-0.5">
+            <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+              <RefreshCw className={cn("w-4 h-4 text-[#4b70d8]", overrideExisting && "animate-spin-slow")} />
+              Override Existing Data
+            </h4>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              When active, clears matching date ranges before importing. When inactive, appends directly.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch 
+              id="override-switch"
+              checked={overrideExisting}
+              onCheckedChange={handleToggleOverride}
+              className="data-[state=checked]:bg-[#4b70d8]"
+            />
+            <Label htmlFor="override-switch" className="text-xs font-bold text-gray-700 uppercase w-12 text-right">
+              {overrideExisting ? "CLEAR" : "APPEND"}
+            </Label>
+          </div>
+        </div>
+
+        <div className={cn(
+          "flex items-start gap-2 rounded-md border p-3 text-sm transition-all duration-200",
+          overrideExisting 
+            ? "border-amber-500/30 bg-amber-500/5 text-amber-700" 
+            : "border-blue-500/30 bg-blue-50/50 text-blue-700"
+        )}>
+          <AlertTriangle className={cn("h-4 w-4 mt-0.5 shrink-0", overrideExisting ? "text-amber-600" : "text-blue-600")} />
+          <span>
+            {overrideExisting ? (
+              <>When you upload a file, the system will automatically find the earliest and latest date in your CSV and <strong>safely replace existing timesheets within that exact date range</strong> to prevent duplicates.</>
+            ) : (
+              <>Append Mode: The system will <strong>directly append all records</strong> from the CSV. Please ensure the uploaded file does not overlap with existing entries to avoid duplication.</>
+            )}
+          </span>
         </div>
 
         {/* Drag and Drop Zone */}

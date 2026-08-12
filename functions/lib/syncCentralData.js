@@ -33,18 +33,78 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.syncCentralDataCallable = exports.syncCentralDataHttp = exports.syncCentralDataCron = void 0;
+exports.syncCentralDataCallable = exports.syncCentralDataHttp = exports.syncMonitorAgentCron = exports.syncCentralDataCron = void 0;
 exports.runSync = runSync;
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const https_1 = require("firebase-functions/v2/https");
+const params_1 = require("firebase-functions/params");
 const logger = __importStar(require("firebase-functions/logger"));
 const googleapis_1 = require("googleapis");
 const uuid_1 = require("uuid");
 const supabase_js_1 = require("@supabase/supabase-js");
 const app_1 = require("firebase-admin/app");
+const nodemailer = __importStar(require("nodemailer"));
 // Ensure Apps are initialized
 if (!(0, app_1.getApps)().length) {
     (0, app_1.initializeApp)();
+}
+const SUPABASE_SERVICE_ROLE_KEY = (0, params_1.defineSecret)("SUPABASE_SERVICE_ROLE_KEY");
+const gmailEmail = (0, params_1.defineSecret)("GMAIL_EMAIL");
+const gmailAppPassword = (0, params_1.defineSecret)("GMAIL_APP_PASSWORD");
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+async function sendFailureAlert(error, context) {
+    const email = gmailEmail.value();
+    const password = gmailAppPassword.value();
+    if (!email || !password) {
+        logger.warn("[Alert] GMAIL_EMAIL or GMAIL_APP_PASSWORD not set. Skipping email alert.");
+        return;
+    }
+    const transporter = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        auth: {
+            user: email,
+            pass: password,
+        },
+    });
+    const subject = `🚨 Project Zen Sync Failure Alert — ${context}`;
+    const html = `
+    <!doctype html>
+    <html>
+    <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#333;line-height:1.6;padding:24px;max-width:600px;margin:0 auto;border:1px solid #eee;border-radius:8px;">
+      <h2 style="color:#d32f2f;margin-top:0;display:flex;align-items:center;">
+        <span style="font-size:28px;margin-right:8px;">🚨</span> Database Sync Failed
+      </h2>
+      <p>Hi Admin,</p>
+      <p>An error occurred during a database sync task for <strong>Project Zen</strong>.</p>
+      
+      <div style="background:#f9f9f9;border-left:4px solid #d32f2f;padding:16px;margin:18px 0;border-radius:4px;font-family:monospace;font-size:14px;white-space:pre-wrap;word-break:break-all;">
+        <strong>Context:</strong> ${escapeHtml(context)}
+        <br/><br/>
+        <strong>Error Details:</strong>
+        <br/>
+        ${escapeHtml(error?.stack || error?.message || String(error))}
+      </div>
+
+      <p>Please log in to the <a href="https://console.firebase.google.com/project/pharaoh-54a0e/functions" style="color:#0288d1;text-decoration:none;font-weight:600;">Firebase Console Logs</a> or <a href="https://supabase.com/dashboard/project/hyfgyfuvligacjwxjnce" style="color:#0288d1;text-decoration:none;font-weight:600;">Supabase Dashboard</a> to investigate.</p>
+      <hr style="border:0;border-top:1px solid #eee;margin:24px 0;"/>
+      <p style="font-size:12px;color:#999;margin-bottom:0;">This is an automated security alert from the Project Zen Backend.</p>
+    </body>
+    </html>
+  `;
+    try {
+        await transporter.sendMail({
+            from: `"Project Zen Alerts" <${email}>`,
+            to: email,
+            subject: subject,
+            html: html,
+        });
+        logger.info("[Alert] Failure alert email sent successfully.");
+    }
+    catch (err) {
+        logger.error("[Alert] Failed to send failure alert email:", err);
+    }
 }
 // Fixed namespace for deterministic UUID generation
 const NAMESPACE = "1b671a64-40d5-491e-99b0-da01ff1f3341";
@@ -578,10 +638,94 @@ async function runSync() {
     }
     logger.info(`Sync complete! Roles: ${upsertedRoles}, RateCards: ${upsertedRateCards}, People: ${upsertedPeople}, Projects: ${upsertedProjects}, Scopes: ${upsertedScopes}`);
 }
-exports.syncCentralDataCron = (0, scheduler_1.onSchedule)({ schedule: "0 6 * * *", timeZone: "Europe/London", timeoutSeconds: 500, memory: "1GiB" }, async (event) => {
-    await runSync();
+exports.syncCentralDataCron = (0, scheduler_1.onSchedule)({
+    schedule: "0 6 * * *",
+    timeZone: "Europe/London",
+    timeoutSeconds: 500,
+    memory: "1GiB",
+    secrets: [SUPABASE_SERVICE_ROLE_KEY, gmailEmail, gmailAppPassword]
+}, async (event) => {
+    try {
+        await runSync();
+    }
+    catch (err) {
+        logger.error("Automated Daily Sync failed:", err);
+        await sendFailureAlert(err, "Daily Automated Sync (06:00 AM Europe/London)");
+    }
 });
-exports.syncCentralDataHttp = (0, https_1.onRequest)({ region: "us-east4", serviceAccount: "pharaoh-54a0e@appspot.gserviceaccount.com", timeoutSeconds: 500, memory: "512MiB" }, async (req, res) => {
+exports.syncMonitorAgentCron = (0, scheduler_1.onSchedule)({
+    schedule: "15 6 * * *",
+    timeZone: "Europe/London",
+    timeoutSeconds: 500,
+    memory: "1GiB",
+    secrets: [SUPABASE_SERVICE_ROLE_KEY, gmailEmail, gmailAppPassword]
+}, async (event) => {
+    logger.info("[Monitor Agent] Commencing daily Live Sync validation check...");
+    const supabase = getSupabase();
+    try {
+        const { data, error } = await supabase
+            .from("data_imports")
+            .select("last_imported_at")
+            .eq("dataset", "central_sync")
+            .maybeSingle();
+        if (error) {
+            throw new Error(`Failed to query sync timestamp: ${error.message}`);
+        }
+        const lastImportedAt = data?.last_imported_at;
+        const now = new Date();
+        let needsRetry = false;
+        if (!lastImportedAt) {
+            logger.warn("[Monitor Agent] No successful sync timestamp found. Live Sync has never succeeded!");
+            needsRetry = true;
+        }
+        else {
+            const lastSyncTime = new Date(lastImportedAt);
+            const diffMs = now.getTime() - lastSyncTime.getTime();
+            const diffMinutes = diffMs / (1000 * 60);
+            logger.info(`[Monitor Agent] Last successful sync occurred at ${lastImportedAt} (${Math.round(diffMinutes)} minutes ago).`);
+            // Threshold is 30 minutes. Since the cron runs at 06:15 AM, the scheduled sync at 06:00 AM
+            // should have successfully completed less than 15 minutes ago.
+            // If the last success is older than 30 minutes (e.g. yesterday's sync), today's sync failed or skipped!
+            if (diffMinutes > 30) {
+                logger.warn(`[Monitor Agent] Last successful sync is too old (${Math.round(diffMinutes)} minutes old). Live Sync failed to complete today!`);
+                needsRetry = true;
+            }
+        }
+        if (needsRetry) {
+            logger.info("[Monitor Agent] Triggering FORCED retry of morning Live Sync...");
+            // Update monitoring status to indicate a retry is active
+            await supabase.from("data_imports").upsert({ dataset: "sync_monitor_status", last_imported_at: new Date().toISOString(), row_count: -1 }, // row_count -1 means retrying
+            { onConflict: "dataset" });
+            await runSync();
+            logger.info("[Monitor Agent] FORCED retry sync completed successfully!");
+            await supabase.from("data_imports").upsert({ dataset: "sync_monitor_status", last_imported_at: new Date().toISOString(), row_count: 1 }, // row_count 1 means retry succeeded
+            { onConflict: "dataset" });
+        }
+        else {
+            logger.info("[Monitor Agent] Live Sync validated successfully. No action required.");
+            await supabase.from("data_imports").upsert({ dataset: "sync_monitor_status", last_imported_at: new Date().toISOString(), row_count: 0 }, // row_count 0 means validated successfully first time
+            { onConflict: "dataset" });
+        }
+    }
+    catch (err) {
+        logger.error("[Monitor Agent] Fatal monitoring error:", err);
+        await sendFailureAlert(err, "Daily Monitor Agent check & forced sync retry (06:15 AM Europe/London)");
+        try {
+            await supabase.from("data_imports").upsert({ dataset: "sync_monitor_status", last_imported_at: new Date().toISOString(), row_count: -2 }, // row_count -2 means monitor error
+            { onConflict: "dataset" });
+        }
+        catch (upsertErr) {
+            logger.error("[Monitor Agent] Failed to save monitor error status to database:", upsertErr);
+        }
+    }
+});
+exports.syncCentralDataHttp = (0, https_1.onRequest)({
+    region: "us-east4",
+    serviceAccount: "pharaoh-54a0e@appspot.gserviceaccount.com",
+    timeoutSeconds: 500,
+    memory: "512MiB",
+    secrets: [SUPABASE_SERVICE_ROLE_KEY, gmailEmail, gmailAppPassword]
+}, async (req, res) => {
     try {
         await runSync();
         res.status(200).send({ success: true, timestamp: new Date().toISOString() });
@@ -591,7 +735,12 @@ exports.syncCentralDataHttp = (0, https_1.onRequest)({ region: "us-east4", servi
         res.status(500).send({ error: err.message });
     }
 });
-exports.syncCentralDataCallable = (0, https_1.onCall)({ region: "us-east4", timeoutSeconds: 500, memory: "1GiB" }, async (request) => {
+exports.syncCentralDataCallable = (0, https_1.onCall)({
+    region: "us-east4",
+    timeoutSeconds: 500,
+    memory: "1GiB",
+    secrets: [SUPABASE_SERVICE_ROLE_KEY, gmailEmail, gmailAppPassword]
+}, async (request) => {
     try {
         await runSync();
         return { success: true, timestamp: new Date().toISOString() };

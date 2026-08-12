@@ -4,7 +4,7 @@ import { google } from "googleapis";
 const SHEET_ID = "1kHXAbVe-EAD-l63C7o4c1bJcvL0ECEyylXrspV8fJCQ";
 
 export const debugHeadersHttp = onRequest(
-  { timeoutSeconds: 500, memory: "1GiB" },
+  { region: "us-east4", timeoutSeconds: 500, memory: "1GiB" },
   async (req, res) => {
     try {
       const auth = new google.auth.GoogleAuth({

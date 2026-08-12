@@ -1,9 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.debugHeadersHttp = exports.sendCompletenessReminders = exports.syncCentralDataCallable = exports.syncCentralDataHttp = exports.syncCentralDataCron = void 0;
+exports.debugHeadersHttp = exports.sendCompletenessReminders = exports.syncCentralDataCallable = exports.syncMonitorAgentCron = exports.syncCentralDataHttp = exports.syncCentralDataCron = void 0;
 var syncCentralData_1 = require("./syncCentralData");
 Object.defineProperty(exports, "syncCentralDataCron", { enumerable: true, get: function () { return syncCentralData_1.syncCentralDataCron; } });
 Object.defineProperty(exports, "syncCentralDataHttp", { enumerable: true, get: function () { return syncCentralData_1.syncCentralDataHttp; } });
+Object.defineProperty(exports, "syncMonitorAgentCron", { enumerable: true, get: function () { return syncCentralData_1.syncMonitorAgentCron; } });
 var syncCentralData_2 = require("./syncCentralData");
 Object.defineProperty(exports, "syncCentralDataCallable", { enumerable: true, get: function () { return syncCentralData_2.syncCentralDataCallable; } });
 var sendCompletenessReminders_1 = require("./sendCompletenessReminders");

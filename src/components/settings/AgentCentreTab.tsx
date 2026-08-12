@@ -339,7 +339,7 @@ export const AgentCentreTab = () => {
         log("INFO: Auditing timesheet compliance and lag coefficients...");
         const { data: timesheets, error: tsErr } = await supabase
           .from("time_entries")
-          .select("id, entry_date")
+          .select("id, date")
           .limit(10);
 
         if (tsErr) {
