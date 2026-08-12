@@ -1,0 +1,1 @@
+sed -i '' 's/const \[isSelectingRange, setIsSelectingRange\] = useState(false);/const [isSelectingRange, setIsSelectingRange] = useState(false);\n  const [rangeStart, setRangeStart] = useState<Date | undefined>(undefined);/g' src/components/ui/custom-date-range-picker.tsx

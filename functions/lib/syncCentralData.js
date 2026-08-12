@@ -407,6 +407,10 @@ async function runSync() {
         if (!title)
             continue;
         let oppNumber = titleToOppNumber.get(title.trim()) || null;
+        let oppNumberFromSheet = row[182]; // Column GB (184 - 2 = 182)
+        if (oppNumberFromSheet !== undefined && String(oppNumberFromSheet).trim() !== '') {
+            oppNumber = String(oppNumberFromSheet).trim();
+        }
         let oppNumberLower = oppNumber ? oppNumber.toLowerCase().trim() : null;
         let titleLower = title.toLowerCase().trim();
         let projectId;
@@ -436,9 +440,12 @@ async function runSync() {
             }
         }
         const price = parseNumber(row[11]);
-        const oppRecordType = title.toLowerCase().includes("rfp") || title.toLowerCase().includes("rfi")
-            ? "Agency - RFP / RFI"
-            : "Agency - Execution";
+        let oppRecordType = row[188];
+        if (!oppRecordType) {
+            oppRecordType = title.toLowerCase().includes("rfp") || title.toLowerCase().includes("rfi")
+                ? "Agency - RFP / RFI"
+                : "Agency - Execution";
+        }
         projectsBatchMap.set(projectId, {
             id: projectId,
             title,

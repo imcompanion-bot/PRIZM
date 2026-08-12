@@ -12,7 +12,7 @@ import { formatCurrency, calculateInternalCostPerHour } from "@/lib/calculations
 import { getBatchProjectFxRates, getMonthlyBatchFxRates } from "@/lib/fx";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { subMonths, format, eachDayOfInterval, isWeekend, parseISO } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, startOfWeek, endOfWeek, parseISO } from "date-fns";
 import { buildParentalLeaveMap, getWorkingDaysExcludingLeave } from "@/lib/parental-leave";
 import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, ArrowUp, ArrowDown, Info } from "lucide-react";
 import * as RechartsPrimitive from "recharts";
@@ -167,10 +167,8 @@ const ProfitabilityPage = () => {
   }, []);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
-  const customStartDate = searchParams.get("cs") || format(subMonths(new Date(), 6), "yyyy-MM-dd");
+  const customStartDate = searchParams.get("cs") || format(startOfMonth(subMonths(new Date(), 6)), "yyyy-MM-dd");
   const customEndDate = searchParams.get("ce") || format(new Date(), "yyyy-MM-dd");
-  const setCustomStartDate = useCallback((v: string) => setParam("cs", v), [setParam]);
-  const setCustomEndDate = useCallback((v: string) => setParam("ce", v), [setParam]);
 
   // Debounced custom dates — only propagate to queries after 800ms of inactivity
   const [appliedStartDate, setAppliedStartDate] = useState(customStartDate);
@@ -191,7 +189,7 @@ const ProfitabilityPage = () => {
 
   const cutoffDate = useMemo(() => {
     if (timePeriod === "custom") return appliedStartDate;
-    return format(subMonths(new Date(), parseInt(timePeriod)), "yyyy-MM-dd");
+    return format(startOfMonth(subMonths(new Date(), parseInt(timePeriod))), "yyyy-MM-dd");
   }, [timePeriod, appliedStartDate]);
 
   const endDateStr = useMemo(() => {
@@ -237,6 +235,7 @@ const ProfitabilityPage = () => {
         const { data, error } = await supabase
           .from("rate_cards")
           .select("id, name, role_id, hourly_rate, currency")
+          .order("id")
           .range(from, from + pageSize - 1);
         if (error) throw error;
         allData.push(...(data || []));
@@ -256,6 +255,7 @@ const ProfitabilityPage = () => {
       const pageSize = 1000;
       while (true) {
         const { data, error } = await supabase.rpc("get_project_costs")
+          .order("project_id")
           .range(from, from + pageSize - 1);
         if (error) throw error;
         allData.push(...(data || []));
@@ -278,6 +278,7 @@ const ProfitabilityPage = () => {
         const { data, error } = await supabase
           .from("project_phases")
           .select("id, project_id, start_date, end_date")
+          .order("id")
           .range(from, from + pageSize - 1);
         if (error) throw error;
         allData.push(...(data || []));
@@ -299,6 +300,8 @@ const ProfitabilityPage = () => {
         const { data, error } = await supabase
           .from("phase_allocations")
           .select("phase_id, project_scope_id, hours")
+          .order("phase_id")
+          .order("project_scope_id")
           .range(from, from + pageSize - 1);
         if (error) throw error;
         allData.push(...(data || []));
@@ -312,6 +315,7 @@ const ProfitabilityPage = () => {
   const { data: monthlyCosts = [] } = useQuery({
     queryKey: ["profitability_monthly_costs", cutoffDate, endDateStr],
     staleTime: 5 * 60 * 1000,
+    enabled: projectCosts.length > 0,
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const allData: any[] = [];
@@ -319,9 +323,10 @@ const ProfitabilityPage = () => {
       const pageSize = 1000;
       while (true) {
         const { data, error } = await supabase.rpc("get_project_costs_monthly", { _start_date: cutoffDate, _end_date: endDateStr })
+          .order("project_id")
+          .order("month_date")
           .range(from, from + pageSize - 1);
         if (error) throw error;
-        console.log("DEBUG: monthlyCosts fetched:", data?.slice(0, 5));
         allData.push(...(data || []));
         if (!data || data.length < pageSize) break;
         from += pageSize;
@@ -341,58 +346,21 @@ const ProfitabilityPage = () => {
     },
   });
 
-  const { data: hoursByRole = [] } = useQuery({
-    queryKey: ["profitability_hours_by_role"],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const allData: any[] = [];
-      let from = 0;
-      const pageSize = 1000;
-      while (true) {
-        const { data, error } = await supabase.rpc("get_project_hours_by_role")
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        allData.push(...(data || []));
-        if (!data || data.length < pageSize) break;
-        from += pageSize;
-      }
-      return allData;
-    },
-  });
-
-  const { data: costsByRole = [] } = useQuery({
-    queryKey: ["profitability_costs_by_role"],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const allData: any[] = [];
-      let from = 0;
-      const pageSize = 1000;
-      while (true) {
-        const { data, error } = await supabase.rpc("get_project_costs_by_role" as any)
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        allData.push(...(data || []));
-        if (!data || data.length < pageSize) break;
-        from += pageSize;
-      }
-      return allData;
-    },
-  });
-
   const { data: people = [] } = useQuery({
     queryKey: ["profitability_people"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const allData: any[] = [];
+      let allData: any[] = [];
       let from = 0;
       const pageSize = 1000;
       while (true) {
         const { data, error } = await supabase
           .from("people")
           .select("id, role_id, team, annual_salary, office, employment_start_date, employment_end_date, overall_start_date, overall_end_date, roles(billable_capacity_hours)")
+          .order("id")
           .range(from, from + pageSize - 1);
         if (error) throw error;
-        allData.push(...(data || []));
+        allData = allData.concat(data || []);
         if (!data || data.length < pageSize) break;
         from += pageSize;
       }
@@ -400,18 +368,68 @@ const ProfitabilityPage = () => {
     },
   });
 
-  const { data: projectPersonHours = [] } = useQuery({
-    queryKey: ["profitability_project_person_hours", appliedStartDate, appliedEndDate],
+  const { data: utilisationSummary = [] } = useQuery({
+    queryKey: ["profitability_utilisation_summary", appliedStartDate, appliedEndDate],
     staleTime: 5 * 60 * 1000,
+    enabled: monthlyCosts.length > 0,
     queryFn: async () => {
       const PAGE_SIZE = 1000;
       let allData: any[] = [];
       let from = 0;
       while (true) {
-        const { data, error } = await supabase.rpc("get_project_person_hours_windowed" as any, {
+        const { data, error } = await supabase.rpc("get_utilisation_summary", {
           _start_date: appliedStartDate,
           _end_date: appliedEndDate
-        }).range(from, from + PAGE_SIZE - 1);
+        })
+          .order("project_id")
+          .order("person_id")
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        if (!data || data.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+      return allData as { person_id: string; project_id: string | null; total_hours: number; leave_hours: number }[];
+    },
+  });
+
+  const { data: personCappedHours = [] } = useQuery({
+    queryKey: ["profitability_person_capped_hours", appliedStartDate, appliedEndDate],
+    staleTime: 5 * 60 * 1000,
+    enabled: monthlyCosts.length > 0,
+    queryFn: async () => {
+      const PAGE_SIZE = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase.rpc("get_person_capped_hours", {
+          _start_date: appliedStartDate,
+          _end_date: appliedEndDate
+        })
+          .order("person_id")
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        if (!data || data.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+      return allData as { person_id: string; capped_hours: number }[];
+    },
+  });
+
+  const { data: allTimeProjectPersonHours = [] } = useQuery({
+    queryKey: ["profitability_all_time_project_person_hours"],
+    staleTime: 5 * 60 * 1000,
+    enabled: utilisationSummary.length > 0,
+    queryFn: async () => {
+      const PAGE_SIZE = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase.rpc("get_project_person_hours" as any)
+          .order("project_id")
+          .order("person_id")
+          .range(from, from + PAGE_SIZE - 1);
         if (error) throw error;
         allData = allData.concat(data || []);
         if (!data || data.length < PAGE_SIZE) break;
@@ -420,7 +438,6 @@ const ProfitabilityPage = () => {
       return allData as { project_id: string; person_id: string; total_hours: number }[];
     },
   });
-
 
   const peopleByIdForBudget = useMemo(() => {
     const map = new Map<string, any>();
@@ -451,7 +468,7 @@ const ProfitabilityPage = () => {
   const projectRoleCostStats = useMemo(() => {
     const map: Record<string, Record<string, { gbpWeightedCostSum: number; usdWeightedCostSum: number; gbpHours: number; usdHours: number }>> = {};
 
-    for (const row of projectPersonHours) {
+    for (const row of utilisationSummary) {
       if (!row.project_id || !row.person_id) continue;
       const hours = Number(row.total_hours) || 0;
       if (hours <= 0) continue;
@@ -478,7 +495,7 @@ const ProfitabilityPage = () => {
     }
 
     return map;
-  }, [projectPersonHours, peopleByIdForBudget]);
+  }, [utilisationSummary, peopleByIdForBudget]);
 
   // Build a lookup map for project costs
   // Window-clipped per-project costs: aggregate monthlyCosts rows (already filtered to cutoffDate..endDateStr)
@@ -564,34 +581,50 @@ const ProfitabilityPage = () => {
     return map;
   }, [roles]);
 
-  // Build lookup: projectId -> { roleId -> actualHours }
+  // Build lookup: projectId -> roleId -> total hours
   const hoursByProjectRole = useMemo(() => {
     const map: Record<string, Record<string, number>> = {};
-    for (const row of hoursByRole) {
-      if (!row.project_id) continue;
-      // Skip entries with no role (person_id was null on import → unmatched people)
-      if (!row.role_id) continue;
+    for (const row of utilisationSummary) {
+      if (!row.project_id || !row.person_id) continue;
+      const person = peopleByIdForBudget.get(row.person_id);
+      if (!person || !person.role_id) continue;
+      
       if (!map[row.project_id]) map[row.project_id] = {};
-      map[row.project_id][row.role_id] = (map[row.project_id][row.role_id] || 0) + Number(row.total_hours);
+      map[row.project_id][person.role_id] = (map[row.project_id][person.role_id] || 0) + Number(row.total_hours);
     }
     return map;
-  }, [hoursByRole]);
+  }, [utilisationSummary, peopleByIdForBudget]);
 
-  // Build lookup: projectId -> { roleId -> { costGbp, costUsd, hours } } from RPC (real per-person costs)
+  // Build lookup: projectId -> { roleId -> { costGbp, costUsd, hours } }
   const costsByProjectRole = useMemo(() => {
     const map: Record<string, Record<string, { costGbp: number; costUsd: number; hours: number }>> = {};
-    for (const row of costsByRole) {
-      if (!row.project_id) continue;
-      const roleKey = row.role_id || "null";
+    for (const row of utilisationSummary) {
+      if (!row.project_id || !row.person_id) continue;
+      const hours = Number(row.total_hours) || 0;
+      if (hours <= 0) continue;
+
+      const person = peopleByIdForBudget.get(row.person_id);
+      if (!person) continue;
+
+      const roleKey = person.role_id || "null";
+      const isUs = person.office === "US" || person.office === "United States";
+      const cap = person.roles?.billable_capacity_hours;
+      const rate = calculateInternalCostPerHour(person.annual_salary || 0, cap);
+      const cost = rate * hours;
+
       if (!map[row.project_id]) map[row.project_id] = {};
       const existing = map[row.project_id][roleKey] || { costGbp: 0, costUsd: 0, hours: 0 };
-      existing.costGbp += Number(row.cost_gbp_staff) || 0;
-      existing.costUsd += Number(row.cost_usd_staff) || 0;
-      existing.hours += Number(row.total_hours) || 0;
+      
+      if (isUs) {
+        existing.costUsd += cost;
+      } else {
+        existing.costGbp += cost;
+      }
+      existing.hours += hours;
       map[row.project_id][roleKey] = existing;
     }
     return map;
-  }, [costsByRole]);
+  }, [utilisationSummary, peopleByIdForBudget]);
 
   // ── Compute Client Profitability ──
 
@@ -622,6 +655,17 @@ const ProfitabilityPage = () => {
       // Exclude passthrough / talent savings record types
       const recordType = (p.opportunity_record_type || "").trim().toLowerCase();
       if (EXCLUDED_RECORD_TYPES.includes(recordType)) return false;
+
+      const titleLower = (p.title || "").toLowerCase();
+      if (
+        titleLower.includes("talent savings") ||
+        titleLower.includes("talent efficiencies") ||
+        titleLower.includes("holding pot") ||
+        titleLower.includes("passthrough costs")
+      ) {
+        return false;
+      }
+
       return true;
     });
 
@@ -686,9 +730,9 @@ const ProfitabilityPage = () => {
         return null;
       };
 
-      const afPrice = p.price ?? p.revenue ?? getExtraNum(p, "total price", "price gbp/usd", "price");
-      const afMediaCost = p.media_cost ?? getExtraNum(p, "media cost", "cost - paid media budget") ?? 0;
-      const afGrossBudget = p.gross_budget ?? p.budget_cost ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+      const afPrice = p.price ?? p.revenue ?? getExtraNum(p, "project_currency_revenue", "total price", "price gbp/usd", "price");
+      const afMediaCost = p.media_cost ?? getExtraNum(p, "project_currency_media_cost", "media cost", "cost - paid media budget") ?? 0;
+      const afGrossBudget = p.gross_budget ?? p.budget_cost ?? getExtraNum(p, "project_currency_gross_budget", "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
       const fullAgencyFee = afPrice !== null ? afPrice - afMediaCost - afGrossBudget : null;
 
       const rateCardRevenue = (p.project_scopes || []).reduce((sum: number, sc: any) => {
@@ -922,7 +966,7 @@ const ProfitabilityPage = () => {
       .filter((g): g is ClientGroup => g !== null);
 
     return groups.sort((a, b) => b.profit - a.profit);
-  }, [projects, costMap, allRateCards, officeFilter, cutoffDate, displayCurrency, projectPhases, phaseAllocations, statusFilter, fallbackGbpUsdRate, historicalFxRates, companyRoleCostStats, projectRoleCostStats]);
+  }, [projects, costMap, allTimeCostMap, allRateCards, officeFilter, cutoffDate, displayCurrency, projectPhases, phaseAllocations, statusFilter, fallbackGbpUsdRate, historicalFxRates, companyRoleCostStats, projectRoleCostStats]);
 
   // ── Role-level burn by client ──
   const roleBurnByClient = useMemo(() => {
@@ -1175,7 +1219,7 @@ const ProfitabilityPage = () => {
     }
 
     return result;
-  }, [clientGroups, projects, hoursByProjectRole, roleNameMap, roleTeamMap, projectPhases, phaseAllocations, costMap, costsByProjectRole, projectRoleCostStats, companyRoleCostStats, displayCurrency, fallbackGbpUsdRate, historicalFxRates]);
+  }, [clientGroups, projects, hoursByProjectRole, roleNameMap, roleTeamMap, projectPhases, phaseAllocations, costMap, allTimeCostMap, costsByProjectRole, projectRoleCostStats, companyRoleCostStats, displayCurrency, fallbackGbpUsdRate, historicalFxRates]);
 
   // ── Totals ──
 
@@ -1272,16 +1316,11 @@ const ProfitabilityPage = () => {
     const totalCost = filtered.reduce((s, p) => s + p.cost, 0);
 
     return { projects: filtered, totalHours, totalCost };
-  }, [projects, costMap, officeFilter, cutoffDate, displayCurrency, statusFilter, fallbackGbpUsdRate, historicalFxRates]);
+  }, [projects, costMap, allTimeCostMap, officeFilter, cutoffDate, displayCurrency, statusFilter, fallbackGbpUsdRate, historicalFxRates]);
 
 
 
-  // Build a people lookup by id
-  const peopleById = useMemo(() => {
-    const map = new Map<string, any>();
-    for (const p of people) map.set(p.id, p);
-    return map;
-  }, [people]);
+
 
   const parentalLeaveMap = useMemo(() => buildParentalLeaveMap(people), [people]);
 
@@ -1298,60 +1337,103 @@ const ProfitabilityPage = () => {
     const HOURS_PER_DAY = 7.5;
     const today = new Date();
 
-    // Group by project
+    // Group by project using all-time data so we don't miss people who didn't log time in the window
     const projectPeopleMap = new Map<string, Set<string>>();
-    const projectPersonHoursMap = new Map<string, Map<string, number>>();
-    for (const row of projectPersonHours) {
+    for (const row of allTimeProjectPersonHours) {
       if (!projectPeopleMap.has(row.project_id)) projectPeopleMap.set(row.project_id, new Set());
       projectPeopleMap.get(row.project_id)!.add(row.person_id);
-      if (!projectPersonHoursMap.has(row.project_id)) projectPersonHoursMap.set(row.project_id, new Map());
-      projectPersonHoursMap.get(row.project_id)!.set(row.person_id, Number(row.total_hours));
     }
 
-    // Per-project completeness: for each person on a project, calculate their
-    // completeness during that project's active dates (capped at today, intersected with employment dates)
-    const projectComp = new Map<string, number>();
+    const projectPersonHoursMap = new Map<string, Map<string, number>>();
+    const personTotalHoursMap = new Map<string, number>();
+    const personLeaveHoursMap = new Map<string, number>();
+
+    for (const row of utilisationSummary) {
+      if (!row.person_id) continue;
+      personTotalHoursMap.set(row.person_id, (personTotalHoursMap.get(row.person_id) || 0) + Number(row.total_hours));
+      personLeaveHoursMap.set(row.person_id, (personLeaveHoursMap.get(row.person_id) || 0) + Number(row.leave_hours));
+      if (row.project_id) {
+        if (!projectPersonHoursMap.has(row.project_id)) projectPersonHoursMap.set(row.project_id, new Map());
+        projectPersonHoursMap.get(row.project_id)!.set(row.person_id, Number(row.total_hours));
+        if (!projectPeopleMap.has(row.project_id)) projectPeopleMap.set(row.project_id, new Set());
+        projectPeopleMap.get(row.project_id)!.add(row.person_id);
+      }
+    }
+
+    const personCappedHoursMap = new Map<string, number>();
+    for (const row of personCappedHours) {
+      personCappedHoursMap.set(row.person_id, Number(row.capped_hours));
+    }
+
+    const windowStart = new Date(appliedStartDate);
+    const windowEndRaw = new Date(appliedEndDate);
+    const windowEnd = windowEndRaw > today ? today : windowEndRaw;
+
+    // First pass: Calculate Person Completeness
+    const personCompletenessMap = new Map<string, number>();
+    for (const person of people) {
+      const empStart = person.overall_start_date || person.employment_start_date;
+      const empEnd = person.overall_end_date || person.employment_end_date;
+      let effectiveStart = empStart && new Date(empStart) > windowStart ? new Date(empStart) : windowStart;
+      let effectiveEnd = empEnd && new Date(empEnd) < windowEnd ? new Date(empEnd) : windowEnd;
+
+      if (effectiveStart > effectiveEnd) continue;
+
+      const normName = (person.name || "").trim().toLowerCase();
+      const leaveIntervals = parentalLeaveMap.get(normName);
+      const workingDays = getWorkingDaysExcludingLeave(effectiveStart, effectiveEnd, leaveIntervals);
+      
+      let expected = workingDays * HOURS_PER_DAY;
+      const leaveHrs = personLeaveHoursMap.get(person.id) || 0;
+      expected = Math.max(0, expected - leaveHrs);
+      
+      const actual = personCappedHoursMap.get(person.id) || 0;
+      const comp = expected > 0 ? Math.min(actual / expected, 1) : 1;
+      personCompletenessMap.set(person.id, comp);
+    }
+
+    // Per-project completeness: for each person on a project, their expected hours on that project
+    // is (Logged Hours / Person Completeness).
+    const projectComp = new Map<string, { expected: number; actual: number; comp: number }>();
     for (const [projId, personIds] of projectPeopleMap) {
       const proj = projectsById.get(projId);
       if (!proj) continue;
-      const projStart = new Date(proj.start_date);
-      const projEnd = new Date(proj.end_date) < today ? new Date(proj.end_date) : today;
-      if (projStart > projEnd) continue;
-
+      
       const hoursMap = projectPersonHoursMap.get(projId);
+      // We removed the `if (!hoursMap) continue;` line here so we can process 0-hour projects
+
       let projectExpected = 0;
       let projectActual = 0;
 
+      // Track how many people were supposed to log time on this project
+      let validPeopleCount = 0;
+
       for (const pid of personIds) {
-        const person = peopleById.get(pid);
-        if (!person) continue;
-        const empStart = person.overall_start_date || person.employment_start_date;
-        const empEnd = person.overall_end_date || person.employment_end_date;
-        let effectiveStart = empStart && new Date(empStart) > projStart ? new Date(empStart) : projStart;
-        let effectiveEnd = empEnd && new Date(empEnd) < projEnd ? new Date(empEnd) : projEnd;
+        const loggedHours = hoursMap?.get(pid) || 0;
+        
+        // If they logged no time, we still need to know if they were *supposed* to
+        const personComp = personCompletenessMap.get(pid);
+        if (personComp === undefined) continue; // Person wasn't active in this window
+        
+        validPeopleCount++;
+        if (loggedHours <= 0) continue; 
 
-        const windowStart = new Date(appliedStartDate);
-        const windowEndRaw = new Date(appliedEndDate);
-        const windowEnd = windowEndRaw > today ? today : windowEndRaw;
+        // If they logged hours, their contribution to expected project hours
+        // is based on their overall completeness.
+        const expectedHoursForProject = personComp > 0 ? loggedHours / personComp : loggedHours;
 
-        effectiveStart = effectiveStart > windowStart ? effectiveStart : windowStart;
-        effectiveEnd = effectiveEnd < windowEnd ? effectiveEnd : windowEnd;
-
-        if (effectiveStart > effectiveEnd) continue;
-
-        const normName = (person.name || "").trim().toLowerCase();
-        const leaveIntervals = parentalLeaveMap.get(normName);
-        const workingDays = getWorkingDaysExcludingLeave(effectiveStart, effectiveEnd, leaveIntervals);
-        const expected = workingDays * HOURS_PER_DAY;
-        if (expected === 0) continue;
-
-        const actual = hoursMap?.get(pid) || 0;
-        projectExpected += expected;
-        projectActual += actual;
+        projectExpected += expectedHoursForProject;
+        projectActual += loggedHours;
       }
 
       if (projectExpected > 0) {
         projectComp.set(projId, { expected: projectExpected, actual: projectActual, comp: Math.min((projectActual / projectExpected) * 100, 100) });
+      } else if (validPeopleCount > 0 && hoursMap === undefined) {
+        // If the project had people assigned to it all-time, and they were active during this window,
+        // but no one logged ANY time on the project during this window, it's 0% complete.
+        // Wait, if no one logged time, we don't know the expected hours natively. 
+        // We will just record 0% directly.
+        projectComp.set(projId, { expected: 1, actual: 0, comp: 0 });
       }
     }
 
@@ -1378,8 +1460,8 @@ const ProfitabilityPage = () => {
       projectCompFinal.set(projId, data.comp);
     }
 
-    return { projectComp: projectCompFinal, clientComp, projectPeopleMap };
-  }, [projectPersonHours, projectsById, peopleById, clientGroups, parentalLeaveMap, appliedStartDate, appliedEndDate]);
+    return { projectComp: projectCompFinal, projectCompRaw: projectComp, clientComp, projectPeopleMap };
+  }, [utilisationSummary, allTimeProjectPersonHours, personCappedHours, projectsById, people, clientGroups, parentalLeaveMap, appliedStartDate, appliedEndDate]);
 
   // ── Gross-up adjusted data ──
 
@@ -1790,8 +1872,14 @@ const ProfitabilityPage = () => {
               start={customStartDate ? parseISO(customStartDate) : undefined}
               end={customEndDate ? parseISO(customEndDate) : undefined}
               onSelect={({ start, end }) => {
-                setCustomStartDate(start ? format(start, "yyyy-MM-dd") : "");
-                setCustomEndDate(end ? format(end, "yyyy-MM-dd") : "");
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  if (start) next.set("cs", format(start, "yyyy-MM-dd"));
+                  else next.delete("cs");
+                  if (end) next.set("ce", format(end, "yyyy-MM-dd"));
+                  else next.delete("ce");
+                  return next;
+                }, { replace: true });
               }}
               selectedClass="bg-[#4b71d8] text-white hover:bg-[#4b71d8] hover:text-white focus:bg-[#4b71d8] focus:text-white"
               rangeMiddleClass="aria-selected:bg-[#cfddf2] aria-selected:text-[#1a1a1a]"
@@ -1847,7 +1935,7 @@ const ProfitabilityPage = () => {
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <ProfitabilityTrendChart officeFilter={officeFilter} cutoffDate={cutoffDate} displayCurrency={displayCurrency} statusFilter={statusFilter} grossUpFactors={grossUpFactors} allGrossUpFactors={allGrossUpFactors} onTrendData={handleTrendData} />
+        <ProfitabilityTrendChart officeFilter={officeFilter} cutoffDate={cutoffDate} endDate={endDateStr} displayCurrency={displayCurrency} statusFilter={statusFilter} grossUpFactors={grossUpFactors} allGrossUpFactors={allGrossUpFactors} onTrendData={handleTrendData} />
 
         {/* RFP / RFI Cost Card */}
         <Card>
@@ -2400,7 +2488,7 @@ const ProfitabilityPage = () => {
                           // Group projects by Parent Account
                           const accountMap: Record<string, ProjectProfit[]> = {};
                           for (const proj of group.projects) {
-                            const acct = proj.sfAccount || "(No Account)";
+                            const acct = proj.parentAccount || proj.sfAccount || "(No Account)";
                             if (!accountMap[acct]) accountMap[acct] = [];
                             accountMap[acct].push(proj);
                           }
@@ -2465,13 +2553,19 @@ const ProfitabilityPage = () => {
                                     </TableCell>
                                     <TableCell className="text-right text-sm">
                                       {(() => {
-                                        const vals: number[] = [];
+                                        let totalExpected = 0;
+                                        let totalActual = 0;
+                                        let hasData = false;
                                         for (const proj of projs) {
-                                          const v = completenessData.projectComp.get(proj.id);
-                                          if (v !== undefined) vals.push(v);
+                                          const raw = completenessData.projectCompRaw.get(proj.id);
+                                          if (raw) {
+                                            totalExpected += raw.expected;
+                                            totalActual += raw.actual;
+                                            hasData = true;
+                                          }
                                         }
-                                        if (vals.length === 0) return <span className="text-[10px] text-muted-foreground">—</span>;
-                                        const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
+                                        if (!hasData || totalExpected === 0) return <span className="text-[10px] text-muted-foreground">—</span>;
+                                        const avg = Math.min((totalActual / totalExpected) * 100, 100);
                                         return (
                                           <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getCompletenessColor(avg))}>
                                             {Math.round(avg)}%

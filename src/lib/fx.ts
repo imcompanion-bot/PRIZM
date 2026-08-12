@@ -12,7 +12,7 @@ async function fetchDailyRates(startDate: string, endDate: string): Promise<Reco
   if (rateCache.has(key)) return rateCache.get(key)!;
 
   try {
-    const resp = await fetch(`https://api.frankfurter.dev/v1/${startDate}..${endDate}?base=GBP&symbols=USD`);
+    const resp = await fetch(`https://api.frankfurter.app/${startDate}..${endDate}?base=GBP&symbols=USD`);
     if (!resp.ok) throw new Error(`FX API ${resp.status}`);
     const data = await resp.json();
     // data.rates = { "2025-01-02": { "USD": 1.25 }, ... }

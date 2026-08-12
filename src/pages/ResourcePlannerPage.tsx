@@ -748,8 +748,10 @@ export default function ResourcePlannerPage() {
                 <CustomDateRangePicker
                   start={startDate}
                   end={endDate}
-                  onStartChange={setStartDate}
-                  onEndChange={setEndDate}
+                  onSelect={({ start, end }) => {
+                    if (start) setStartDate(start);
+                    if (end) setEndDate(end);
+                  }}
                 />
               </div>
             </div>

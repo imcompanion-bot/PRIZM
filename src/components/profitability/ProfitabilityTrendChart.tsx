@@ -28,6 +28,7 @@ export interface ProjectMonthlyEntry {
 interface Props {
   officeFilter: OfficeFilter;
   cutoffDate: string;
+  endDate: string;
   displayCurrency: string;
   statusFilter: "all" | "ended";
   grossUpFactors?: Map<string, number>;
@@ -42,6 +43,7 @@ const EXCLUDED_RECORD_TYPES = [
   "agency - talent savings",
   "agency - passthrough costs",
   "agency - rfp / rfi",
+  "agency - holding pot",
 ];
 
 const matchesOffice = (office: string | null, filter: OfficeFilter) => {
@@ -58,7 +60,7 @@ function getWorkingDays(start: Date, end: Date): number {
   return eachDayOfInterval({ start, end }).filter((d) => !isWeekend(d)).length;
 }
 
-const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, displayCurrency, statusFilter, grossUpFactors, allGrossUpFactors, onTrendData }: Props) => {
+const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCurrency, statusFilter, grossUpFactors, allGrossUpFactors, onTrendData }: Props) => {
   const today = useMemo(() => new Date(), []);
   const todayStr = format(today, "yyyy-MM-dd");
 
@@ -146,7 +148,7 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, displayCurrency, st
 
   // Monthly costs from new RPC
   const { data: monthlyCosts = [] } = useQuery({
-    queryKey: ["profitability_monthly_costs", cutoffDate, todayStr],
+    queryKey: ["profitability_monthly_costs", cutoffDate, endDate],
     queryFn: async () => {
       const PAGE_SIZE = 1000;
       let allData: any[] = [];
@@ -154,7 +156,7 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, displayCurrency, st
       while (true) {
         const { data, error } = await (supabase.rpc as any)("get_project_costs_monthly", {
           _start_date: cutoffDate,
-          _end_date: todayStr,
+          _end_date: endDate,
         }).range(from, from + PAGE_SIZE - 1);
         if (error) throw error;
         allData = allData.concat(data || []);
@@ -185,8 +187,8 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, displayCurrency, st
   }, [monthlyCosts]);
 
   const { data: monthlyFxRates = {} } = useQuery({
-    queryKey: ["monthly_batch_fx_rates", cutoffDate, todayStr],
-    queryFn: () => getMonthlyBatchFxRates(cutoffDate, todayStr),
+    queryKey: ["monthly_batch_fx_rates", cutoffDate, endDate],
+    queryFn: () => getMonthlyBatchFxRates(cutoffDate, endDate),
     staleTime: Infinity,
   });
 
@@ -204,23 +206,45 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, displayCurrency, st
   }, [projects]);
 
   const _baseTrend = useMemo(() => {
-    // Exclude current (incomplete) month — only show full months
+    // Determine the end of the interval (the earliest between the selected endDate and the last full month)
     const lastFullMonth = startOfMonth(today);
+    const selectedEnd = new Date(endDate);
+    
+    // If the selected end date is in the future or current month, cap at last full month to avoid incomplete data.
+    // Otherwise, cap at the selected end date's month start.
+    const effectiveEndMonth = selectedEnd < lastFullMonth ? startOfMonth(selectedEnd) : lastFullMonth;
+
     const allMonths = eachMonthOfInterval({
       start: startOfMonth(new Date(cutoffDate)),
-      end: lastFullMonth,
+      end: effectiveEndMonth,
     });
-    const months = allMonths.filter((m) => m < lastFullMonth);
+    // Include the effectiveEndMonth itself in the chart if it's strictly before lastFullMonth, 
+    // or if the user explicitly requested up to an end date. 
+    // Actually, if we just use `allMonths` it includes the `effectiveEndMonth`.
+    // Wait, let's just use allMonths up to effectiveEndMonth.
+    // We only exclude `lastFullMonth` if it's the current incomplete month.
+    const months = allMonths.filter((m) => m < lastFullMonth || m.getTime() === effectiveEndMonth.getTime());
 
     // Filter qualifying projects (same criteria as parent)
     const filtered = projects.filter((p: any) => {
       if (!matchesOffice(p.office, officeFilter)) return false;
-      if (p.start_date < "2025-01-01") return false;
-      if (p.end_date < cutoffDate || p.start_date > todayStr) return false;
+      if (p.start_date < "2024-01-01") return false;
+      if (p.end_date < cutoffDate || p.start_date > endDate) return false;
       const client = (p.ultimate_parent || p.title || "").toLowerCase();
       if (client.includes("billion dollar boy")) return false;
       const recordType = (p.opportunity_record_type || "").trim().toLowerCase();
       if (EXCLUDED_RECORD_TYPES.includes(recordType)) return false;
+
+      const titleLower = (p.title || "").toLowerCase();
+      if (
+        titleLower.includes("talent savings") ||
+        titleLower.includes("talent efficiencies") ||
+        titleLower.includes("holding pot") ||
+        titleLower.includes("passthrough costs")
+      ) {
+        return false;
+      }
+
       const totalScoped = (p.project_scopes || []).reduce((s: number, sc: any) => s + (sc.scoped_hours || 0), 0);
       if (totalScoped <= 0) return false;
       // Status filter
@@ -508,91 +532,38 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, displayCurrency, st
     if (!allGrossUpFactors?.size) return overallData;
     // If current grossUpFactors equals allGrossUpFactors, compute without (empty factors)
     const isCurrentlyGrossedUp = grossUpFactors?.size === allGrossUpFactors.size;
-
-    // Recompute monthly aggregation with alternative factors
-    const lastFullMonth = startOfMonth(today);
-    const allMonths = eachMonthOfInterval({
-      start: startOfMonth(new Date(cutoffDate)),
-      end: lastFullMonth,
-    });
-    const months = allMonths.filter((m) => m < lastFullMonth);
-
-    const filtered = projects.filter((p: any) => {
-      if (!matchesOffice(p.office, officeFilter)) return false;
-      if (p.start_date < "2025-01-01") return false;
-      if (p.end_date < cutoffDate || p.start_date > todayStr) return false;
-      const client = (p.ultimate_parent || p.title || "").toLowerCase();
-      if (client.includes("billion dollar boy")) return false;
-      const recordType = (p.opportunity_record_type || "").trim().toLowerCase();
-      if (EXCLUDED_RECORD_TYPES.includes(recordType)) return false;
-      const totalScoped = (p.project_scopes || []).reduce((s: number, sc: any) => s + (sc.scoped_hours || 0), 0);
-      if (totalScoped <= 0) return false;
-      if (statusFilter === "ended") {
-        const projEnd = new Date(p.end_date);
-        if (projEnd > today) return false;
-      }
-      return true;
-    });
-
-    // Only need to compute monthly profits for each project with alt factors
     const altFactors = isCurrentlyGrossedUp ? new Map<string, number>() : allGrossUpFactors;
-    type Bucket = { profit: number };
+
+    const { months, perProjectMonths } = _baseTrend;
+    type Bucket = { revenue: number; cost: number; profit: number };
     const overall: Record<string, Bucket> = {};
 
-    for (const p of filtered) {
-      const proj = p as any;
-      const projCurrency = proj.fee_calc_currency || proj.rate_cards?.currency || "GBP";
-      let fxRateGbp: number;
-      let fxRateUsd: number;
-      if (proj.fx_rate_gbp || proj.fx_rate_usd) {
-        fxRateGbp = proj.fx_rate_gbp || 1;
-        fxRateUsd = proj.fx_rate_usd || (fxRateGbp * fallbackGbpUsdRate);
-      } else if (projCurrency === "USD") {
-        fxRateGbp = fallbackGbpUsdRate;
-        fxRateUsd = 1;
-      } else if (projCurrency === "GBP") {
-        fxRateGbp = 1;
-        fxRateUsd = 1 / fallbackGbpUsdRate;
-      } else {
-        fxRateGbp = 1;
-        fxRateUsd = fallbackGbpUsdRate;
+    for (const e of perProjectMonths) {
+      let costDisplay = e.baseCostDisplay;
+      if (costDisplay) {
+        const factor = altFactors.get(e.id);
+        if (factor && factor > 1) costDisplay *= factor;
       }
-      const projMonthlyCost = monthlyCostMap.get(proj.id);
+      const profit = e.revDisplay - costDisplay;
 
-      for (const month of months) {
-        const monthKey = format(month, "yyyy-MM-01");
-        const mc = projMonthlyCost?.get(monthKey);
-        let costDisplay = 0;
-        if (mc) {
-          const costInProject = mc.costGbp * fxRateGbp + mc.costUsd * fxRateUsd;
-          const monthRate = monthlyFxRates[monthKey];
-          const gbpToUsd = monthRate || (fxRateUsd > 0 ? fxRateGbp / fxRateUsd : 1);
-          
-          if (displayCurrency === "GBP") {
-            costDisplay = projCurrency === "GBP" ? costInProject : costInProject / gbpToUsd;
-          } else {
-            costDisplay = projCurrency === "USD" ? costInProject : costInProject * gbpToUsd;
-          }
-          const factor = altFactors.get(proj.id);
-          if (factor && factor > 1) {
-            costDisplay *= factor;
-          }
-        }
-        // We only need cost diff for domain, revenue stays the same
-        if (!overall[monthKey]) overall[monthKey] = { profit: 0 };
-        // We'll approximate profit delta; use overallData's revenue
-        overall[monthKey].profit -= costDisplay;
-      }
+      if (!overall[e.monthKey]) overall[e.monthKey] = { revenue: 0, cost: 0, profit: 0 };
+      overall[e.monthKey].revenue += e.revDisplay;
+      overall[e.monthKey].cost += costDisplay;
+      overall[e.monthKey].profit += profit;
     }
 
-    // Add revenue back from overallData
-    return months.map((m, i) => {
+    return months.map((m) => {
       const k = format(m, "yyyy-MM-01");
-      const revenue = overallData[i]?.revenue || 0;
-      const costOnlyProfit = overall[k]?.profit || 0;
-      return { profit: Math.round(revenue + costOnlyProfit) };
+      const d = overall[k] || { revenue: 0, cost: 0, profit: 0 };
+      return {
+        month: format(m, "MMM yy"),
+        revenue: Math.round(d.revenue),
+        cost: Math.round(d.cost),
+        profit: Math.round(d.profit),
+        margin: d.revenue > 0 ? Math.round((d.profit / d.revenue) * 100) : 0,
+      };
     });
-  }, [overallData, grossUpFactors, allGrossUpFactors, projects, monthlyCostMap, officeFilter, cutoffDate, displayCurrency, today, todayStr, statusFilter]);
+  }, [_baseTrend, grossUpFactors, allGrossUpFactors, overallData]);
 
   // Compute fixed Y-axis domain covering both grossed-up and non-grossed-up states
   const profitYDomain = useMemo(() => {
