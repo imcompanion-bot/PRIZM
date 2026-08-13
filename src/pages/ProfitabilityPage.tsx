@@ -1844,7 +1844,7 @@ const ProfitabilityPage = () => {
         <div>
           <h1 className="font-display text-2xl font-bold text-[#1a1a1a]">Profitability</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Client profitability for the last {periodLabel.toLowerCase()} · {displayCurrency}
+            Client profitability {timePeriod === "custom" ? `for ${periodLabel}` : `for the last ${periodLabel.toLowerCase()} (${format(parseISO(cutoffDate), "d MMM yyyy")} to ${format(parseISO(endDateStr), "d MMM yyyy")})`} · {displayCurrency}
           </p>
           <p className="text-muted-foreground text-[11px] mt-1 max-w-2xl">
             Project financials shown here (Agency Fee, Cost, Profit) are strictly constrained to the selected timeframe and may differ from the total project financials where the project's start and/or end date is outside the selected timeframe.

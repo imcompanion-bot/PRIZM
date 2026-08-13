@@ -254,7 +254,7 @@ const ProjectDetailPage = () => {
 
   const storedGbp = (project as any)?.fx_rate_gbp;
   const storedUsd = (project as any)?.fx_rate_usd;
-  const histRate = historicalFxRate ?? 1.35;
+  const histRate = getExtraNum(project, "fx_rate_historical", "fx_rate") || 1.25;
   let fxRateGbp: number;
   let fxRateUsd: number;
   
@@ -392,6 +392,17 @@ const ProjectDetailPage = () => {
   // Sum phase_allocations hours per scope for completed phases
   const soFarHoursPerScope: Record<string, number> = {};
 
+  const projStart = new Date(project?.start_date || "");
+  const projEnd = new Date(project?.end_date || "");
+  
+  const countWorkingDays = (from: Date, to: Date) => {
+    if (from > to) return 0;
+    return eachDayOfInterval({ start: from, end: to }).filter((d) => !isWeekend(d)).length;
+  };
+
+  const windowStart = projStart;
+  const windowEnd = today < projStart ? projStart : today > projEnd ? projEnd : today;
+
   if (hasPhaseAllocations && completedPhaseIds.length > 0) {
     phaseAllocations
       .filter((pa) => completedPhaseIds.includes(pa.phase_id))
@@ -402,16 +413,6 @@ const ProjectDetailPage = () => {
       });
   } else {
     // Fallback: use scope phase_percentages (matches Profitability Page shaping)
-    const projStart = new Date(project?.start_date || "");
-    const projEnd = new Date(project?.end_date || "");
-    
-    const countWorkingDays = (from: Date, to: Date) => {
-      if (from > to) return 0;
-      return eachDayOfInterval({ start: from, end: to }).filter((d) => !isWeekend(d)).length;
-    };
-
-    const windowStart = projStart;
-    const windowEnd = today < projStart ? projStart : today > projEnd ? projEnd : today;
 
     const totalProjectDays = Math.max(1, Math.round((projEnd.getTime() - projStart.getTime()) / 86400000) + 1);
 
@@ -472,13 +473,20 @@ const ProjectDetailPage = () => {
     return sum + hours * avgCostPerHour;
   }, 0);
 
+  let fallbackWindowPct = 0;
+  if (totalScopedHours === 0) {
+    const projWD = countWorkingDays(projStart, projEnd);
+    const winWD = countWorkingDays(windowStart, windowEnd);
+    fallbackWindowPct = projWD > 0 ? winWD / projWD : 0;
+  }
+
   // Proportioned agency fee "so far" — use rate card fee ratio if available, otherwise hours ratio
   const agencyFeeSoFar = agencyFee !== null
     ? budgetedFee && budgetedFee > 0
       ? agencyFee * ((soFarBudgetFee ?? 0) / budgetedFee)
       : totalScopedHours > 0
         ? agencyFee * (soFarBudgetHours / totalScopedHours)
-        : 0
+        : agencyFee * fallbackWindowPct
     : null;
   const soFarBudgetProfit = (agencyFeeSoFar ?? 0) - soFarBudgetCost;
   const profit = (agencyFeeSoFar ?? 0) - totalActualCost;
