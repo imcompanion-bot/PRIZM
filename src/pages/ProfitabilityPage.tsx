@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { format, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, startOfWeek, endOfWeek, parseISO } from "date-fns";
 import { buildParentalLeaveMap, getWorkingDaysExcludingLeave } from "@/lib/parental-leave";
 import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, ArrowUp, ArrowDown, Info } from "lucide-react";
+import * as RechartsPrimitive from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
 import ProfitabilityTrendChart from "@/components/profitability/ProfitabilityTrendChart";
 import { CustomDateRangePicker } from "@/components/ui/custom-date-range-picker";
@@ -1376,6 +1377,7 @@ const ProfitabilityPage = () => {
     const windowEnd = windowEndRaw > today ? today : windowEndRaw;
 
     // First pass: Calculate Person Completeness
+    const personCompletenessMap = new Map<string, number>();
 
     for (const person of people) {
       // Exclude non-billable teams (like Finance) from completion calculations
