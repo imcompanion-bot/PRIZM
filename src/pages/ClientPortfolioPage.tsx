@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, Link } from "react-router-dom";
+import { usePermissions } from "@/hooks/usePermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,7 +13,7 @@ import {
   Info, Download, Filter, Target, CalendarDays, ExternalLink, Activity, Check, ChevronsUpDown,
   LayoutGrid, List, Search, Building2, TrendingUp, Folder, ArrowLeft, Briefcase, Users2, DollarSign, 
   ArrowUpRight, ArrowRight, CheckCircle2, AlertTriangle, AlertCircle, FileSpreadsheet, Plus, Sparkles, FolderOpen,
-  Clock, MoreHorizontal
+  Clock, MoreHorizontal, Star, ArrowUpDown, ArrowUp, ArrowDown
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -165,12 +166,61 @@ function VarianceLabel({ actual, scoped, unitMode, capacity, scopedCapacity, sho
   );
 }
 
+// ── Fuzzy Search Helpers ──
+const getLevenshteinDistance = (a: string, b: string): number => {
+  const tmp = [];
+  for (let i = 0; i <= a.length; i++) {
+    tmp[i] = [i];
+  }
+  for (let j = 0; j <= b.length; j++) {
+    tmp[0][j] = j;
+  }
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      tmp[i][j] = a[i - 1] === b[j - 1] 
+        ? tmp[i - 1][j - 1] 
+        : Math.min(tmp[i - 1][j] + 1, tmp[i][j - 1] + 1, tmp[i - 1][j - 1] + 1);
+    }
+  }
+  return tmp[a.length][b.length];
+};
+
+const isFuzzyClientMatch = (clientName: string, searchTerm: string): boolean => {
+  const name = clientName.toLowerCase().trim();
+  const search = searchTerm.toLowerCase().trim();
+  if (!search) return true;
+  
+  // Exact or substring match of the full name
+  if (name.includes(search)) return true;
+
+  // Split name into words to check minor spelling mistakes / fuzzy matching per-word
+  const words = name.split(/[\s\-_]+/);
+  for (const word of words) {
+    if (word.includes(search) || search.includes(word)) return true;
+    
+    const distance = getLevenshteinDistance(word, search);
+    // Allow edit distance of 1 for short queries, and up to 2 for longer ones
+    const maxAllowed = search.length <= 4 ? 1 : 2;
+    if (distance <= maxAllowed) return true;
+  }
+
+  // Check Levenshtein distance on the entire full name
+  const distanceFull = getLevenshteinDistance(name, search);
+  const maxAllowedFull = search.length <= 4 ? 1 : 2;
+  if (distanceFull <= maxAllowedFull) return true;
+
+  return false;
+};
+
 // ── Main Component ──
 
 type ViewMode = "scoped" | "actual";
 type UnitMode = "pct" | "hours";
 
 const ClientPortfolioPage = () => {
+  const { isMaster, isAmbassador } = usePermissions();
+  const canArchive = isMaster || isAmbassador;
+
   const currentMonth = format(new Date(), "yyyy-MM");
   const [searchParams, setSearchParams] = useSearchParams();
   const clientParam = searchParams.get("client") || "";
@@ -187,24 +237,101 @@ const ClientPortfolioPage = () => {
   
   // New visual and tab states
   const [layoutMode, setLayoutMode] = useState<"tile" | "list">("tile");
-  const [activeTab, setActiveTab] = useState<string>("overview");
+  const [activeTab, setActiveTab] = useState<string>("projects");
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [showArchived, setShowArchived] = useState<boolean>(false);
+  const [loadingProgress, setLoadingProgress] = useState<number>(0);
 
-  // Inactive/archived clients tracking via localStorage
-  const [inactiveClients, setInactiveClients] = useState<string[]>(() => {
-    const stored = localStorage.getItem("prism_inactive_clients");
+  // Sorting and Google Drive Link Popup states
+  const [sortField, setSortField] = useState<string>("title");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingProjectTitle, setEditingProjectTitle] = useState<string>("");
+  const [editingProjectUrl, setEditingProjectUrl] = useState<string>("");
+  const [isUrlModalOpen, setIsUrlModalOpen] = useState<boolean>(false);
+
+  // Fetch globally inactive/archived clients from Supabase data_imports table
+  const { data: dbInactiveClients = [], refetch: refetchInactiveClients } = useQuery({
+    queryKey: ["global_inactive_clients"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("data_imports" as any)
+        .select("dataset")
+        .like("dataset", "inactive_client:%");
+      if (error) {
+        console.error("Failed to load inactive clients from Supabase:", error);
+        return [];
+      }
+      return (data || []).map((row: any) => row.dataset.replace("inactive_client:", ""));
+    }
+  });
+
+
+
+  // Starred / pinned clients tracking via localStorage
+  const [starredClients, setStarredClients] = useState<string[]>(() => {
+    const stored = localStorage.getItem("prism_starred_clients");
     return stored ? JSON.parse(stored) : [];
   });
 
-  const handleToggleClientInactive = (clientName: string) => {
-    setInactiveClients(prev => {
+  const handleToggleClientStar = (clientName: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    setStarredClients(prev => {
       const next = prev.includes(clientName)
         ? prev.filter(c => c !== clientName)
         : [...prev, clientName];
-      localStorage.setItem("prism_inactive_clients", JSON.stringify(next));
-      toast.success(`Client "${clientName}" has been successfully marked as ${prev.includes(clientName) ? "active" : "inactive"}.`);
+      localStorage.setItem("prism_starred_clients", JSON.stringify(next));
+      if (next.includes(clientName)) {
+        toast.success(`Pinned "${clientName}" to the top of your portfolio.`);
+      } else {
+        toast.success(`Unpinned "${clientName}" from the top.`);
+      }
       return next;
     });
+  };
+
+  const handleToggleClientInactive = async (clientName: string) => {
+    if (!canArchive) {
+      toast.error("Access Denied: Only Master and Ambassador roles can archive or restore accounts globally.");
+      return;
+    }
+
+    const isCurrentlyInactive = inactiveClients.includes(clientName);
+    const datasetKey = `inactive_client:${clientName}`;
+
+    try {
+      if (isCurrentlyInactive) {
+        // Restore client: delete from data_imports table
+        const { error } = await supabase
+          .from("data_imports" as any)
+          .delete()
+          .eq("dataset", datasetKey);
+
+        if (error) throw error;
+        toast.success(`Client "${clientName}" has been successfully restored to active status globally.`);
+      } else {
+        // Archive client: insert into data_imports table
+        const { error } = await supabase
+          .from("data_imports" as any)
+          .insert({
+            dataset: datasetKey,
+            last_imported_at: new Date().toISOString(),
+            row_count: 0
+          } as any);
+
+        if (error) throw error;
+        toast.success(`Client "${clientName}" has been successfully marked as inactive globally.`);
+      }
+
+      // Refetch from database to keep the UI perfectly synchronized
+      refetchInactiveClients();
+    } catch (err: any) {
+      console.error("Error toggling client inactive status:", err);
+      toast.error(`Database Error: Could not update status for "${clientName}".`);
+    }
   };
 
   // Sync selectedClient with URL Search Param
@@ -230,7 +357,7 @@ const ClientPortfolioPage = () => {
   }, [customStart, customEnd, hoveredDate]);
 
   // Fetch all projects (paginated to avoid 1000-row limit)
-  const { data: projects = [], isLoading: loadingProjects } = useQuery({
+  const { data: projects = [], isLoading: loadingProjects, refetch: refetchProjects } = useQuery({
     queryKey: ["portfolio_projects_all"],
     queryFn: async () => {
       const allData: any[] = [];
@@ -250,6 +377,25 @@ const ClientPortfolioPage = () => {
       return allData;
     },
   });
+
+  useEffect(() => {
+    if (loadingProjects) {
+      setLoadingProgress(0);
+      const interval = setInterval(() => {
+        setLoadingProgress(prev => {
+          if (prev >= 98) {
+            clearInterval(interval);
+            return 98;
+          }
+          const inc = prev < 50 ? 12 : prev < 80 ? 6 : 1;
+          return prev + inc;
+        });
+      }, 70);
+      return () => clearInterval(interval);
+    } else {
+      setLoadingProgress(100);
+    }
+  }, [loadingProjects]);
 
   // Fetch roles
   const { data: roles = [] } = useQuery({
@@ -324,6 +470,41 @@ const ClientPortfolioPage = () => {
     return Array.from(clientSet).sort();
   }, [projects]);
 
+  // Automatically archive clients with no project end date within [TODAY] - 365 days
+  const autoArchivedClients = useMemo(() => {
+    const today = new Date();
+    // 365 days ago
+    const cutoffDate = new Date(today.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const cutoffStr = format(cutoffDate, "yyyy-MM-dd");
+
+    // We evaluate clients that exist in our projects dataset
+    const clientsWithRecentProjects = new Set<string>();
+    const allClients = new Set<string>();
+
+    for (const p of projects) {
+      if (!p.ultimate_parent) continue;
+      allClients.add(p.ultimate_parent);
+      
+      // If the project end date is on or after the cutoff date, the client has a recent project
+      if (p.end_date && p.end_date >= cutoffStr) {
+        clientsWithRecentProjects.add(p.ultimate_parent);
+      }
+    }
+
+    // Clients with NO recent projects are auto-archived
+    const autoArchived = Array.from(allClients).filter(
+      (client) => !clientsWithRecentProjects.has(client)
+    );
+
+    return autoArchived;
+  }, [projects]);
+
+  // Combine DB inactive clients and dynamically auto-archived clients
+  const inactiveClients = useMemo(() => {
+    const merged = new Set<string>([...dbInactiveClients, ...autoArchivedClients]);
+    return Array.from(merged);
+  }, [dbInactiveClients, autoArchivedClients]);
+
   // Build aggregate directory stats for each unique client
   const clientDirectoryStats = useMemo(() => {
     const stats: Record<string, {
@@ -386,9 +567,9 @@ const ClientPortfolioPage = () => {
     }
 
     return Object.values(stats)
-      .filter((stat: any) => !inactiveClients.includes(stat.name))
+      .filter((stat: any) => showArchived ? inactiveClients.includes(stat.name) : !inactiveClients.includes(stat.name))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [projects, inactiveClients]);
+  }, [projects, inactiveClients, showArchived]);
 
   // Build account list (parent_account) filtered by selected ultimate parent
   const accounts = useMemo(() => {
@@ -421,6 +602,79 @@ const ClientPortfolioPage = () => {
       return true;
     });
   }, [projects, selectedClient, selectedAccount, selectedOffice]);
+
+  // Sort helper functions
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const renderSortIcon = (field: string) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="inline h-3 w-3 text-muted-foreground/40 ml-1.5 shrink-0 align-middle" />;
+    }
+    return sortDirection === "asc" 
+      ? <ArrowUp className="inline h-3 w-3 text-primary ml-1.5 shrink-0 align-middle" />
+      : <ArrowDown className="inline h-3 w-3 text-primary ml-1.5 shrink-0 align-middle" />;
+  };
+
+  // Sorted projects for Projects tab
+  const sortedProjects = useMemo(() => {
+    return [...filteredProjects].sort((a: any, b: any) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+
+      // Handle custom number conversion for sorting fields like revenue/budget
+      if (sortField === "revenue") {
+        aVal = Number(a.revenue || a.gross_budget || 0);
+        bVal = Number(b.revenue || b.gross_budget || 0);
+      }
+
+      if (aVal === undefined || aVal === null) aVal = "";
+      if (bVal === undefined || bVal === null) bVal = "";
+
+      if (typeof aVal === "string") {
+        aVal = aVal.toLowerCase();
+        bVal = String(bVal).toLowerCase();
+      }
+
+      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filteredProjects, sortField, sortDirection]);
+
+  // Google Drive url saving handlers
+  const handleOpenUrlModal = (projectId: string, projectTitle: string, currentUrl: string) => {
+    setEditingProjectId(projectId);
+    setEditingProjectTitle(projectTitle);
+    setEditingProjectUrl(currentUrl || "");
+    setIsUrlModalOpen(true);
+  };
+
+  const handleSaveUrl = async () => {
+    if (!editingProjectId) return;
+    try {
+      const trimmedUrl = editingProjectUrl.trim();
+      const { error } = await supabase
+        .from("projects")
+        .update({ last_fee_calc_url: trimmedUrl || null } as any)
+        .eq("id", editingProjectId);
+
+      if (error) throw error;
+
+      toast.success(`GDrive Link saved successfully for "${editingProjectTitle}"!`);
+      setIsUrlModalOpen(false);
+      refetchProjects();
+    } catch (err: any) {
+      console.error("Error saving fee calc URL:", err);
+      toast.error(`Failed to save GDrive Link: ${err.message || err}`);
+    }
+  };
 
   // Determine month range across all filtered projects, respecting timeframe
   const { months, minDate, maxDate } = useMemo(() => {
@@ -887,15 +1141,22 @@ const ClientPortfolioPage = () => {
     return timeEntries.reduce((sum: number, te: any) => sum + Number(te.hours || 0), 0);
   }, [timeEntries, selectedClient]);
 
-  // Filter clients based on searchTerm
+  // Filter clients based on searchTerm and sort starred/pinned clients to the top
   const filteredClientStats = useMemo(() => {
-    if (!searchTerm) return clientDirectoryStats;
-    const term = searchTerm.toLowerCase();
-    return clientDirectoryStats.filter(c => 
-      c.name.toLowerCase().includes(term) || 
-      c.primaryOffice.toLowerCase().includes(term)
-    );
-  }, [clientDirectoryStats, searchTerm]);
+    let list = clientDirectoryStats;
+    if (searchTerm) {
+      list = clientDirectoryStats.filter(c => isFuzzyClientMatch(c.name, searchTerm));
+    }
+
+    // Sort starred clients to the top
+    return [...list].sort((a, b) => {
+      const aStarred = starredClients.includes(a.name);
+      const bStarred = starredClients.includes(b.name);
+      if (aStarred && !bStarred) return -1;
+      if (!aStarred && bStarred) return 1;
+      return 0;
+    });
+  }, [clientDirectoryStats, searchTerm, starredClients]);
 
   // Helper to check and retrieve project-specific actual hours and variance
   const getProjectActualsAndVariance = (pId: string, scopedHrs: number) => {
@@ -956,7 +1217,7 @@ const ClientPortfolioPage = () => {
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-display font-bold tracking-tight bg-gradient-to-r from-foreground via-foreground/90 to-muted-foreground bg-clip-text text-transparent">Client Portfolio Directory</h1>
+              <h1 className="text-3xl font-display font-bold tracking-tight bg-gradient-to-r from-foreground via-foreground/90 to-muted-foreground bg-clip-text text-transparent">Client Portfolio</h1>
               <p className="text-sm text-muted-foreground mt-1.5 flex items-center gap-1.5">
                 <Building2 className="h-4 w-4 text-primary" />
                 Select a brand or account to manage scopes, fee structures, financial KPIs, and resource modeling
@@ -974,6 +1235,23 @@ const ClientPortfolioPage = () => {
                   className="pl-9 bg-background/50 backdrop-blur-sm"
                 />
               </div>
+
+              {canArchive && (
+                <Button
+                  variant={showArchived ? "secondary" : "outline"}
+                  size="sm"
+                  className={cn(
+                    "h-9 font-bold text-xs gap-1.5 transition-all shrink-0",
+                    showArchived 
+                      ? "bg-[#fe4f2a]/10 text-[#fe4f2a] hover:bg-[#fe4f2a]/20 border-[#fe4f2a]/30" 
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setShowArchived(!showArchived)}
+                >
+                  <Folder className="h-3.5 w-3.5" />
+                  {showArchived ? "Viewing Archived" : "Show Archived"}
+                </Button>
+              )}
               <div className="flex border rounded-lg overflow-hidden bg-background p-0.5">
                 <Button 
                   variant={layoutMode === "tile" ? "secondary" : "ghost"} 
@@ -996,9 +1274,11 @@ const ClientPortfolioPage = () => {
           </div>
 
           {loadingProjects ? (
-            <div className="py-24 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-sm text-muted-foreground">Aggregating database portfolios and metrics...</p>
+            <div className="py-24 text-center space-y-4">
+              <div className="font-display font-black text-6xl tracking-tight text-primary drop-shadow-sm animate-pulse">
+                {loadingProgress}%
+              </div>
+              <p className="text-sm text-muted-foreground font-semibold">Aggregating database portfolios and metrics...</p>
             </div>
           ) : filteredClientStats.length === 0 ? (
             <Card className="border border-dashed">
@@ -1016,45 +1296,104 @@ const ClientPortfolioPage = () => {
           ) : layoutMode === "tile" ? (
             /* ── TILE VIEW GRID ── */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredClientStats.map((c) => {
+              {filteredClientStats.map((c, index) => {
                 const isUS = c.primaryOffice === "United States" || c.name.includes("US");
                 const currencySym = isUS ? "$" : "£";
+
+                // Alternating highlight hover colors (yellow, pink, red)
+                const hoverColors = [
+                  {
+                    bar: "group-hover:bg-yellow-400",
+                    button: "group-hover:bg-yellow-400 group-hover:text-black",
+                    text: "group-hover:text-yellow-500",
+                    border: "hover:border-yellow-400/30",
+                  },
+                  {
+                    bar: "group-hover:bg-pink-500",
+                    button: "group-hover:bg-pink-500 group-hover:text-white",
+                    text: "group-hover:text-pink-500",
+                    border: "hover:border-pink-500/30",
+                  },
+                  {
+                    bar: "group-hover:bg-red-500",
+                    button: "group-hover:bg-red-500 group-hover:text-white",
+                    text: "group-hover:text-red-500",
+                    border: "hover:border-red-500/30",
+                  },
+                ];
+                const color = hoverColors[index % hoverColors.length];
+
                 return (
                   <Card 
                     key={c.name} 
-                    className="group overflow-hidden bg-card/40 backdrop-blur-md border border-border/60 hover:border-primary/30 hover:shadow-lg shadow-sm transform hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                    className={`group overflow-hidden bg-card/40 backdrop-blur-md border border-border/60 hover:shadow-lg shadow-sm transform hover:-translate-y-1 transition-all duration-300 cursor-pointer ${color.border}`}
                     onClick={() => handleSelectClient(c.name)}
                   >
                     {/* Visual Card Accent Bar */}
-                    <div className="h-1.5 w-full bg-gradient-to-r from-primary/80 via-indigo-500/60 to-purple-500/40 opacity-70 group-hover:opacity-100 transition-opacity" />
+                    <div className={`h-1.5 w-full bg-primary ${color.bar} transition-colors duration-300`} />
                     
                     <CardContent className="p-6 space-y-5">
                       <div className="flex items-start justify-between">
-                        <div className="space-y-1 max-w-[70%]">
-                          <h3 className="text-lg font-bold group-hover:text-primary transition-colors line-clamp-1">{c.name}</h3>
+                        <div className="space-y-1.5 max-w-[70%]">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className={`text-lg font-bold ${color.text} transition-colors line-clamp-1`}>{c.name}</h3>
+                            {autoArchivedClients.includes(c.name) && (
+                              <span className="text-[9px] font-extrabold bg-muted/60 text-muted-foreground border border-muted-foreground/10 px-1.5 py-0.5 rounded uppercase tracking-wider whitespace-nowrap" title="Archived automatically because all projects ended more than 365 days ago">
+                                Auto-Archived
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Building2 className="h-3 w-3 text-muted-foreground/60" />
                             <span>{c.primaryOffice}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-popover border shadow-md">
-                              <DropdownMenuItem 
-                                onClick={() => handleToggleClientInactive(c.name)}
-                                className="text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
-                              >
-                                Mark Inactive
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                        <div className="flex items-center gap-1.5">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-muted-foreground hover:bg-muted/50 rounded-lg shrink-0"
+                            onClick={(e) => handleToggleClientStar(c.name, e)}
+                          >
+                            <Star className={`h-4 w-4 transition-all ${
+                              starredClients.includes(c.name)
+                                ? "fill-yellow-400 text-yellow-400 scale-110 drop-shadow-sm"
+                                : "text-muted-foreground/60 hover:text-foreground hover:scale-110"
+                            }`} />
+                          </Button>
 
-                          <div className="p-2 rounded-lg bg-primary/5 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                          {canArchive && (
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-popover border shadow-md">
+                                  <DropdownMenuItem 
+                                    onClick={() => handleToggleClientInactive(c.name)}
+                                    className={cn(
+                                      "text-xs font-semibold cursor-pointer",
+                                      inactiveClients.includes(c.name)
+                                        ? "text-success hover:bg-success/10 hover:text-success"
+                                        : "text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    )}
+                                  >
+                                    {inactiveClients.includes(c.name) ? "Mark Active" : "Mark Inactive"}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          )}
+
+                          <div 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectClient(c.name);
+                            }}
+                            className={`p-2 rounded-lg bg-primary/5 text-primary ${color.button} transition-all cursor-pointer`}
+                          >
                             <ArrowUpRight className="h-4 w-4" />
                           </div>
                         </div>
@@ -1083,14 +1422,6 @@ const ClientPortfolioPage = () => {
                             {c.feeCalcsCount}
                           </span>
                         </div>
-                      </div>
-
-                      {/* Estimated Billing Run Rate */}
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-xs text-muted-foreground font-medium">Combined Revenue Run-Rate</span>
-                        <span className="text-base font-extrabold text-foreground tracking-tight">
-                          {currencySym}{Math.round(c.totalRevenue).toLocaleString()}
-                        </span>
                       </div>
                     </CardContent>
                   </Card>
@@ -1123,7 +1454,14 @@ const ClientPortfolioPage = () => {
                         onClick={() => handleSelectClient(c.name)}
                       >
                         <TableCell className="pl-6 font-bold text-sm text-foreground group-hover:text-primary transition-colors">
-                          {c.name}
+                          <div className="flex items-center gap-2">
+                            <span>{c.name}</span>
+                            {autoArchivedClients.includes(c.name) && (
+                              <span className="text-[9px] font-extrabold bg-muted/60 text-muted-foreground border border-muted-foreground/10 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Archived automatically because all projects ended more than 365 days ago">
+                                Auto-Archived
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-center text-sm font-medium">
                           <span className="text-success">{c.activeProjectCount}</span>
@@ -1151,21 +1489,41 @@ const ClientPortfolioPage = () => {
                         </TableCell>
                         <TableCell className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2.5">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="bg-popover border shadow-md">
-                                <DropdownMenuItem 
-                                  onClick={() => handleToggleClientInactive(c.name)}
-                                  className="text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
-                                >
-                                  Mark Inactive
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-muted-foreground hover:bg-muted/50 rounded-lg shrink-0"
+                              onClick={(e) => handleToggleClientStar(c.name, e)}
+                            >
+                              <Star className={`h-4 w-4 transition-all ${
+                                starredClients.includes(c.name)
+                                  ? "fill-yellow-400 text-yellow-400 scale-110 drop-shadow-md"
+                                  : "text-muted-foreground/60 hover:text-foreground hover:scale-110"
+                              }`} />
+                            </Button>
+
+                            {canArchive && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-popover border shadow-md">
+                                  <DropdownMenuItem 
+                                    onClick={() => handleToggleClientInactive(c.name)}
+                                    className={cn(
+                                      "text-xs font-semibold cursor-pointer",
+                                      inactiveClients.includes(c.name)
+                                        ? "text-success hover:bg-success/10 hover:text-success"
+                                        : "text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    )}
+                                  >
+                                    {inactiveClients.includes(c.name) ? "Mark Active" : "Mark Inactive"}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
 
                             <Button 
                               variant="ghost" 
@@ -1262,14 +1620,7 @@ const ClientPortfolioPage = () => {
 
           {/* Radix Styled Custom Workspace Sub-Tabs Navigation */}
           <div className="flex items-center gap-1 p-1 bg-muted/30 border rounded-lg max-w-2xl backdrop-blur-sm">
-            <Button 
-              variant="ghost" 
-              onClick={() => setActiveTab("overview")}
-              className={cn("flex-1 text-xs font-bold py-2 h-9 rounded-md transition-all gap-1.5", activeTab === "overview" ? "bg-background text-foreground shadow-sm hover:bg-background" : "text-muted-foreground hover:text-foreground")}
-            >
-              <TrendingUp className="h-4 w-4 text-indigo-500" />
-              Overview & KPIs
-            </Button>
+
             <Button 
               variant="ghost" 
               onClick={() => setActiveTab("projects")}
@@ -1296,150 +1647,7 @@ const ClientPortfolioPage = () => {
             </Button>
           </div>
 
-          {/* Tab Content Block 1: Overview & KPIs */}
-          {activeTab === "overview" && clientOverviewStats && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                
-                {/* KPI Card 1: Revenue run-rate */}
-                <Card className="bg-gradient-to-br from-indigo-500/5 to-transparent border-border/80">
-                  <CardContent className="p-6 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Combined Revenue</span>
-                      <div className="p-1.5 bg-indigo-500/10 text-indigo-500 rounded-md">
-                        <DollarSign className="h-4 w-4" />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-extrabold tracking-tight">
-                        {selectedClient.includes("US") || selectedOffice === "United States" ? "$" : "£"}
-                        {clientOverviewStats.totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1">Total contract value across all scoped projects</p>
-                    </div>
-                  </CardContent>
-                </Card>
 
-                {/* KPI Card 2: Margins */}
-                <Card className="bg-gradient-to-br from-teal-500/5 to-transparent border-border/80">
-                  <CardContent className="p-6 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Blended Gross Margin</span>
-                      <div className="p-1.5 bg-teal-500/10 text-teal-500 rounded-md">
-                        <TrendingUp className="h-4 w-4" />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-extrabold tracking-tight text-teal-500">
-                        {clientOverviewStats.avgMargin}%
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1">Weighted account margin (Target: 70%)</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* KPI Card 3: Scoped Hours */}
-                <Card className="bg-gradient-to-br from-primary/5 to-transparent border-border/80">
-                  <CardContent className="p-6 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Allocated Hours</span>
-                      <div className="p-1.5 bg-primary/10 text-primary rounded-md">
-                        <CalendarDays className="h-4 w-4" />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-extrabold tracking-tight">
-                        {clientOverviewStats.totalHours.toLocaleString()}h
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1">Total scoped delivery efforts allocated</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* KPI Card 4: Actuals Logging */}
-                <Card className="bg-gradient-to-br from-pink-500/5 to-transparent border-border/80">
-                  <CardContent className="p-6 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Actual Logged Hours</span>
-                      <div className="p-1.5 bg-pink-500/10 text-pink-500 rounded-md">
-                        <Clock className="h-4 w-4" />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-extrabold tracking-tight text-pink-500">
-                        {clientActualHours.toLocaleString()}h
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {clientOverviewStats.totalHours > 0 
-                          ? `${Math.round((clientActualHours / clientOverviewStats.totalHours) * 100)}% of scoped budget spent`
-                          : "Actual hours tracked via timesheets"
-                        }
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Sub-structures list */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* Active Sub-accounts & Salesforce Connections */}
-                <Card className="lg:col-span-1 border border-border/60">
-                  <CardContent className="p-6 space-y-4">
-                    <div className="flex items-center justify-between border-b pb-2">
-                      <h3 className="text-sm font-bold flex items-center gap-1.5 text-foreground">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        Account Entities
-                      </h3>
-                      <span className="text-xs text-muted-foreground">{clientOverviewStats.subAccounts.length} Connected</span>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      {clientOverviewStats.subAccounts.map(account => (
-                        <div key={account} className="flex items-center justify-between p-2.5 rounded bg-muted/20 border text-xs font-medium">
-                          <span>{account}</span>
-                          <span className="text-[10px] text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border/40 uppercase font-semibold">Active SF Account</span>
-                        </div>
-                      ))}
-                      {clientOverviewStats.subAccounts.length === 0 && (
-                        <p className="text-xs text-muted-foreground text-center py-6">No subsidiary account designations linked.</p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Assigned Resource roles roster */}
-                <Card className="lg:col-span-2 border border-border/60">
-                  <CardContent className="p-6 space-y-4">
-                    <div className="flex items-center justify-between border-b pb-2">
-                      <h3 className="text-sm font-bold flex items-center gap-1.5 text-foreground">
-                        <Users2 className="h-4 w-4 text-muted-foreground" />
-                        Key Client Resource Roster
-                      </h3>
-                      <span className="text-xs text-muted-foreground">Team Roles & Assigned Staff</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {roles.slice(0, 8).map(role => {
-                        const count = roleHeadcount[role.id] || 0;
-                        return (
-                          <div key={role.id} className="flex items-center justify-between p-3 rounded-lg border bg-background/50 hover:bg-muted/10 transition-colors">
-                            <div className="space-y-0.5">
-                              <span className="text-xs font-bold text-foreground block">{role.name}</span>
-                              <span className="text-[10px] text-muted-foreground">Capacity: {role.billable_capacity_hours || "7.5"}h/day</span>
-                            </div>
-                            <span className="text-xs font-semibold px-2 py-0.5 bg-primary/10 text-primary rounded-full">
-                              {count} {count === 1 ? "Staff" : "Staff"}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          )}
 
           {/* Tab Content Block 2: Projects & Scopes (with margin status and variance alerts) */}
           {activeTab === "projects" && (
@@ -1447,17 +1655,48 @@ const ClientPortfolioPage = () => {
               <Table>
                 <TableHeader className="bg-muted/40">
                   <TableRow>
-                    <TableHead className="pl-6 font-semibold">Project Name</TableHead>
-                    <TableHead className="font-semibold">Sub-Account</TableHead>
-                    <TableHead className="font-semibold text-center">Dates / Timeline</TableHead>
-                    <TableHead className="font-semibold text-right">Fee Value</TableHead>
-                    <TableHead className="font-semibold text-center">Margin Health</TableHead>
+                    <TableHead 
+                      className="pl-6 font-semibold cursor-pointer hover:bg-muted/30 select-none transition-colors"
+                      onClick={() => handleSort("title")}
+                    >
+                      Project Name {renderSortIcon("title")}
+                    </TableHead>
+                    <TableHead 
+                      className="font-semibold cursor-pointer hover:bg-muted/30 select-none transition-colors"
+                      onClick={() => handleSort("parent_account")}
+                    >
+                      Sub-Account {renderSortIcon("parent_account")}
+                    </TableHead>
+                    <TableHead 
+                      className="font-semibold text-center cursor-pointer hover:bg-muted/30 select-none transition-colors"
+                      onClick={() => handleSort("start_date")}
+                    >
+                      Start Date {renderSortIcon("start_date")}
+                    </TableHead>
+                    <TableHead 
+                      className="font-semibold text-center cursor-pointer hover:bg-muted/30 select-none transition-colors"
+                      onClick={() => handleSort("end_date")}
+                    >
+                      End Date {renderSortIcon("end_date")}
+                    </TableHead>
+                    <TableHead 
+                      className="font-semibold text-right cursor-pointer hover:bg-muted/30 select-none transition-colors"
+                      onClick={() => handleSort("revenue")}
+                    >
+                      Fee Value {renderSortIcon("revenue")}
+                    </TableHead>
+                    <TableHead 
+                      className="font-semibold text-center cursor-pointer hover:bg-muted/30 select-none transition-colors"
+                      onClick={() => handleSort("gp_margin_pct")}
+                    >
+                      Margin Health {renderSortIcon("gp_margin_pct")}
+                    </TableHead>
                     <TableHead className="font-semibold text-center">Hours Scoped vs Actuals</TableHead>
                     <TableHead className="font-semibold text-center">Variance Alert</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProjects.map((p) => {
+                  {sortedProjects.map((p) => {
                     const isUS = p.office === "United States" || selectedOffice === "United States" || p.ultimate_parent?.includes("US");
                     const currencySym = isUS ? "$" : "£";
                     const progress = getProjectProgress(p.start_date, p.end_date);
@@ -1497,7 +1736,10 @@ const ClientPortfolioPage = () => {
                         </TableCell>
                         <TableCell className="text-sm font-medium text-muted-foreground">{p.parent_account || "—"}</TableCell>
                         <TableCell className="text-center text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                          {format(parseISO(p.start_date), "MMM yyyy")} - {format(parseISO(p.end_date), "MMM yyyy")}
+                          {p.start_date ? format(parseISO(p.start_date), "MMM d, yyyy") : "—"}
+                        </TableCell>
+                        <TableCell className="text-center text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                          {p.end_date ? format(parseISO(p.end_date), "MMM d, yyyy") : "—"}
                         </TableCell>
                         <TableCell className="text-right font-semibold text-sm">
                           {currencySym}{Math.round(p.revenue || p.gross_budget || 0).toLocaleString()}
@@ -1546,85 +1788,7 @@ const ClientPortfolioPage = () => {
           {activeTab === "fee_calcs" && (
             <div className="space-y-6">
               
-              {/* Draft Scenario / Option Center (AI Scenario Proposals) */}
-              <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-bold flex items-center gap-1.5 bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-                      <Sparkles className="h-4 w-4 text-pink-500 animate-pulse" />
-                      AI & Human Scenario Scopes Review
-                    </h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Draft scenario profiles, models, and comparisons currently under review. Click &quot;Activate&quot; to push an option live.
-                    </p>
-                  </div>
-                  
-                  <Button size="sm" className="gap-1.5 text-xs font-bold" onClick={() => alert("Creating a new fee calculation draft scenario! (Ready for the upcoming AI Agent features!)")}>
-                    <Plus className="h-4 w-4" />
-                    Create Draft Scenario
-                  </Button>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {mockFeeCalcs.map((c) => (
-                    <Card key={c.id} className="bg-card/40 backdrop-blur-md border border-border/60 hover:border-pink-500/20 transition-all duration-300 relative group">
-                      <CardContent className="p-6 space-y-4">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-extrabold uppercase bg-pink-500/10 text-pink-500 px-2 py-0.5 rounded-full border border-pink-500/20">
-                                Draft Proposal
-                              </span>
-                              <span className="text-[10px] text-muted-foreground font-semibold">
-                                Created: {c.createdAt}
-                              </span>
-                            </div>
-                            <h3 className="text-base font-bold text-foreground mt-2 line-clamp-1">{c.projectName}</h3>
-                            <p className="text-xs text-muted-foreground font-medium">{c.optionName}</p>
-                          </div>
-                          
-                          <span className={cn("px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase border whitespace-nowrap", 
-                            c.status === "under_review" ? "bg-warning/10 text-warning border-warning/20" : "bg-muted text-muted-foreground"
-                          )}>
-                            {c.status.replace("_", " ")}
-                          </span>
-                        </div>
-
-                        {/* Scenario value numbers */}
-                        <div className="grid grid-cols-2 gap-4 py-2.5 px-3 bg-muted/20 border rounded-lg">
-                          <div>
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block font-semibold">Scenario Fee</span>
-                            <span className="text-base font-extrabold text-foreground">
-                              {c.currency === "GBP" ? "£" : "$"}{c.feeValue.toLocaleString()}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block font-semibold">GP Margin</span>
-                            <span className="text-base font-extrabold text-teal-500">{c.marginPct}%</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-                          <span className="flex items-center gap-1 font-semibold">
-                            <Users2 className="h-3.5 w-3.5 text-muted-foreground/60" />
-                            By: {c.createdBy}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => alert(`Activating ${c.optionName}! Moving status to live scoping...`)}
-                              className="h-8 text-xs font-bold hover:bg-primary hover:text-primary-foreground border-border/80"
-                            >
-                              Activate Option
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
 
               {/* Connected live project sheet records */}
               <div className="space-y-3 pt-4 border-t border-border/50">
@@ -1647,7 +1811,7 @@ const ClientPortfolioPage = () => {
                         <TableHead className="font-semibold text-right">Revenue Contract Value</TableHead>
                         <TableHead className="font-semibold text-right">Budget Cost</TableHead>
                         <TableHead className="font-semibold text-center">Gross Profit Margin</TableHead>
-                        <TableHead className="text-right pr-6 font-semibold">External Calculator Link</TableHead>
+                        <TableHead className="text-right pr-6 font-semibold">GDrive Link</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1668,25 +1832,37 @@ const ClientPortfolioPage = () => {
                               {p.gp_margin_pct ? `${p.gp_margin_pct}%` : "70%"}
                             </TableCell>
                             <TableCell className="text-right pr-6">
-                              {p.last_fee_calc_url ? (
-                                <a 
-                                  href={p.last_fee_calc_url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 hover:bg-primary hover:text-primary-foreground text-primary rounded-md text-xs font-bold transition-all"
-                                >
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                  Open Google Sheet Calc
-                                </a>
-                              ) : (
-                                <Link 
-                                  to={`/scoping-tool?project=${p.id}`}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-muted hover:bg-muted/80 text-muted-foreground rounded-md text-xs font-bold transition-all"
-                                >
-                                  <FileSpreadsheet className="h-3.5 w-3.5 text-muted-foreground/60" />
-                                  Launch Scoping Tool
-                                </Link>
-                              )}
+                              <div className="inline-flex items-center gap-2">
+                                {p.last_fee_calc_url ? (
+                                  <>
+                                    <Button 
+                                      onClick={() => handleOpenUrlModal(p.id, p.title, p.last_fee_calc_url)}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 rounded-md text-xs font-bold transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)] h-7"
+                                    >
+                                      <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />
+                                      GDrive Connected
+                                    </Button>
+                                    <a 
+                                      href={p.last_fee_calc_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center justify-center p-1 bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground rounded-md transition-all h-7 w-7"
+                                      title="Open Google Sheet directly"
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </a>
+                                  </>
+                                ) : (
+                                  <Button 
+                                    onClick={() => handleOpenUrlModal(p.id, p.title, "")}
+                                    variant="ghost"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border border-border rounded-md text-xs font-bold transition-all h-7"
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Add Link
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -1963,6 +2139,93 @@ const ClientPortfolioPage = () => {
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Premium Google Drive Link Modal Popup */}
+      {isUrlModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop Blur Overlay */}
+          <div 
+            className="absolute inset-0 bg-background/80 backdrop-blur-md transition-opacity animate-in fade-in"
+            onClick={() => setIsUrlModalOpen(false)}
+          />
+          
+          {/* Premium Card Dialog */}
+          <Card className="relative w-full max-w-lg border border-border/80 bg-background/90 backdrop-blur-xl shadow-2xl rounded-2xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-200">
+            {/* Header Highlight Band */}
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-emerald-500 via-primary to-pink-500" />
+            
+            <div className="p-6 space-y-5">
+              {/* Title & Close */}
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold flex items-center gap-2 text-foreground">
+                    <FileSpreadsheet className="h-5 w-5 text-emerald-500" />
+                    Configure GDrive Link
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Assign or update the Google Sheets fee calculator URL linked to this campaign.
+                  </p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setIsUrlModalOpen(false)}
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-full"
+                >
+                  ✕
+                </Button>
+              </div>
+
+              {/* Project Target Box */}
+              <div className="p-3 bg-muted/30 border border-border/40 rounded-lg">
+                <span className="text-[10px] text-muted-foreground uppercase font-extrabold block">Selected Campaign</span>
+                <span className="text-sm font-bold text-foreground mt-0.5 block">{editingProjectTitle}</span>
+              </div>
+
+              {/* Paste Input Area */}
+              <div className="space-y-2">
+                <Label htmlFor="gdrive-url" className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  Google Sheets / Drive URL
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="gdrive-url"
+                    type="url"
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                    value={editingProjectUrl}
+                    onChange={(e) => setEditingProjectUrl(e.target.value)}
+                    className="pr-10 h-10 border-border/80 focus-visible:ring-primary text-xs bg-background/60 text-foreground"
+                  />
+                  <div className="absolute right-3 top-[50%] -translate-y-[50%] text-muted-foreground/40 pointer-events-none">
+                    <ExternalLink className="h-4 w-4" />
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-normal">
+                  Pro-tip: Set link sharing permissions to &quot;Anyone with the link can view&quot; in Google Sheets to allow seamless embedded access.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsUrlModalOpen(false)}
+                  className="h-9 text-xs font-bold border-border/80 hover:bg-muted/40"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleSaveUrl}
+                  className="h-9 text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white gap-1.5"
+                >
+                  <Check className="h-4 w-4" />
+                  Save GDrive Link
+                </Button>
+              </div>
+            </div>
+          </Card>
         </div>
       )}
     </div>
