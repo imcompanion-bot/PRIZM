@@ -762,20 +762,24 @@ const ProfitabilityPage = () => {
       const phaseHoursInWindow = (sc: any): number => {
         const scoped = Number(sc.scoped_hours) || 0;
         if (scoped <= 0) return 0;
-        const pcts = (sc.phase_percentages || {}) as Record<string, number>;
-        const hasAnyPct = Object.values(pcts).some((v) => Number(v) > 0);
+        const pcts = (sc.phase_percentages || {}) as Record<string, number | string>;
+        const hasAnyPct = Object.values(pcts).some((v) => {
+          const num = typeof v === "string" ? parseFloat(v.replace("%", "")) : Number(v);
+          return !isNaN(num) && num > 0;
+        });
         // No phasing → assume default 4-phase split: 30% / 30% / 20% / 20% across equal quarters of the project
-        const effectivePcts: Record<string, number> = hasAnyPct
+        const effectivePcts: Record<string, number | string> = hasAnyPct
           ? pcts
           : { "Phase 1": 30, "Phase 2": 30, "Phase 3": 20, "Phase 4": 20 };
         const phaseCount = hasAnyPct ? 12 : 4;
         const daysPerPhaseLocal = totalProjectDays / phaseCount;
         let hoursInWin = 0;
         for (let phase = 1; phase <= phaseCount; phase++) {
-          const pct =
-            effectivePcts[`Phase ${phase}`] ?? effectivePcts[`phase ${phase}`] ?? effectivePcts[`Phase${phase}`] ?? effectivePcts[String(phase)] ?? 0;
-          if (!pct || pct <= 0) continue;
-          const phaseHours = (Number(pct) / 100) * scoped;
+          const rawPct =
+            effectivePcts[`Phase ${phase}`] ?? effectivePcts[`phase ${phase}`] ?? effectivePcts[`Phase${phase}`] ?? effectivePcts[`phase${phase}`] ?? effectivePcts[String(phase)] ?? 0;
+          const pct = typeof rawPct === "string" ? parseFloat(rawPct.replace("%", "")) : Number(rawPct);
+          if (isNaN(pct) || pct <= 0) continue;
+          const phaseHours = (pct / 100) * scoped;
           const phaseStartDay = Math.round((phase - 1) * daysPerPhaseLocal);
           const phaseEndDay = Math.round(phase * daysPerPhaseLocal) - 1;
           const phaseStart = new Date(projStart.getTime() + phaseStartDay * 86400000);
