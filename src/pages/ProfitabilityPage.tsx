@@ -194,10 +194,10 @@ const ProfitabilityPage = () => {
 
   const endDateStr = useMemo(() => {
     if (timePeriod === "custom") return appliedEndDate;
-    return format(new Date(), "yyyy-MM-dd");
+    return format(endOfMonth(subMonths(new Date(), 1)), "yyyy-MM-dd");
   }, [timePeriod, appliedEndDate]);
 
-  const todayStr = useMemo(() => timePeriod === "custom" ? appliedEndDate : format(new Date(), "yyyy-MM-dd"), [timePeriod, appliedEndDate]);
+  const todayStr = useMemo(() => timePeriod === "custom" ? appliedEndDate : format(endOfMonth(subMonths(new Date(), 1)), "yyyy-MM-dd"), [timePeriod, appliedEndDate]);
 
   // ── Data Fetching ──
 
@@ -1792,7 +1792,7 @@ const ProfitabilityPage = () => {
 
     // Build continuous month range so zero-data months still appear on x-axis
     const startMonth = cutoffDate.slice(0, 7);
-    const endMonth = (timePeriod === "custom" ? appliedEndDate : format(today, "yyyy-MM-dd")).slice(0, 7);
+    const endMonth = endDateStr.slice(0, 7);
     const allMonths: string[] = [];
     {
       let cur = new Date(startMonth + "-01T00:00:00");
