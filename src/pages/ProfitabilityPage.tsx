@@ -1375,7 +1375,12 @@ const ProfitabilityPage = () => {
 
     // First pass: Calculate Person Completeness
     const personCompletenessMap = new Map<string, number>();
+    const billableTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]);
+
     for (const person of people) {
+      // Exclude non-billable teams (like Finance) from completion calculations
+      if (!person.team || !billableTeams.has(person.team.toLowerCase())) continue;
+
       const empStart = person.overall_start_date || person.employment_start_date;
       const empEnd = person.overall_end_date || person.employment_end_date;
       let effectiveStart = empStart && new Date(empStart) > windowStart ? new Date(empStart) : windowStart;

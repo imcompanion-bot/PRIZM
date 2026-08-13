@@ -419,6 +419,10 @@ const ProjectDetailPage = () => {
     const phaseHoursInWindow = (sc: any): number => {
       const scoped = Number(sc.scoped_hours) || 0;
       if (scoped <= 0) return 0;
+      
+      // If the time window completely encompasses the project, just return 100% of scoped hours
+      if (windowStart <= projStart && windowEnd >= projEnd) return scoped;
+
       const pcts = (sc.phase_percentages || {}) as Record<string, number | string>;
       const hasAnyPct = Object.values(pcts).some((v) => {
         const num = typeof v === "string" ? parseFloat(v.replace("%", "")) : Number(v);
@@ -429,13 +433,27 @@ const ProjectDetailPage = () => {
         : { "Phase 1": 30, "Phase 2": 30, "Phase 3": 20, "Phase 4": 20 };
       const phaseCount = hasAnyPct ? 12 : 4;
       const daysPerPhaseLocal = totalProjectDays / phaseCount;
+      
+      // Calculate total sum of percentages to normalize (in case they add up to 99% or 102%)
+      let totalPct = 0;
+      for (let phase = 1; phase <= phaseCount; phase++) {
+        const rawPct =
+          effectivePcts[`Phase ${phase}`] ?? effectivePcts[`phase ${phase}`] ?? effectivePcts[`Phase${phase}`] ?? effectivePcts[`phase${phase}`] ?? effectivePcts[String(phase)] ?? 0;
+        const pct = typeof rawPct === "string" ? parseFloat(rawPct.replace("%", "")) : Number(rawPct);
+        if (!isNaN(pct) && pct > 0) totalPct += pct;
+      }
+      if (totalPct === 0) return 0;
+
       let hoursInWin = 0;
       for (let phase = 1; phase <= phaseCount; phase++) {
         const rawPct =
           effectivePcts[`Phase ${phase}`] ?? effectivePcts[`phase ${phase}`] ?? effectivePcts[`Phase${phase}`] ?? effectivePcts[`phase${phase}`] ?? effectivePcts[String(phase)] ?? 0;
         const pct = typeof rawPct === "string" ? parseFloat(rawPct.replace("%", "")) : Number(rawPct);
         if (isNaN(pct) || pct <= 0) continue;
-        const phaseHours = (pct / 100) * scoped;
+        
+        const normalizedPct = (pct / totalPct) * 100;
+        const phaseHours = (normalizedPct / 100) * scoped;
+        
         const phaseStartDay = Math.round((phase - 1) * daysPerPhaseLocal);
         const phaseEndDay = Math.round(phase * daysPerPhaseLocal) - 1;
         const phaseStart = new Date(projStart.getTime() + phaseStartDay * 86400000);
