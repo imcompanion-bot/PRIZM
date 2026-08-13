@@ -401,22 +401,57 @@ const ProjectDetailPage = () => {
         }
       });
   } else {
-    // Fallback: flat distribution based on working days elapsed
+    // Fallback: use scope phase_percentages (matches Profitability Page shaping)
     const projStart = new Date(project?.start_date || "");
     const projEnd = new Date(project?.end_date || "");
-    const clampedToday = today < projStart ? projStart : today > projEnd ? projEnd : today;
-
+    
     const countWorkingDays = (from: Date, to: Date) => {
       if (from > to) return 0;
       return eachDayOfInterval({ start: from, end: to }).filter((d) => !isWeekend(d)).length;
     };
 
-    const totalWorkingDays = countWorkingDays(projStart, projEnd);
-    const elapsedWorkingDays = countWorkingDays(projStart, clampedToday);
-    const elapsedPct = totalWorkingDays > 0 ? elapsedWorkingDays / totalWorkingDays : 0;
+    const windowStart = projStart;
+    const windowEnd = today < projStart ? projStart : today > projEnd ? projEnd : today;
+
+    const totalProjectDays = Math.max(1, Math.round((projEnd.getTime() - projStart.getTime()) / 86400000) + 1);
+
+    const phaseHoursInWindow = (sc: any): number => {
+      const scoped = Number(sc.scoped_hours) || 0;
+      if (scoped <= 0) return 0;
+      const pcts = (sc.phase_percentages || {}) as Record<string, number | string>;
+      const hasAnyPct = Object.values(pcts).some((v) => {
+        const num = typeof v === "string" ? parseFloat(v.replace("%", "")) : Number(v);
+        return !isNaN(num) && num > 0;
+      });
+      const effectivePcts: Record<string, number | string> = hasAnyPct
+        ? pcts
+        : { "Phase 1": 30, "Phase 2": 30, "Phase 3": 20, "Phase 4": 20 };
+      const phaseCount = hasAnyPct ? 12 : 4;
+      const daysPerPhaseLocal = totalProjectDays / phaseCount;
+      let hoursInWin = 0;
+      for (let phase = 1; phase <= phaseCount; phase++) {
+        const rawPct =
+          effectivePcts[`Phase ${phase}`] ?? effectivePcts[`phase ${phase}`] ?? effectivePcts[`Phase${phase}`] ?? effectivePcts[`phase${phase}`] ?? effectivePcts[String(phase)] ?? 0;
+        const pct = typeof rawPct === "string" ? parseFloat(rawPct.replace("%", "")) : Number(rawPct);
+        if (isNaN(pct) || pct <= 0) continue;
+        const phaseHours = (pct / 100) * scoped;
+        const phaseStartDay = Math.round((phase - 1) * daysPerPhaseLocal);
+        const phaseEndDay = Math.round(phase * daysPerPhaseLocal) - 1;
+        const phaseStart = new Date(projStart.getTime() + phaseStartDay * 86400000);
+        const phaseEnd = new Date(projStart.getTime() + phaseEndDay * 86400000);
+        const totalPhaseWD = countWorkingDays(phaseStart, phaseEnd);
+        if (totalPhaseWD === 0) continue;
+        const effStart = phaseStart > windowStart ? phaseStart : windowStart;
+        const effEnd = phaseEnd < windowEnd ? phaseEnd : windowEnd;
+        const winPhaseWD = countWorkingDays(effStart, effEnd);
+        if (winPhaseWD === 0) continue;
+        hoursInWin += phaseHours * (winPhaseWD / totalPhaseWD);
+      }
+      return hoursInWin;
+    };
 
     (project?.project_scopes || []).forEach((sc: any) => {
-      soFarHoursPerScope[sc.id] = sc.scoped_hours * elapsedPct;
+      soFarHoursPerScope[sc.id] = phaseHoursInWindow(sc);
     });
   }
 
