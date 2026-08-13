@@ -8,14 +8,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatCurrency, calculateInternalCostPerHour } from "@/lib/calculations";
+import { formatCurrency, calculateInternalCostPerHour, BILLABLE_TEAMS } from "@/lib/calculations";
 import { getBatchProjectFxRates, getMonthlyBatchFxRates } from "@/lib/fx";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { format, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, startOfWeek, endOfWeek, parseISO } from "date-fns";
 import { buildParentalLeaveMap, getWorkingDaysExcludingLeave } from "@/lib/parental-leave";
 import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, ArrowUp, ArrowDown, Info } from "lucide-react";
-import * as RechartsPrimitive from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
 import ProfitabilityTrendChart from "@/components/profitability/ProfitabilityTrendChart";
 import { CustomDateRangePicker } from "@/components/ui/custom-date-range-picker";
@@ -454,7 +453,8 @@ const ProfitabilityPage = () => {
       const end = person.overall_end_date ? new Date(person.overall_end_date) : null;
       if (end && end < now) continue;
       
-      const cap = person.roles?.billable_capacity_hours;
+      const isBillableTeam = person.team && BILLABLE_TEAMS.has(person.team.toLowerCase());
+      const cap = isBillableTeam ? person.roles?.billable_capacity_hours : null;
       const costPerHour = calculateInternalCostPerHour(Number(person.annual_salary), cap);
       if (!map[person.role_id]) map[person.role_id] = { gbpSum: 0, usdSum: 0, count: 0 };
       const stats = map[person.role_id];
@@ -476,7 +476,8 @@ const ProfitabilityPage = () => {
       const person = peopleByIdForBudget.get(row.person_id);
       if (!person?.role_id || !person.annual_salary || person.annual_salary <= 0) continue;
 
-      const cap = person.roles?.billable_capacity_hours;
+      const isBillableTeam = person.team && BILLABLE_TEAMS.has(person.team.toLowerCase());
+      const cap = isBillableTeam ? person.roles?.billable_capacity_hours : null;
       const costPerHour = calculateInternalCostPerHour(Number(person.annual_salary), cap);
 
       if (!map[row.project_id]) map[row.project_id] = {};
@@ -608,7 +609,8 @@ const ProfitabilityPage = () => {
 
       const roleKey = person.role_id || "null";
       const isUs = person.office === "US" || person.office === "United States";
-      const cap = person.roles?.billable_capacity_hours;
+      const isBillableTeam = person.team && BILLABLE_TEAMS.has(person.team.toLowerCase());
+      const cap = isBillableTeam ? person.roles?.billable_capacity_hours : null;
       const rate = calculateInternalCostPerHour(person.annual_salary || 0, cap);
       const cost = rate * hours;
 
@@ -1374,12 +1376,10 @@ const ProfitabilityPage = () => {
     const windowEnd = windowEndRaw > today ? today : windowEndRaw;
 
     // First pass: Calculate Person Completeness
-    const personCompletenessMap = new Map<string, number>();
-    const billableTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]);
 
     for (const person of people) {
       // Exclude non-billable teams (like Finance) from completion calculations
-      if (!person.team || !billableTeams.has(person.team.toLowerCase())) continue;
+      if (!person.team || !BILLABLE_TEAMS.has(person.team.toLowerCase())) continue;
 
       const empStart = person.overall_start_date || person.employment_start_date;
       const empEnd = person.overall_end_date || person.employment_end_date;

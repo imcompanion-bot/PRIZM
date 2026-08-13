@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { ProjectPhasesTab } from "@/components/project/ProjectPhasesTab";
 import { ProjectAISummary } from "@/components/project/ProjectAISummary";
 import { MarginSentryWidget } from "@/components/project/MarginSentryWidget";
-import { formatCurrency, formatHours, calculateInternalCostPerHour, getDailyCapacity } from "@/lib/calculations";
+import { formatCurrency, formatHours, calculateInternalCostPerHour, getDailyCapacity, BILLABLE_TEAMS } from "@/lib/calculations";
 
 const ProjectDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -347,7 +347,9 @@ const ProjectDetailPage = () => {
 
   const totalActualCost = timeEntries.reduce((sum, te) => {
     const salary = (te as any).people?.annual_salary;
-    const cap = (te as any).people?.roles?.billable_capacity_hours;
+    const team = (te as any).people?.team;
+    const isBillableTeam = team && BILLABLE_TEAMS.has(team.toLowerCase());
+    const cap = isBillableTeam ? (te as any).people?.roles?.billable_capacity_hours : null;
     if (!salary) return sum;
     const costPerHour = calculateInternalCostPerHour(salary, cap);
     // Find person's office for FX conversion
@@ -370,7 +372,8 @@ const ProjectDetailPage = () => {
     if (rolePeople.length === 0) return sum;
     
     const avgCostPerHour = rolePeople.reduce((s, p) => {
-      const cap = p.roles?.billable_capacity_hours;
+      const isBillableTeam = p.team && BILLABLE_TEAMS.has(p.team.toLowerCase());
+      const cap = isBillableTeam ? p.roles?.billable_capacity_hours : null;
       const cost = calculateInternalCostPerHour(p.annual_salary!, cap);
       return s + convertCostToActiveCurrency(cost, p.office);
     }, 0) / rolePeople.length;
@@ -536,7 +539,9 @@ const ProjectDetailPage = () => {
         if (!pid) return;
         const personName = (te as any).people?.name || "Unknown";
         const salary = (te as any).people?.annual_salary;
-        const cap = (te as any).people?.roles?.billable_capacity_hours;
+        const team = (te as any).people?.team;
+        const isBillableTeam = team && BILLABLE_TEAMS.has(team.toLowerCase());
+        const cap = isBillableTeam ? (te as any).people?.roles?.billable_capacity_hours : null;
         const costPerHour = salary ? calculateInternalCostPerHour(salary, cap) : 0;
         const person = people.find((p: any) => p.id === pid);
         const office = person?.office || "UK";
@@ -553,7 +558,8 @@ const ProjectDetailPage = () => {
       const rolePeople = people.filter((p: any) => p.role_id === scope.role_id && p.annual_salary);
       const avgBudgetCostPerHour = rolePeople.length > 0
         ? rolePeople.reduce((s: number, p: any) => {
-            const cap = p.roles?.billable_capacity_hours;
+            const isBillableTeam = p.team && BILLABLE_TEAMS.has(p.team.toLowerCase());
+            const cap = isBillableTeam ? p.roles?.billable_capacity_hours : null;
             const cost = calculateInternalCostPerHour(p.annual_salary, cap);
             return s + convertCostToActiveCurrency(cost, p.office);
           }, 0) / rolePeople.length
