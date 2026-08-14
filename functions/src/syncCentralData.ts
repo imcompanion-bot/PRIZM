@@ -440,11 +440,11 @@ export async function runSync() {
             code: p.code,
             type: p.type || null,
             team: p.team || null,
-            status: p.status || null,
+            status: "Inactive", // Mark as inactive since they are removed from the sheet
             office: p.office || "Unknown",
-            uk_percentage: p.uk_percentage || null,
-            us_percentage: p.us_percentage || null,
-            imc_percentage: p.imc_percentage || null,
+            uk_percentage: 0, // Zero out capacity
+            us_percentage: 0,
+            imc_percentage: 0,
             employment_start_date: p.employment_start_date || null,
             employment_end_date: p.employment_end_date || null,
             overall_start_date: p.overall_start_date || null,

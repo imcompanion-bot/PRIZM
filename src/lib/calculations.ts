@@ -7,7 +7,7 @@ const HOURS_PER_DAY = 7.5;
 
 export const WORKING_HOURS_PER_YEAR = WORKING_DAYS_PER_YEAR * HOURS_PER_DAY; // 1665
 
-const SALARY_MARKUP = 0.15; // 15% for taxes and benefits
+const SALARY_MARKUP = 0.0; // 0% as DB salaries already include taxes and benefits
 
 export const BILLABLE_TEAMS = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]);
 
@@ -21,7 +21,7 @@ export function calculateInternalCostPerHour(annualSalary: number, billableCapac
   const dailyBillableHours = getDailyCapacity(weeklyCapacity);
   const billableCapacityPct = dailyBillableHours / HOURS_PER_DAY;
   const billableHoursPerYear = WORKING_HOURS_PER_YEAR * billableCapacityPct;
-  return (annualSalary * (1 + SALARY_MARKUP)) / billableHoursPerYear;
+  return annualSalary / billableHoursPerYear;
 }
 
 export function formatCurrency(amount: number, currencyOrOffice: string = "UK"): string {

@@ -138,6 +138,14 @@ const DataSyncTab = () => {
       queryClient.invalidateQueries({ queryKey: ["projects_for_billability_v3"] });
       queryClient.invalidateQueries({ queryKey: ["utilisation_summary"] });
       queryClient.invalidateQueries({ queryKey: ["utilisation_summary_monthly"] });
+      queryClient.invalidateQueries({ queryKey: ["sync_central_data_status"] });
+      
+      // Instantly update the UI with the timestamp returned from the backend function
+      if (result.data && (result.data as any).timestamp) {
+        queryClient.setQueryData(["sync_central_data_status"], (result.data as any).timestamp);
+      } else {
+        queryClient.setQueryData(["sync_central_data_status"], new Date().toISOString());
+      }
       
       await refetchSyncStatus();
       await refetchMonitorStatus();

@@ -254,7 +254,7 @@ const ProjectDetailPage = () => {
 
   const storedGbp = (project as any)?.fx_rate_gbp;
   const storedUsd = (project as any)?.fx_rate_usd;
-  const histRate = getExtraNum(project, "fx_rate_historical", "fx_rate") || 1.25;
+  const histRate = getExtraNum(project, "fx_rate_historical", "fx_rate") || historicalFxRate || 1.25;
   let fxRateGbp: number;
   let fxRateUsd: number;
   
