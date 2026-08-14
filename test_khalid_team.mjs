@@ -1,0 +1,8 @@
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+dotenv.config();
+const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+
+const { data: people } = await supabase.from('people').select('name, team, roles(name, billable_capacity_hours)').ilike('name', '%Khalid%');
+console.log(JSON.stringify(people, null, 2));
+

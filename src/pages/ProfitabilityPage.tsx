@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatCurrency, calculateInternalCostPerHour } from "@/lib/calculations";
+import { formatCurrency, calculateInternalCostPerHour, BILLABLE_TEAMS } from "@/lib/calculations";
 import { getBatchProjectFxRates, getMonthlyBatchFxRates } from "@/lib/fx";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -194,10 +194,10 @@ const ProfitabilityPage = () => {
 
   const endDateStr = useMemo(() => {
     if (timePeriod === "custom") return appliedEndDate;
-    return format(new Date(), "yyyy-MM-dd");
+    return format(endOfMonth(subMonths(new Date(), 1)), "yyyy-MM-dd");
   }, [timePeriod, appliedEndDate]);
 
-  const todayStr = useMemo(() => timePeriod === "custom" ? appliedEndDate : format(new Date(), "yyyy-MM-dd"), [timePeriod, appliedEndDate]);
+  const todayStr = useMemo(() => timePeriod === "custom" ? appliedEndDate : format(endOfMonth(subMonths(new Date(), 1)), "yyyy-MM-dd"), [timePeriod, appliedEndDate]);
 
   // ── Data Fetching ──
 
@@ -454,7 +454,8 @@ const ProfitabilityPage = () => {
       const end = person.overall_end_date ? new Date(person.overall_end_date) : null;
       if (end && end < now) continue;
       
-      const cap = person.roles?.billable_capacity_hours;
+      const isBillableTeam = person.team && BILLABLE_TEAMS.has(person.team.toLowerCase());
+      const cap = isBillableTeam ? person.roles?.billable_capacity_hours : null;
       const costPerHour = calculateInternalCostPerHour(Number(person.annual_salary), cap);
       if (!map[person.role_id]) map[person.role_id] = { gbpSum: 0, usdSum: 0, count: 0 };
       const stats = map[person.role_id];
@@ -476,7 +477,8 @@ const ProfitabilityPage = () => {
       const person = peopleByIdForBudget.get(row.person_id);
       if (!person?.role_id || !person.annual_salary || person.annual_salary <= 0) continue;
 
-      const cap = person.roles?.billable_capacity_hours;
+      const isBillableTeam = person.team && BILLABLE_TEAMS.has(person.team.toLowerCase());
+      const cap = isBillableTeam ? person.roles?.billable_capacity_hours : null;
       const costPerHour = calculateInternalCostPerHour(Number(person.annual_salary), cap);
 
       if (!map[row.project_id]) map[row.project_id] = {};
@@ -608,7 +610,8 @@ const ProfitabilityPage = () => {
 
       const roleKey = person.role_id || "null";
       const isUs = person.office === "US" || person.office === "United States";
-      const cap = person.roles?.billable_capacity_hours;
+      const isBillableTeam = person.team && BILLABLE_TEAMS.has(person.team.toLowerCase());
+      const cap = isBillableTeam ? person.roles?.billable_capacity_hours : null;
       const rate = calculateInternalCostPerHour(person.annual_salary || 0, cap);
       const cost = rate * hours;
 
@@ -1375,7 +1378,11 @@ const ProfitabilityPage = () => {
 
     // First pass: Calculate Person Completeness
     const personCompletenessMap = new Map<string, number>();
+
     for (const person of people) {
+      // Exclude non-billable teams (like Finance) from completion calculations
+      if (!person.team || !BILLABLE_TEAMS.has(person.team.toLowerCase())) continue;
+
       const empStart = person.overall_start_date || person.employment_start_date;
       const empEnd = person.overall_end_date || person.employment_end_date;
       let effectiveStart = empStart && new Date(empStart) > windowStart ? new Date(empStart) : windowStart;
@@ -1792,7 +1799,7 @@ const ProfitabilityPage = () => {
 
     // Build continuous month range so zero-data months still appear on x-axis
     const startMonth = cutoffDate.slice(0, 7);
-    const endMonth = (timePeriod === "custom" ? appliedEndDate : format(today, "yyyy-MM-dd")).slice(0, 7);
+    const endMonth = endDateStr.slice(0, 7);
     const allMonths: string[] = [];
     {
       let cur = new Date(startMonth + "-01T00:00:00");
@@ -1844,7 +1851,7 @@ const ProfitabilityPage = () => {
         <div>
           <h1 className="font-display text-2xl font-bold text-[#1a1a1a]">Profitability</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Client profitability for the last {periodLabel.toLowerCase()} · {displayCurrency}
+            Client profitability {timePeriod === "custom" ? `for ${periodLabel}` : `for the last ${periodLabel.toLowerCase()} (${format(parseISO(cutoffDate), "d MMM yyyy")} to ${format(parseISO(endDateStr), "d MMM yyyy")})`} · {displayCurrency}
           </p>
           <p className="text-muted-foreground text-[11px] mt-1 max-w-2xl">
             Project financials shown here (Agency Fee, Cost, Profit) are strictly constrained to the selected timeframe and may differ from the total project financials where the project's start and/or end date is outside the selected timeframe.

@@ -119,7 +119,7 @@ const TrendCharts = ({ startDate, endDate, officeFilter, showFormer }: TrendChar
 
   const parentalLeaveMap = useMemo(() => buildParentalLeaveMap(people), [people]);
 
-  const allowedTeams = useMemo(() => new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data"]), []);
+  const allowedTeams = useMemo(() => new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]), []);
 
   // Filter people by office + team + showFormer
   const filteredPeople = useMemo(() => {

@@ -241,7 +241,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
   const personSummaries = useMemo(() => {
     try {
 
-    const allowedTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data"]);
+    const allowedTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]);
 
     // Build name+team -> sibling IDs for the same team (handles people who moved
     // between teams — each team row only picks up its own contract's hours).

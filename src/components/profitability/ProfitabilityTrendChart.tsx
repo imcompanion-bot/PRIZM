@@ -565,22 +565,25 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
     });
   }, [_baseTrend, grossUpFactors, allGrossUpFactors, overallData]);
 
-  // Compute fixed Y-axis domain covering both grossed-up and non-grossed-up states
+  // Compute Y-axis domain dynamically based on currently visible data
   const profitYDomain = useMemo(() => {
     if (!overallData.length) return undefined;
     const currentProfits = overallData.map(d => d.profit);
-    const altProfits = altOverallData.map(d => d.profit);
-    const allProfits = [...currentProfits, ...altProfits];
     
-    const minProfit = Math.min(...allProfits);
-    const maxProfit = Math.max(...allProfits);
+    const minProfit = Math.min(...currentProfits);
+    const maxProfit = Math.max(...currentProfits);
     const padding = (maxProfit - minProfit) * 0.1;
     
-    return [
-      Math.floor((minProfit - padding) / 50000) * 50000,
-      Math.ceil((maxProfit + padding) / 50000) * 50000,
-    ] as [number, number];
-  }, [overallData, altOverallData]);
+    let domainMin = Math.floor((minProfit - padding) / 50000) * 50000;
+    const domainMax = Math.ceil((maxProfit + padding) / 50000) * 50000;
+
+    // Prevent padding from pushing a purely non-negative dataset into negative territory
+    if (minProfit >= 0 && domainMin < 0) {
+      domainMin = 0;
+    }
+    
+    return [domainMin, domainMax] as [number, number];
+  }, [overallData]);
 
   if (overallData.length <= 1) return null;
 

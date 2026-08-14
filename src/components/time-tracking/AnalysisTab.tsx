@@ -254,7 +254,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
   // effective record (role / team / office) that was active on the entry date, and parental-leave
   // windows can be skipped without dropping work the person did before/after leave.
   const { personMap, nameIsFormer, nameWindows, personIdToName } = useMemo(() => {
-    const allowedTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data"]);
+    const allowedTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]);
     const map = new Map<string, { name: string; team: string; office: string; role: string }>();
     // Track per-name whether ALL records have ended (i.e. person is "former")
     const nameEndedAll = new Map<string, boolean>(); // true = all ended so far
@@ -383,7 +383,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
     const teamRoleProjectIdx = new Map<string, Map<string, Map<string, number>>>();
     const teamRoleLogged = new Map<string, Map<string, number>>();
 
-    const allowedTeamsLower = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data"]);
+    const allowedTeamsLower = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]);
 
     const resolveEffective = (normName: string, date: Date) => {
       const arr = nameWindows.get(normName);
@@ -799,7 +799,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       totalExpected: number; totalExpectedBillable: number; count: number;
     }>();
 
-    const allowedTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data"]);
+    const allowedTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]);
     const filtered = people.filter((p: any) => {
       if (!matchesOffice(p.office, officeFilter)) return false;
       const team = (p.team || "").toLowerCase().trim();
@@ -912,7 +912,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       totalExpected: number; totalExpectedBillable: number; count: number;
     }>();
 
-    const allowedTeams2 = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data"]);
+    const allowedTeams2 = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]);
     const filtered = people.filter((p: any) => {
       if (!matchesOffice(p.office, officeFilter)) return false;
       const team = (p.team || "").toLowerCase().trim();
@@ -1180,7 +1180,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
   const monthlyTeamData = useMemo(() => {
     const HOURS_PER_DAY = 7.5;
     const months = eachMonthOfInterval({ start: startOfMonth(startDate), end: endOfMonth(endDate) });
-    const allowedTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data"]);
+    const allowedTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]);
 
     // Build name -> sibling IDs (for actual hours aggregation, mirroring UtilisationTab)
     const nameToIds = new Map<string, string[]>();
@@ -1521,7 +1521,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
   const personCapacityData = useMemo(() => {
     if (!selectedPersonTeam) return [];
     const HOURS_PER_DAY = 7.5;
-    const allowedTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data"]);
+    const allowedTeams = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]);
 
     // sibling IDs by name
     const nameToIds = new Map<string, string[]>();

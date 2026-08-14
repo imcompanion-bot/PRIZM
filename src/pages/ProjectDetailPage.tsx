@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { ProjectPhasesTab } from "@/components/project/ProjectPhasesTab";
 import { ProjectAISummary } from "@/components/project/ProjectAISummary";
 import { MarginSentryWidget } from "@/components/project/MarginSentryWidget";
-import { formatCurrency, formatHours, calculateInternalCostPerHour, getDailyCapacity } from "@/lib/calculations";
+import { formatCurrency, formatHours, calculateInternalCostPerHour, getDailyCapacity, BILLABLE_TEAMS } from "@/lib/calculations";
 
 const ProjectDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -99,7 +99,7 @@ const ProjectDetailPage = () => {
       while (true) {
         const { data, error } = await supabase
           .from("time_entries")
-          .select("*, people(name, annual_salary, role_id, roles(name, billable_capacity_hours))")
+          .select("*, people(name, annual_salary, role_id, team, roles(name, billable_capacity_hours))")
           .eq("project_id", id!)
           .order("date", { ascending: false })
           .range(from, from + pageSize - 1);
@@ -254,7 +254,7 @@ const ProjectDetailPage = () => {
 
   const storedGbp = (project as any)?.fx_rate_gbp;
   const storedUsd = (project as any)?.fx_rate_usd;
-  const histRate = historicalFxRate ?? 1.35;
+  const histRate = getExtraNum(project, "fx_rate_historical", "fx_rate") || 1.25;
   let fxRateGbp: number;
   let fxRateUsd: number;
   
@@ -347,7 +347,9 @@ const ProjectDetailPage = () => {
 
   const totalActualCost = timeEntries.reduce((sum, te) => {
     const salary = (te as any).people?.annual_salary;
-    const cap = (te as any).people?.roles?.billable_capacity_hours;
+    const team = (te as any).people?.team;
+    const isBillableTeam = team && BILLABLE_TEAMS.has(team.toLowerCase());
+    const cap = isBillableTeam ? (te as any).people?.roles?.billable_capacity_hours : null;
     if (!salary) return sum;
     const costPerHour = calculateInternalCostPerHour(salary, cap);
     // Find person's office for FX conversion
@@ -358,7 +360,7 @@ const ProjectDetailPage = () => {
 
   // Budgeted internal cost per role (avg cost/hr for each role, converted to project currency)
   const budgetedCostByRole: Record<string, number> = {};
-  const budgetedInternalCost = (project?.project_scopes || []).reduce((sum: number, scope: any) => {
+  const rawBudgetedInternalCost = (project?.project_scopes || []).reduce((sum: number, scope: any) => {
     const roleId = scope.role_id;
     const now = new Date();
     const rolePeople = people.filter((p) => {
@@ -370,7 +372,8 @@ const ProjectDetailPage = () => {
     if (rolePeople.length === 0) return sum;
     
     const avgCostPerHour = rolePeople.reduce((s, p) => {
-      const cap = p.roles?.billable_capacity_hours;
+      const isBillableTeam = p.team && BILLABLE_TEAMS.has(p.team.toLowerCase());
+      const cap = isBillableTeam ? p.roles?.billable_capacity_hours : null;
       const cost = calculateInternalCostPerHour(p.annual_salary!, cap);
       return s + convertCostToActiveCurrency(cost, p.office);
     }, 0) / rolePeople.length;
@@ -378,6 +381,15 @@ const ProjectDetailPage = () => {
     budgetedCostByRole[roleId] = avgCostPerHour;
     return sum + scope.scoped_hours * avgCostPerHour;
   }, 0);
+
+  const explicitBudgetCost = currencyMode === "project" ? projAgencyFeeGrossBudget : baseAgencyFeeGrossBudget;
+  const budgetedInternalCost = (explicitBudgetCost != null && explicitBudgetCost > 0)
+    ? explicitBudgetCost
+    : rawBudgetedInternalCost;
+
+  const budgetScale = (explicitBudgetCost != null && explicitBudgetCost > 0 && rawBudgetedInternalCost > 0)
+    ? explicitBudgetCost / rawBudgetedInternalCost
+    : 1;
 
   const budgetedProfit = (agencyFee ?? 0) - budgetedInternalCost;
   // Actual profit will be recalculated after agencyFeeSoFar is computed
@@ -392,6 +404,17 @@ const ProjectDetailPage = () => {
   // Sum phase_allocations hours per scope for completed phases
   const soFarHoursPerScope: Record<string, number> = {};
 
+  const projStart = new Date(project?.start_date || "");
+  const projEnd = new Date(project?.end_date || "");
+  
+  const countWorkingDays = (from: Date, to: Date) => {
+    if (from > to) return 0;
+    return eachDayOfInterval({ start: from, end: to }).filter((d) => !isWeekend(d)).length;
+  };
+
+  const windowStart = projStart;
+  const windowEnd = today < projStart ? projStart : today > projEnd ? projEnd : today;
+
   if (hasPhaseAllocations && completedPhaseIds.length > 0) {
     phaseAllocations
       .filter((pa) => completedPhaseIds.includes(pa.phase_id))
@@ -402,22 +425,16 @@ const ProjectDetailPage = () => {
       });
   } else {
     // Fallback: use scope phase_percentages (matches Profitability Page shaping)
-    const projStart = new Date(project?.start_date || "");
-    const projEnd = new Date(project?.end_date || "");
-    
-    const countWorkingDays = (from: Date, to: Date) => {
-      if (from > to) return 0;
-      return eachDayOfInterval({ start: from, end: to }).filter((d) => !isWeekend(d)).length;
-    };
-
-    const windowStart = projStart;
-    const windowEnd = today < projStart ? projStart : today > projEnd ? projEnd : today;
 
     const totalProjectDays = Math.max(1, Math.round((projEnd.getTime() - projStart.getTime()) / 86400000) + 1);
 
     const phaseHoursInWindow = (sc: any): number => {
       const scoped = Number(sc.scoped_hours) || 0;
       if (scoped <= 0) return 0;
+      
+      // If the time window completely encompasses the project, just return 100% of scoped hours
+      if (windowStart <= projStart && windowEnd >= projEnd) return scoped;
+
       const pcts = (sc.phase_percentages || {}) as Record<string, number | string>;
       const hasAnyPct = Object.values(pcts).some((v) => {
         const num = typeof v === "string" ? parseFloat(v.replace("%", "")) : Number(v);
@@ -428,13 +445,27 @@ const ProjectDetailPage = () => {
         : { "Phase 1": 30, "Phase 2": 30, "Phase 3": 20, "Phase 4": 20 };
       const phaseCount = hasAnyPct ? 12 : 4;
       const daysPerPhaseLocal = totalProjectDays / phaseCount;
+      
+      // Calculate total sum of percentages to normalize (in case they add up to 99% or 102%)
+      let totalPct = 0;
+      for (let phase = 1; phase <= phaseCount; phase++) {
+        const rawPct =
+          effectivePcts[`Phase ${phase}`] ?? effectivePcts[`phase ${phase}`] ?? effectivePcts[`Phase${phase}`] ?? effectivePcts[`phase${phase}`] ?? effectivePcts[String(phase)] ?? 0;
+        const pct = typeof rawPct === "string" ? parseFloat(rawPct.replace("%", "")) : Number(rawPct);
+        if (!isNaN(pct) && pct > 0) totalPct += pct;
+      }
+      if (totalPct === 0) return 0;
+
       let hoursInWin = 0;
       for (let phase = 1; phase <= phaseCount; phase++) {
         const rawPct =
           effectivePcts[`Phase ${phase}`] ?? effectivePcts[`phase ${phase}`] ?? effectivePcts[`Phase${phase}`] ?? effectivePcts[`phase${phase}`] ?? effectivePcts[String(phase)] ?? 0;
         const pct = typeof rawPct === "string" ? parseFloat(rawPct.replace("%", "")) : Number(rawPct);
         if (isNaN(pct) || pct <= 0) continue;
-        const phaseHours = (pct / 100) * scoped;
+        
+        const normalizedPct = (pct / totalPct) * 100;
+        const phaseHours = (normalizedPct / 100) * scoped;
+        
         const phaseStartDay = Math.round((phase - 1) * daysPerPhaseLocal);
         const phaseEndDay = Math.round(phase * daysPerPhaseLocal) - 1;
         const phaseStart = new Date(projStart.getTime() + phaseStartDay * 86400000);
@@ -472,13 +503,20 @@ const ProjectDetailPage = () => {
     return sum + hours * avgCostPerHour;
   }, 0);
 
+  let fallbackWindowPct = 0;
+  if (totalScopedHours === 0) {
+    const projWD = countWorkingDays(projStart, projEnd);
+    const winWD = countWorkingDays(windowStart, windowEnd);
+    fallbackWindowPct = projWD > 0 ? winWD / projWD : 0;
+  }
+
   // Proportioned agency fee "so far" — use rate card fee ratio if available, otherwise hours ratio
   const agencyFeeSoFar = agencyFee !== null
     ? budgetedFee && budgetedFee > 0
       ? agencyFee * ((soFarBudgetFee ?? 0) / budgetedFee)
       : totalScopedHours > 0
         ? agencyFee * (soFarBudgetHours / totalScopedHours)
-        : 0
+        : agencyFee * fallbackWindowPct
     : null;
   const soFarBudgetProfit = (agencyFeeSoFar ?? 0) - soFarBudgetCost;
   const profit = (agencyFeeSoFar ?? 0) - totalActualCost;
@@ -510,7 +548,9 @@ const ProjectDetailPage = () => {
         if (!pid) return;
         const personName = (te as any).people?.name || "Unknown";
         const salary = (te as any).people?.annual_salary;
-        const cap = (te as any).people?.roles?.billable_capacity_hours;
+        const team = (te as any).people?.team;
+        const isBillableTeam = team && BILLABLE_TEAMS.has(team.toLowerCase());
+        const cap = isBillableTeam ? (te as any).people?.roles?.billable_capacity_hours : null;
         const costPerHour = salary ? calculateInternalCostPerHour(salary, cap) : 0;
         const person = people.find((p: any) => p.id === pid);
         const office = person?.office || "UK";
@@ -525,14 +565,16 @@ const ProjectDetailPage = () => {
 
       // Budgeted avg cost per hour for this role
       const rolePeople = people.filter((p: any) => p.role_id === scope.role_id && p.annual_salary);
-      const avgBudgetCostPerHour = rolePeople.length > 0
+      const rawAvgBudgetCostPerHour = rolePeople.length > 0
         ? rolePeople.reduce((s: number, p: any) => {
-            const cap = p.roles?.billable_capacity_hours;
+            const isBillableTeam = p.team && BILLABLE_TEAMS.has(p.team.toLowerCase());
+            const cap = isBillableTeam ? p.roles?.billable_capacity_hours : null;
             const cost = calculateInternalCostPerHour(p.annual_salary, cap);
             return s + convertCostToActiveCurrency(cost, p.office);
           }, 0) / rolePeople.length
         : 0;
 
+      const avgBudgetCostPerHour = rawAvgBudgetCostPerHour * budgetScale;
       const scopedCost = scopedHours * avgBudgetCostPerHour;
       const actualCostForRole = Object.values(personMap).reduce((s, p) => s + p.totalCost, 0);
 
