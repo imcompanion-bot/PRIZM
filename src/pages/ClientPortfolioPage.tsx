@@ -1717,13 +1717,28 @@ const ClientPortfolioPage = () => {
                     return (
                       <TableRow key={p.id} className="hover:bg-muted/10 transition-colors">
                         <TableCell className="pl-6 font-bold py-4">
-                          <Link 
-                            to={`/project/${p.id}`} 
-                            className="font-bold text-sm text-primary hover:underline inline-flex items-center gap-1 group"
-                          >
-                            {p.title}
-                            <ArrowUpRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </Link>
+                          <div className="flex items-center flex-wrap gap-2">
+                            <Link 
+                              to={`/projects/${p.id}`} 
+                              className="font-bold text-sm text-primary hover:underline inline-flex items-center gap-1 group"
+                            >
+                              {p.title}
+                              <ArrowUpRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </Link>
+                            {p.last_fee_calc_url && (
+                              <a 
+                                href={p.last_fee_calc_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 text-[10px] font-extrabold border border-emerald-500/20 transition-all cursor-pointer"
+                                title="Open connected GDrive Spreadsheet"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <FileSpreadsheet className="h-3 w-3" />
+                                GDrive
+                              </a>
+                            )}
+                          </div>
                           <div className="w-48 mt-1.5 space-y-1">
                             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                               <span>Timeline Progress</span>
@@ -1995,7 +2010,7 @@ const ClientPortfolioPage = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {displayRows.map(({ teamName, rows }) => {
+                          {groupedRows.map(({ team: teamName, rows, otherRow, otherRoleNames, otherRoleIds }) => {
                             return (
                             <>
                               <TableRow key={teamName} className="bg-muted/30 font-bold hover:bg-muted/30 border-y">
