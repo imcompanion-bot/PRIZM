@@ -99,7 +99,7 @@ const ProjectDetailPage = () => {
       while (true) {
         const { data, error } = await supabase
           .from("time_entries")
-          .select("*, people(name, annual_salary, role_id, roles(name, billable_capacity_hours))")
+          .select("*, people(name, annual_salary, role_id, team, roles(name, billable_capacity_hours))")
           .eq("project_id", id!)
           .order("date", { ascending: false })
           .range(from, from + pageSize - 1);
