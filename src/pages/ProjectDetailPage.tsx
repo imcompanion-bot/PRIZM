@@ -360,7 +360,7 @@ const ProjectDetailPage = () => {
 
   // Budgeted internal cost per role (avg cost/hr for each role, converted to project currency)
   const budgetedCostByRole: Record<string, number> = {};
-  const budgetedInternalCost = (project?.project_scopes || []).reduce((sum: number, scope: any) => {
+  const rawBudgetedInternalCost = (project?.project_scopes || []).reduce((sum: number, scope: any) => {
     const roleId = scope.role_id;
     const now = new Date();
     const rolePeople = people.filter((p) => {
@@ -381,6 +381,15 @@ const ProjectDetailPage = () => {
     budgetedCostByRole[roleId] = avgCostPerHour;
     return sum + scope.scoped_hours * avgCostPerHour;
   }, 0);
+
+  const explicitBudgetCost = currencyMode === "project" ? projAgencyFeeGrossBudget : baseAgencyFeeGrossBudget;
+  const budgetedInternalCost = (explicitBudgetCost != null && explicitBudgetCost > 0)
+    ? explicitBudgetCost
+    : rawBudgetedInternalCost;
+
+  const budgetScale = (explicitBudgetCost != null && explicitBudgetCost > 0 && rawBudgetedInternalCost > 0)
+    ? explicitBudgetCost / rawBudgetedInternalCost
+    : 1;
 
   const budgetedProfit = (agencyFee ?? 0) - budgetedInternalCost;
   // Actual profit will be recalculated after agencyFeeSoFar is computed
@@ -556,7 +565,7 @@ const ProjectDetailPage = () => {
 
       // Budgeted avg cost per hour for this role
       const rolePeople = people.filter((p: any) => p.role_id === scope.role_id && p.annual_salary);
-      const avgBudgetCostPerHour = rolePeople.length > 0
+      const rawAvgBudgetCostPerHour = rolePeople.length > 0
         ? rolePeople.reduce((s: number, p: any) => {
             const isBillableTeam = p.team && BILLABLE_TEAMS.has(p.team.toLowerCase());
             const cap = isBillableTeam ? p.roles?.billable_capacity_hours : null;
@@ -565,6 +574,7 @@ const ProjectDetailPage = () => {
           }, 0) / rolePeople.length
         : 0;
 
+      const avgBudgetCostPerHour = rawAvgBudgetCostPerHour * budgetScale;
       const scopedCost = scopedHours * avgBudgetCostPerHour;
       const actualCostForRole = Object.values(personMap).reduce((s, p) => s + p.totalCost, 0);
 
