@@ -151,7 +151,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
         from += pageSize;
       }
 
-      return allPeople;
+      return allPeople.filter((p: any) => p.status !== "Inactive");
     },
   });
 

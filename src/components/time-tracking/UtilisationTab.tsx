@@ -94,7 +94,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
         from += pageSize;
       }
 
-      return allPeople;
+      return allPeople.filter((p: any) => p.status !== "Inactive");
     },
   });
 

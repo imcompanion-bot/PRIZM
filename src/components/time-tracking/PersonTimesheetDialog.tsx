@@ -232,7 +232,7 @@ export function PersonTimesheetDialog({
         if (!data || data.length < pageSize) break;
         from += pageSize;
       }
-      return allPeople;
+      return allPeople.filter((p: any) => p.status !== "Inactive");
     },
   });
 
