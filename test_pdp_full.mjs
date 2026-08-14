@@ -5,72 +5,108 @@ const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SU
 
 const BILLABLE_TEAMS = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]);
 
-function getDailyCapacity(billableCapacityHours) {
-  return billableCapacityHours / 5;
-}
-
 function calculateInternalCostPerHour(annualSalary, billableCapacityHours) {
-  const weeklyCapacity = (billableCapacityHours == null || billableCapacityHours <= 0) ? (7.5 * 5) : billableCapacityHours;
-  const dailyBillableHours = getDailyCapacity(weeklyCapacity);
+  const weeklyCapacity = (billableCapacityHours == null || billableCapacityHours <= 0) ? 37.5 : billableCapacityHours;
+  const dailyBillableHours = weeklyCapacity / 5;
   const billableCapacityPct = dailyBillableHours / 7.5;
   const billableHoursPerYear = 1665 * billableCapacityPct;
   return (annualSalary * 1.15) / billableHoursPerYear;
 }
 
-const { data: project } = await supabase.from('projects')
-  .select('*, project_scopes(*, roles(name, billable_capacity_hours), allocations(*, people(name, annual_salary)))')
-  .ilike('title', '%Wedding%').single();
+const { data: project } = await supabase.from('projects').select('*').ilike('title', '%Wedding%').single();
 
-const { data: timeEntries } = await supabase.from('time_entries')
-  .select('*, people(name, annual_salary, role_id, team, roles(billable_capacity_hours))')
-  .eq('project_id', project.id);
+const { data: timeEntries } = await supabase
+    .from("time_entries")
+    .select("*, people(name, annual_salary, role_id, team, office, roles(name, billable_capacity_hours))")
+    .eq("project_id", project.id);
 
-const { data: people } = await supabase.from('people').select('*, roles(billable_capacity_hours)');
+const getExtraNum = (proj, ...keys) => {
+    if (!proj) return null;
+    const extra = proj.extra_data || {};
+    const normalised = Object.fromEntries(Object.entries(extra).map(([k, v]) => [k.toLowerCase().trim(), v]));
+    for (const k of keys) {
+      const val = normalised[k.toLowerCase().trim()];
+      if (val != null) {
+        const n = parseFloat(String(val).replace(/[£$,%]/g, "").replace(/,/g, ""));
+        if (!isNaN(n)) return n;
+      }
+    }
+    return null;
+};
 
-const convertCostToActiveCurrency = (cost) => cost; // Assuming GBP
+const officeCurrency = project.office === 'US' || project.office === 'United States' ? 'USD' : 'GBP';
+const extraDataProjectCurrency = project.extra_data?.project_currency;
+let currencyMode = "project"; // Default for PDP when viewed normally
 
-const roleBurn = (project.project_scopes || []).map(scope => {
-    const roleName = scope.roles?.name || "Unknown Role";
+let baseAgencyFeePrice = project?.price ?? project?.revenue ?? getExtraNum(project, "total price", "price gbp/usd", "price");
+let baseAgencyFeeMediaCost = project?.media_cost ?? getExtraNum(project, "media cost", "cost - paid media budget") ?? 0;
+let baseAgencyFeeGrossBudget = project?.gross_budget ?? project?.budget_cost ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+const baseAgencyFee = baseAgencyFeePrice !== null ? baseAgencyFeePrice - baseAgencyFeeMediaCost - baseAgencyFeeGrossBudget : null;
 
-    const personMap = {};
-    timeEntries
-      .filter(te => te.people?.role_id === scope.role_id)
-      .forEach(te => {
-        const pid = te.person_id;
-        const personName = te.people?.name || "Unknown";
-        const salary = te.people?.annual_salary;
-        const team = te.people?.team;
-        const isBillableTeam = team && BILLABLE_TEAMS.has(team.toLowerCase());
-        const cap = isBillableTeam ? te.people?.roles?.billable_capacity_hours : null;
-        const costPerHour = salary ? calculateInternalCostPerHour(salary, cap) : 0;
-        const convertedCost = convertCostToActiveCurrency(costPerHour);
+let projAgencyFeePrice = baseAgencyFeePrice;
+let projAgencyFeeMediaCost = baseAgencyFeeMediaCost;
+let projAgencyFeeGrossBudget = baseAgencyFeeGrossBudget;
+const ed = project?.extra_data || {};
+if (ed.project_currency_revenue != null) projAgencyFeePrice = ed.project_currency_revenue;
+if (ed.project_currency_media_cost != null) projAgencyFeeMediaCost = ed.project_currency_media_cost;
+if (ed.project_currency_gross_budget != null) projAgencyFeeGrossBudget = ed.project_currency_gross_budget;
+const projAgencyFee = projAgencyFeePrice !== null ? projAgencyFeePrice - projAgencyFeeMediaCost - projAgencyFeeGrossBudget : null;
 
-        if (!personMap[pid]) {
-          personMap[pid] = { name: personName, hours: 0, costPerHour: convertedCost, totalCost: 0 };
-        }
-        personMap[pid].hours += te.hours;
-        personMap[pid].totalCost += te.hours * convertedCost;
-      });
+let implicitFxRatio = null;
+if (currencyMode === "project" && projAgencyFee !== null && baseAgencyFee !== null && baseAgencyFee !== 0) {
+  implicitFxRatio = projAgencyFee / baseAgencyFee;
+}
 
-    const actualCostForRole = Object.values(personMap).reduce((s, p) => s + p.totalCost, 0);
-    return {
-        role: roleName,
-        actualCostRaw: actualCostForRole,
-    };
+const activeCurrency = currencyMode === "office" ? officeCurrency : (extraDataProjectCurrency || officeCurrency);
+
+// Mock getProjectFxRate
+const histRate = getExtraNum(project, "fx_rate_historical", "fx_rate") || 1.25;
+
+let fxRateGbp, fxRateUsd;
+const isOriginalCurrency = activeCurrency === (project?.fee_calc_currency || project?.rate_cards?.currency || officeCurrency);
+const storedGbp = project?.fx_rate_gbp;
+const storedUsd = project?.fx_rate_usd;
+if (isOriginalCurrency && (storedGbp || storedUsd)) {
+    fxRateGbp = storedGbp || 1;
+    fxRateUsd = storedUsd || (fxRateGbp * histRate);
+} else if (activeCurrency === "USD") {
+    fxRateGbp = histRate;
+    fxRateUsd = 1;
+} else if (activeCurrency === "GBP") {
+    fxRateGbp = 1;
+    fxRateUsd = 1 / histRate;
+} else {
+    fxRateGbp = 1;
+    fxRateUsd = histRate;
+}
+
+const convertCostToActiveCurrency = (costInLocalCurrency, office) => {
+    if (currencyMode === "project" && implicitFxRatio !== null) {
+      const personIsUs = office === "US" || office === "United States";
+      let costInOfficeCurrency = costInLocalCurrency;
+      if (officeCurrency === "GBP") {
+        if (personIsUs) costInOfficeCurrency = costInLocalCurrency / histRate;
+      } else if (officeCurrency === "USD") {
+        if (!personIsUs) costInOfficeCurrency = costInLocalCurrency * histRate;
+      }
+      return costInOfficeCurrency * implicitFxRatio;
+    }
+    // Fallback if not using project currency mode or missing ratio
+    const personIsUs = office === "US" || office === "United States";
+    return personIsUs ? costInLocalCurrency * fxRateUsd : costInLocalCurrency * fxRateGbp;
+};
+
+let totalCost = 0;
+timeEntries.forEach(te => {
+    const salary = te.people?.annual_salary;
+    const team = te.people?.team;
+    const isBillableTeam = team && BILLABLE_TEAMS.has(team.toLowerCase());
+    const cap = isBillableTeam ? te.people?.roles?.billable_capacity_hours : null;
+    if (!salary) return;
+    const costPerHour = calculateInternalCostPerHour(salary, cap);
+    const office = te.people?.office || "UK";
+    totalCost += te.hours * convertCostToActiveCurrency(costPerHour, office);
 });
 
-const totalActualCost = Object.values(roleBurn).reduce((sum, r) => sum + r.actualCostRaw, 0)
-    + timeEntries.reduce((sum, te) => {
-        const wasCounted = project?.project_scopes?.some(sc => sc.role_id === te.people?.role_id);
-        if (wasCounted) return sum;
-
-        const salary = te.people?.annual_salary;
-        const team = te.people?.team;
-        const isBillableTeam = team && BILLABLE_TEAMS.has(team.toLowerCase());
-        const cap = isBillableTeam ? te.people?.roles?.billable_capacity_hours : null;
-        if (!salary) return sum;
-        const costPerHour = calculateInternalCostPerHour(salary, cap);
-        return sum + te.hours * convertCostToActiveCurrency(costPerHour);
-    }, 0);
-
-console.log("totalActualCost:", totalActualCost);
+console.log("implicitFxRatio:", implicitFxRatio);
+console.log("totalCost:", totalCost);
