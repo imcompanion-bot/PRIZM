@@ -359,6 +359,7 @@ const ProjectDetailPage = () => {
   }, 0);
 
   // Budgeted internal cost per role (avg cost/hr for each role, converted to project currency)
+  const budgetedCostByRole: Record<string, number> = {};
   const budgetedInternalCost = (project?.project_scopes || []).reduce((sum: number, scope: any) => {
     const roleId = scope.role_id;
     const now = new Date();
@@ -375,6 +376,7 @@ const ProjectDetailPage = () => {
       return s + convertCostToActiveCurrency(cost, p.office);
     }, 0) / (rolePeople.length || 1);
     
+    budgetedCostByRole[roleId] = avgCostPerHour;
     return sum + scope.scoped_hours * avgCostPerHour;
   }, 0);
 
@@ -733,9 +735,9 @@ const ProjectDetailPage = () => {
           // Cost progress calculations
           const rawCostPct = budgetedInternalCost && budgetedInternalCost > 0 ? Math.round((totalActualCost / budgetedInternalCost) * 100) : 0;
           
-          // Use sentryMetrics if available, falling back to raw calculations
-          const costPct = sentryMetrics !== null ? sentryMetrics.costBurnPct : rawCostPct;
-          const currentCostSpent = sentryMetrics !== null ? sentryMetrics.effectiveCost : totalActualCost;
+          // Always use actual raw cost for the main progress bar to match the profit page
+          const costPct = rawCostPct;
+          const currentCostSpent = totalActualCost;
 
           const costRemaining = Math.max(0, (budgetedInternalCost ?? 0) - currentCostSpent);
           const isOverburned = currentCostSpent > (budgetedInternalCost ?? 0);
