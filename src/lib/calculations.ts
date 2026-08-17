@@ -9,7 +9,7 @@ export const WORKING_HOURS_PER_YEAR = WORKING_DAYS_PER_YEAR * HOURS_PER_DAY; // 
 
 const SALARY_MARKUP = 0.0; // 0% as DB salaries already include taxes and benefits
 
-export const BILLABLE_TEAMS = new Set(["account management", "strategy", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production"]);
+export const BILLABLE_TEAMS = new Set(["account management", "strategy", "strategy & innovation", "strategy and innovation", "creative team", "paid media", "project management", "business affairs", "data", "production", "talent partnerships"]);
 
 export function getDailyCapacity(billableCapacityHours: number): number {
   // billable_capacity_hours in the DB is always a weekly figure (e.g. 30 hours, or 11.25 hours).
