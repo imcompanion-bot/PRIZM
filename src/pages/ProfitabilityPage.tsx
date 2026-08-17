@@ -165,8 +165,30 @@ const ProfitabilityPage = () => {
     setTrendData(data.overall);
     setProjectMonthlyData(data.byProject);
   }, []);
-  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
-  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(() => {
+    try {
+      const stored = sessionStorage.getItem("profitability_expanded_clients");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(() => {
+    try {
+      const stored = sessionStorage.getItem("profitability_expanded_accounts");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem("profitability_expanded_clients", JSON.stringify(Array.from(expandedClients)));
+  }, [expandedClients]);
+
+  useEffect(() => {
+    sessionStorage.setItem("profitability_expanded_accounts", JSON.stringify(Array.from(expandedAccounts)));
+  }, [expandedAccounts]);
   const customStartDate = searchParams.get("cs") || format(startOfMonth(subMonths(new Date(), 6)), "yyyy-MM-dd");
   const customEndDate = searchParams.get("ce") || format(new Date(), "yyyy-MM-dd");
 
@@ -776,12 +798,23 @@ const ProfitabilityPage = () => {
           : { "Phase 1": 30, "Phase 2": 30, "Phase 3": 20, "Phase 4": 20 };
         const phaseCount = hasAnyPct ? 12 : 4;
         const daysPerPhaseLocal = totalProjectDays / phaseCount;
+        
+        let sumPct = 0;
+        for (let phase = 1; phase <= phaseCount; phase++) {
+          const rawPct = effectivePcts[`Phase ${phase}`] ?? effectivePcts[`phase ${phase}`] ?? effectivePcts[`Phase${phase}`] ?? effectivePcts[`phase${phase}`] ?? effectivePcts[String(phase)] ?? 0;
+          const pct = typeof rawPct === "string" ? parseFloat(rawPct.replace("%", "")) : Number(rawPct);
+          if (!isNaN(pct) && pct > 0) sumPct += pct;
+        }
+        const pctScale = sumPct > 0 ? 100 / sumPct : 1;
+
         let hoursInWin = 0;
         for (let phase = 1; phase <= phaseCount; phase++) {
           const rawPct =
             effectivePcts[`Phase ${phase}`] ?? effectivePcts[`phase ${phase}`] ?? effectivePcts[`Phase${phase}`] ?? effectivePcts[`phase${phase}`] ?? effectivePcts[String(phase)] ?? 0;
-          const pct = typeof rawPct === "string" ? parseFloat(rawPct.replace("%", "")) : Number(rawPct);
+          let pct = typeof rawPct === "string" ? parseFloat(rawPct.replace("%", "")) : Number(rawPct);
           if (isNaN(pct) || pct <= 0) continue;
+          pct = pct * pctScale;
+          
           const phaseHours = (pct / 100) * scoped;
           const phaseStartDay = Math.round((phase - 1) * daysPerPhaseLocal);
           const phaseEndDay = Math.round(phase * daysPerPhaseLocal) - 1;
@@ -1843,6 +1876,27 @@ const ProfitabilityPage = () => {
     if (isNaN(s.getTime()) || isNaN(e.getTime())) return "Custom";
     return `${format(s, "d MMM yyyy")} – ${format(e, "d MMM yyyy")}`;
   })();
+
+  // Scroll Restoration
+  const hasDataLoaded = displayClientGroups.length > 0;
+  useEffect(() => {
+    if (hasDataLoaded) {
+      setTimeout(() => {
+        const storedScrollY = sessionStorage.getItem("profitability_scroll_y");
+        if (storedScrollY) {
+          window.scrollTo(0, parseInt(storedScrollY, 10));
+        }
+      }, 100);
+    }
+  }, [hasDataLoaded]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      sessionStorage.setItem("profitability_scroll_y", window.scrollY.toString());
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
     <div className="p-6 pt-6 max-w-[1600px] mx-auto border-[#eeeae7] bg-[#faf8f5]">
