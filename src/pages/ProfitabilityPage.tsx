@@ -378,7 +378,7 @@ const ProfitabilityPage = () => {
       while (true) {
         const { data, error } = await supabase
           .from("people")
-          .select("id, role_id, team, annual_salary, office, employment_start_date, employment_end_date, overall_start_date, overall_end_date, roles(billable_capacity_hours)")
+          .select("id, name, role_id, team, annual_salary, office, employment_start_date, employment_end_date, overall_start_date, overall_end_date, roles(billable_capacity_hours)")
           .order("id")
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -759,8 +759,12 @@ const ProfitabilityPage = () => {
 
       const afPrice = p.price ?? p.revenue ?? getExtraNum(p, "project_currency_revenue", "total price", "price gbp/usd", "price");
       const afMediaCost = p.media_cost ?? getExtraNum(p, "project_currency_media_cost", "media cost", "cost - paid media budget") ?? 0;
-      const afGrossBudget = p.gross_budget ?? p.budget_cost ?? getExtraNum(p, "project_currency_gross_budget", "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
-      const fullAgencyFee = afPrice !== null ? afPrice - afMediaCost - afGrossBudget : null;
+      const afGrossBudget = p.gross_budget ?? getExtraNum(p, "project_currency_gross_budget", "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+      
+      let fullAgencyFee = p.gp_full_value;
+      if (fullAgencyFee == null) {
+          fullAgencyFee = afPrice !== null ? afPrice - afMediaCost - afGrossBudget : null;
+      }
 
       const rateCardRevenue = (p.project_scopes || []).reduce((sum: number, sc: any) => {
         return sum + sc.scoped_hours * (roleRates[sc.role_id] || 0);

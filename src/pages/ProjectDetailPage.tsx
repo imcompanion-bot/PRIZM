@@ -230,8 +230,11 @@ const ProjectDetailPage = () => {
   // 1. Calculate Base (Office) Agency Fee
   let baseAgencyFeePrice = project?.price ?? project?.revenue ?? getExtraNum(project, "total price", "price gbp/usd", "price");
   let baseAgencyFeeMediaCost = project?.media_cost ?? getExtraNum(project, "media cost", "cost - paid media budget") ?? 0;
-  let baseAgencyFeeGrossBudget = project?.gross_budget ?? project?.budget_cost ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
-  const baseAgencyFee = baseAgencyFeePrice !== null ? baseAgencyFeePrice - baseAgencyFeeMediaCost - baseAgencyFeeGrossBudget : null;
+  let baseAgencyFeeGrossBudget = project?.gross_budget ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+  let baseAgencyFee = project?.gp_full_value;
+  if (baseAgencyFee == null) {
+    baseAgencyFee = baseAgencyFeePrice !== null ? baseAgencyFeePrice - baseAgencyFeeMediaCost - baseAgencyFeeGrossBudget : null;
+  }
 
   // 2. Calculate Project Currency Agency Fee
   let projAgencyFeePrice = baseAgencyFeePrice;
