@@ -1450,37 +1450,31 @@ const ProfitabilityPage = () => {
       const hoursMap = projectPersonHoursMap.get(projId);
       // We removed the `if (!hoursMap) continue;` line here so we can process 0-hour projects
 
-      let projectExpected = 0;
-      let projectActual = 0;
-
-      // Track how many people were supposed to log time on this project
+      let sumComps = 0;
+      let countComps = 0;
       let validPeopleCount = 0;
 
       for (const pid of personIds) {
         const loggedHours = hoursMap?.get(pid) || 0;
         
-        // If they logged no time, we still need to know if they were *supposed* to
         const personComp = personCompletenessMap.get(pid);
         if (personComp === undefined) continue; // Person wasn't active in this window
         
         validPeopleCount++;
+        
+        // Only include people who actually logged time to this project in the mean calculation
         if (loggedHours <= 0) continue; 
 
-        // If they logged hours, their contribution to expected project hours
-        // is based on their overall completeness.
-        const expectedHoursForProject = personComp > 0 ? loggedHours / personComp : loggedHours;
-
-        projectExpected += expectedHoursForProject;
-        projectActual += loggedHours;
+        sumComps += personComp;
+        countComps++;
       }
 
-      if (projectExpected > 0) {
-        projectComp.set(projId, { expected: projectExpected, actual: projectActual, comp: Math.min((projectActual / projectExpected) * 100, 100) });
+      if (countComps > 0) {
+        const projCompPct = (sumComps / countComps) * 100;
+        projectComp.set(projId, { expected: countComps, actual: sumComps, comp: Math.min(projCompPct, 100) });
       } else if (validPeopleCount > 0 && hoursMap === undefined) {
-        // If the project had people assigned to it all-time, and they were active during this window,
+        // If the project had billable active people assigned to it all-time, 
         // but no one logged ANY time on the project during this window, it's 0% complete.
-        // Wait, if no one logged time, we don't know the expected hours natively. 
-        // We will just record 0% directly.
         projectComp.set(projId, { expected: 1, actual: 0, comp: 0 });
       }
     }
