@@ -655,7 +655,6 @@ const ProfitabilityPage = () => {
 
   const clientGroups = useMemo(() => {
     const today = new Date();
-    const todayStr = format(today, "yyyy-MM-dd");
 
     const EXCLUDED_RECORD_TYPES = ["agency - talent savings", "agency - passthrough costs", "agency - rfp / rfi", "agency - holding pot"];
 
@@ -1288,7 +1287,6 @@ const ProfitabilityPage = () => {
 
   const rfpData = useMemo(() => {
     const today = new Date();
-    const todayStr = format(today, "yyyy-MM-dd");
 
     const rfpProjects: RfpProject[] = [];
 
@@ -1765,7 +1763,6 @@ const ProfitabilityPage = () => {
   // ── Monthly RFP / RFI Cost Trend ──
   const rfpMonthlyTrend = useMemo(() => {
     const today = new Date();
-    const todayStr = format(today, "yyyy-MM-dd");
     const rfpProjectIds = new Set<string>();
     const rfpProjectCurrencyMap: Record<string, { projectCurrency: string; fxRateGbp: number; fxRateUsd: number }> = {};
 
