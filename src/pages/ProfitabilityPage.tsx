@@ -1413,58 +1413,80 @@ const ProfitabilityPage = () => {
     const windowEndRaw = new Date(appliedEndDate);
     const windowEnd = windowEndRaw > today ? today : windowEndRaw;
 
-    // First pass: Calculate Person Completeness
-    const personCompletenessMap = new Map<string, number>();
-
+    // First pass: Aggregate Person Completeness by Name
+    const siblingsByName = new Map<string, any[]>();
     for (const person of people) {
-      // Exclude non-billable teams (like Finance) from completion calculations
       if (!person.team || !BILLABLE_TEAMS.has(person.team.toLowerCase())) continue;
-
-      const empStart = person.overall_start_date || person.employment_start_date;
-      const empEnd = person.overall_end_date || person.employment_end_date;
-      let effectiveStart = empStart && new Date(empStart) > windowStart ? new Date(empStart) : windowStart;
-      let effectiveEnd = empEnd && new Date(empEnd) < windowEnd ? new Date(empEnd) : windowEnd;
-
-      if (effectiveStart > effectiveEnd) continue;
-
       const normName = (person.name || "").trim().toLowerCase();
-      const leaveIntervals = parentalLeaveMap.get(normName);
-      const workingDays = getWorkingDaysExcludingLeave(effectiveStart, effectiveEnd, leaveIntervals);
-      
-      let expected = workingDays * HOURS_PER_DAY;
-      // We no longer subtract leaveHrs from expected, because actual already includes leave
-      // and we want to divide (total worked + total leave) by total working days
-      
-      const actual = personCappedHoursMap.get(person.id) || 0;
-      const comp = expected > 0 ? Math.min(actual / expected, 1) : 1;
-      personCompletenessMap.set(person.id, comp);
+      if (!siblingsByName.has(normName)) siblingsByName.set(normName, []);
+      siblingsByName.get(normName)!.push(person);
     }
 
-    // Per-project completeness: for each person on a project, their expected hours on that project
-    // is (Logged Hours / Person Completeness).
+    const nameToComp = new Map<string, number>();
+
+    for (const [normName, siblings] of siblingsByName.entries()) {
+      let totalExpected = 0;
+      let totalActual = 0;
+
+      for (const contract of siblings) {
+        const empStart = contract.employment_start_date || contract.overall_start_date;
+        const empEnd = contract.employment_end_date || contract.overall_end_date;
+        
+        let effectiveStart = empStart && new Date(empStart) > windowStart ? new Date(empStart) : windowStart;
+        let effectiveEnd = empEnd && new Date(empEnd) < windowEnd ? new Date(empEnd) : windowEnd;
+
+        if (effectiveStart > effectiveEnd) continue;
+
+        const leaveIntervals = parentalLeaveMap.get(normName);
+        const workingDays = getWorkingDaysExcludingLeave(effectiveStart, effectiveEnd, leaveIntervals);
+        
+        totalExpected += workingDays * HOURS_PER_DAY;
+        totalActual += personCappedHoursMap.get(contract.id) || 0;
+      }
+      
+      const comp = totalExpected > 0 ? Math.min(totalActual / totalExpected, 1) : 1;
+      nameToComp.set(normName, comp);
+    }
+
+    // Per-project completeness: aggregate by person names to avoid duplicate counting of renewals
     const projectComp = new Map<string, { expected: number; actual: number; comp: number }>();
+    
+    const idToName = new Map<string, string>();
+    for (const person of people) {
+      idToName.set(person.id, (person.name || "").trim().toLowerCase());
+    }
+
     for (const [projId, personIds] of projectPeopleMap) {
       const proj = projectsById.get(projId);
       if (!proj) continue;
       
       const hoursMap = projectPersonHoursMap.get(projId);
-      // We removed the `if (!hoursMap) continue;` line here so we can process 0-hour projects
 
       let sumComps = 0;
       let countComps = 0;
       let validPeopleCount = 0;
 
+      // Find unique names who worked on this project
+      const uniqueNamesOnProject = new Set<string>();
       for (const pid of personIds) {
-        const loggedHours = hoursMap?.get(pid) || 0;
-        
-        const personComp = personCompletenessMap.get(pid);
-        if (personComp === undefined) continue; // Person wasn't active in this window
-        
-        validPeopleCount++;
+        const normName = idToName.get(pid);
+        if (normName && nameToComp.has(normName)) {
+            uniqueNamesOnProject.add(normName);
+            validPeopleCount++;
+        }
+      }
+
+      for (const normName of uniqueNamesOnProject) {
+        let totalLoggedOnProj = 0;
+        const siblings = siblingsByName.get(normName) || [];
+        for (const contract of siblings) {
+            totalLoggedOnProj += hoursMap?.get(contract.id) || 0;
+        }
         
         // Only include people who actually logged time to this project in the mean calculation
-        if (loggedHours <= 0) continue; 
+        if (totalLoggedOnProj <= 0) continue; 
 
+        const personComp = nameToComp.get(normName)!;
         sumComps += personComp;
         countComps++;
       }
