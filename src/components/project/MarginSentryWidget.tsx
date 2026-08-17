@@ -20,7 +20,7 @@ import {
   CheckCircle,
   ShieldQuestion
 } from "lucide-react";
-import { formatCurrency } from "@/lib/calculations";
+import { formatCurrency, BILLABLE_TEAMS } from "@/lib/calculations";
 import { differenceInDays, format } from "date-fns";
 import { toast } from "sonner";
 
@@ -585,7 +585,7 @@ export const MarginSentryWidget = ({
             // Audit timesheets per distinct person name
             activePeopleNames.forEach(normName => {
               const person = people.find(p => p.name.trim().toLowerCase() === normName && isPersonActive(p));
-              if (!person) return;
+              if (!person || !person.team || !BILLABLE_TEAMS.has(person.team.toLowerCase())) return;
 
               // Sum logged hours across ALL duplicate/sibling IDs (exactly like UtilisationTab)
               const siblingIds = nameToSiblingIds[normName] || [];

@@ -1432,8 +1432,8 @@ const ProfitabilityPage = () => {
       const workingDays = getWorkingDaysExcludingLeave(effectiveStart, effectiveEnd, leaveIntervals);
       
       let expected = workingDays * HOURS_PER_DAY;
-      const leaveHrs = personLeaveHoursMap.get(person.id) || 0;
-      expected = Math.max(0, expected - leaveHrs);
+      // We no longer subtract leaveHrs from expected, because actual already includes leave
+      // and we want to divide (total worked + total leave) by total working days
       
       const actual = personCappedHoursMap.get(person.id) || 0;
       const comp = expected > 0 ? Math.min(actual / expected, 1) : 1;
