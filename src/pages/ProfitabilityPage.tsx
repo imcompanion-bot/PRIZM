@@ -664,9 +664,12 @@ const ProfitabilityPage = () => {
     const filtered = projects.filter((p: any) => {
       if (!matchesOffice(p.office, officeFilter)) return false;
       // Exclude projects that started before timesheet data exists (1 Jan 2025) to avoid inflated margins
-      if (p.start_date < TIMESHEET_DATA_START) return false;
+      if (p.start_date && p.start_date.trim() < TIMESHEET_DATA_START) return false;
       // Include projects that were "live" during the period: started before today AND ended after cutoff
-      if (p.end_date < cutoffDate || p.start_date > todayStr) return false;
+      const pStart = p.start_date ? p.start_date.trim() : null;
+      const pEnd = p.end_date ? p.end_date.trim() : null;
+      if (pEnd && pEnd < cutoffDate) return false;
+      if (pStart && pStart > todayStr) return false;
       const client = p.ultimate_parent || p.title || "";
       if (client.toLowerCase().includes("billion dollar boy")) return false;
 
@@ -1295,7 +1298,10 @@ const ProfitabilityPage = () => {
       if (recordType !== "agency - rfp / rfi") continue;
       if (!matchesOffice(p.office, officeFilter)) continue;
       if (p.start_date < "2024-01-01") continue;
-      if (p.end_date < cutoffDate || p.start_date > todayStr) continue;
+      const pStart = p.start_date ? p.start_date.trim() : null;
+      const pEnd = p.end_date ? p.end_date.trim() : null;
+      if (pEnd && pEnd < cutoffDate) continue;
+      if (pStart && pStart > todayStr) continue;
       // Respect ended/live toggle
       const projEnd = new Date(p.end_date + "T00:00:00");
       const isComplete = projEnd < today;
@@ -1769,7 +1775,10 @@ const ProfitabilityPage = () => {
       if (recordType !== "agency - rfp / rfi") continue;
       if (!matchesOffice(p.office, officeFilter)) continue;
       if (p.start_date < "2024-01-01") continue;
-      if (p.end_date < cutoffDate || p.start_date > todayStr) continue;
+      const pStart = p.start_date ? p.start_date.trim() : null;
+      const pEnd = p.end_date ? p.end_date.trim() : null;
+      if (pEnd && pEnd < cutoffDate) continue;
+      if (pStart && pStart > todayStr) continue;
       const projEnd = new Date(p.end_date + "T00:00:00");
       const isComplete = projEnd < today;
       if (statusFilter === "ended" && !isComplete) continue;
