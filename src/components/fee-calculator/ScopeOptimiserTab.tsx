@@ -302,7 +302,7 @@ export function ScopeOptimiserTab({ state, currencySymbol: sym, appliedRecs, onA
       creativeTeamInvolved: s.talentContent.creativeTeamInvolved || false,
       contentProduction: s.talentContent.contentProduction || false,
       contentRevisions: s.talentContent.contentRevisions || 0,
-      contentReviews: s.talentContent.contentReviews || false,
+      contentReviews: s.talentContent.contentReviews || "None",
       ...platformStats,
       giftingInfluencers,
       procurementEnabled: s.productProcurement.enabled,

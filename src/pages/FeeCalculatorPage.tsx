@@ -117,7 +117,7 @@ interface FeeCalcState {
       creativeTeamInvolved: boolean;
       contentProduction: boolean;
       contentRevisions: number;
-      contentReviews: boolean;
+      contentReviews: "None" | "Few" | "Many" | "All" | boolean;
     };
     paidMedia: SectionState & {
       consultancyInvolvement: "Light" | "Heavy";
@@ -188,7 +188,7 @@ const defaultState: FeeCalcState = {
     projectManagement: { enabled: true, involvement: "Full - End to End" },
     creative: { enabled: false, creativeConceptsCount: 0, executionalIdeasCount: 0, proposalRevisions: 0, roundsOfFeedback: 0 },
     strategy: { enabled: false, researchAndInsights: false, researchPlanning: false, commsPlanning: false, socialListening: false },
-    talentContent: { enabled: false, influencerBriefRevisions: 0, longListRevisions: 0, contentIdeation: false, ideationRevisions: 0, creativeTeamInvolved: false, contentProduction: false, contentRevisions: 0, contentReviews: false },
+    talentContent: { enabled: false, influencerBriefRevisions: 0, longListRevisions: 0, contentIdeation: false, ideationRevisions: 0, creativeTeamInvolved: false, contentProduction: false, contentRevisions: 0, contentReviews: "None" },
     paidMedia: { enabled: false, consultancyInvolvement: "Light", paid1: { ...defaultPaidItem }, paid2: { ...defaultPaidItem }, paid3: { ...defaultPaidItem }, paid4: { ...defaultPaidItem }, complexity: "", paidMediaSpend: 0, paidMediaLiveMonths: 0, impressions: 0, clicks: 0 },
     productionCosts: { enabled: false, productionBudgetPhase: "", productionCompany: 0, contractedAgencyProducer: 0, insurance: 0, licensing: 0, staffTravel: 0, contingency: 0 },
     productProcurement: { enabled: false, influencerTotal: 0, shipmentsPerInfluencer: 0, shippingMaterialsCost: 0, contingencyCost: 0 },
@@ -285,14 +285,42 @@ function FieldRow({ label, children, hint }: { label: string; children: React.Re
   );
 }
 
-function NumberInput({ value, onChange, min = 0, step = 1, placeholder }: { value: number; onChange: (v: number) => void; min?: number; step?: number; placeholder?: string }) {
+function NumberInput({ value, onChange, min = 0, placeholder }: { value: number; onChange: (v: number) => void; min?: number; step?: number; placeholder?: string }) {
+  const [tempValue, setTempValue] = useState<string>("");
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setTempValue(value ? value.toLocaleString("en-GB") : "");
+    }
+  }, [value, isFocused]);
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    setTempValue(value ? value.toString() : "");
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    const parsed = Number(tempValue.replace(/,/g, "")) || 0;
+    const finalValue = Math.max(min, parsed);
+    onChange(finalValue);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (/^[0-9,]*$/.test(val) || val === "") {
+      setTempValue(val);
+    }
+  };
+
   return (
     <Input
-      type="number"
-      value={value || ""}
-      onChange={(e) => onChange(Number(e.target.value) || 0)}
-      min={min}
-      step={step}
+      type="text"
+      value={tempValue}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      onChange={handleChange}
       placeholder={placeholder}
       className="h-9"
     />
@@ -301,15 +329,42 @@ function NumberInput({ value, onChange, min = 0, step = 1, placeholder }: { valu
 
 function CurrencyInput({ value, onChange, currency }: { value: number; onChange: (v: number) => void; currency: string }) {
   const symbol = currency === "USD" ? "$" : currency === "EUR" ? "€" : "£";
+  const [tempValue, setTempValue] = useState<string>("");
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setTempValue(value ? value.toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : "");
+    }
+  }, [value, isFocused]);
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    setTempValue(value ? value.toString() : "");
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    const parsed = Number(tempValue.replace(/,/g, "")) || 0;
+    onChange(Math.max(0, parsed));
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (/^[0-9,.]*$/.test(val) || val === "") {
+      setTempValue(val);
+    }
+  };
+
   return (
     <div className="relative">
       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{symbol}</span>
       <Input
-        type="number"
-        value={value || ""}
-        onChange={(e) => onChange(Number(e.target.value) || 0)}
-        min={0}
-        step={0.01}
+        type="text"
+        value={tempValue}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onChange={handleChange}
         className="h-9 pl-7"
       />
     </div>
@@ -1191,10 +1246,22 @@ function FeeCalculatorPageInner() {
               <FieldRow label="Content Revisions">
                 <NumberInput value={s.talentContent.contentRevisions} onChange={(v) => updateSection("talentContent", { contentRevisions: v })} />
               </FieldRow>
-              <div className="flex items-center gap-3">
-                <Switch checked={s.talentContent.contentReviews} onCheckedChange={(v) => updateSection("talentContent", { contentReviews: v })} />
-                <Label className="text-sm">Content Reviews</Label>
-              </div>
+              <FieldRow label="Content Reviews">
+                <Select
+                  value={(s.talentContent.contentReviews === true ? "All" : s.talentContent.contentReviews === false ? "None" : s.talentContent.contentReviews) || "None"}
+                  onValueChange={(v) => updateSection("talentContent", { contentReviews: v })}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="None">None</SelectItem>
+                    <SelectItem value="Few">Few</SelectItem>
+                    <SelectItem value="Many">Many</SelectItem>
+                    <SelectItem value="All">All</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FieldRow>
             </Section>
 
             <Section

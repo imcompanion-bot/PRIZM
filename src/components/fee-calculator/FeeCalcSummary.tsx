@@ -81,12 +81,12 @@ function CollapsibleSection({ section, sectionData, blendedRate, sym, sectionLin
           </span>
         </TableCell>
         <TableCell />
-        <TableCell className="text-right font-mono text-xs text-muted-foreground">{sectionData.hours.toFixed(1)}h</TableCell>
-        <TableCell className="text-right font-mono text-xs text-muted-foreground">{fmt(Math.round(blendedRate), sym)}</TableCell>
+        <TableCell className="text-right tabular-nums text-xs text-muted-foreground">{sectionData.hours.toFixed(1)}h</TableCell>
+        <TableCell className="text-right tabular-nums text-xs text-muted-foreground">{fmt(Math.round(blendedRate), sym)}</TableCell>
         {hasOptimisation && (
-          <TableCell className="text-right font-mono text-xs text-muted-foreground">{fmt(Math.round(originalSectionFee ?? 0), sym)}</TableCell>
+          <TableCell className="text-right tabular-nums text-xs text-muted-foreground">{fmt(Math.round(originalSectionFee ?? 0), sym)}</TableCell>
         )}
-        <TableCell className="text-right font-mono text-xs font-medium">{fmt(sectionData.fee, sym)}</TableCell>
+        <TableCell className="text-right tabular-nums text-xs font-medium">{fmt(sectionData.fee, sym)}</TableCell>
       </TableRow>
       {open && sectionLines.map((line, i) => {
         const rate = rateLookup.get(line.role.toLowerCase()) || 0;
@@ -94,12 +94,12 @@ function CollapsibleSection({ section, sectionData, blendedRate, sym, sectionLin
           <TableRow key={`${section}-${i}`}>
             <TableCell className="pl-6 text-sm text-muted-foreground">{line.task}</TableCell>
             <TableCell className="text-sm">{line.role}</TableCell>
-            <TableCell className="text-right font-mono text-sm">{line.hours.toFixed(1)}</TableCell>
-            <TableCell className="text-right font-mono text-sm">
+            <TableCell className="text-right tabular-nums text-sm">{line.hours.toFixed(1)}</TableCell>
+            <TableCell className="text-right tabular-nums text-sm">
               {rate > 0 ? fmt(rate, sym) : <span className="text-destructive text-xs">No rate</span>}
             </TableCell>
             {hasOptimisation && <TableCell />}
-            <TableCell className="text-right font-mono text-sm">{fmt(line.hours * rate, sym)}</TableCell>
+            <TableCell className="text-right tabular-nums text-sm">{fmt(line.hours * rate, sym)}</TableCell>
           </TableRow>
         );
       })}
@@ -316,7 +316,7 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
       creativeTeamInvolved: s.talentContent.creativeTeamInvolved || false,
       contentProduction: s.talentContent.contentProduction || false,
       contentRevisions: s.talentContent.contentRevisions || 0,
-      contentReviews: s.talentContent.contentReviews || false,
+      contentReviews: s.talentContent.contentReviews || "None",
       ...platformStats,
       giftingInfluencers,
       procurementEnabled: s.productProcurement.enabled,
@@ -567,9 +567,8 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
             <div><span className="text-muted-foreground">Rate Card</span><p className="font-medium">{state.rateCard || "—"}</p></div>
             <div><span className="text-muted-foreground">Currency</span><p className="font-medium">{state.currency}</p></div>
             <div><span className="text-muted-foreground">Duration</span><p className="font-medium">{state.durationMonths ? `${state.durationMonths} months` : "—"}</p></div>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-4">
-            {activeServices.map((svc) => <Badge key={svc} variant="secondary" className="text-xs">{svc}</Badge>)}
+            <div><span className="text-muted-foreground font-semibold">Third Party Costs</span><p className="font-semibold text-foreground tabular-nums">{fmt(totalThirdParty, sym)}</p></div>
+            <div><span className="text-muted-foreground font-semibold">Grand Total</span><p className="font-bold text-primary tabular-nums">{fmt(grandTotal, sym)}</p></div>
           </div>
         </CardContent>
       </Card>
@@ -590,35 +589,35 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
             <TableBody>
               <TableRow>
                 <TableCell>Service Fees (Agency)</TableCell>
-                <TableCell className="text-right font-mono">{fmt(serviceHours.totalFee, sym)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(serviceHours.totalFee, sym)}</TableCell>
               </TableRow>
               <TableRow>
                 <TableCell>Talent Budget (Creator Payments)</TableCell>
-                <TableCell className="text-right font-mono">{fmt(talentCalc.totalFee, sym)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(talentCalc.totalFee, sym)}</TableCell>
               </TableRow>
               <TableRow>
                 <TableCell>Companion Creator Costs (3%)</TableCell>
-                <TableCell className="text-right font-mono">{fmt(talentCalc.companionCreatorCosts, sym)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(talentCalc.companionCreatorCosts, sym)}</TableCell>
               </TableRow>
               <TableRow>
                 <TableCell>Contingency — Talent ({state.talentBudget.talentContingencyPct}%)</TableCell>
-                <TableCell className="text-right font-mono">{fmt(talentCalc.talentContingency, sym)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(talentCalc.talentContingency, sym)}</TableCell>
               </TableRow>
               {talentCalc.fxPremium > 0 && (
                 <TableRow>
                   <TableCell>FX Premium ({state.talentBudget.fxPremiumPct}%)</TableCell>
-                  <TableCell className="text-right font-mono">{fmt(talentCalc.fxPremium, sym)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmt(talentCalc.fxPremium, sym)}</TableCell>
                 </TableRow>
               )}
               <TableRow>
                 <TableCell>Other Third Party Costs</TableCell>
-                <TableCell className="text-right font-mono">{fmt(totalThirdParty, sym)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(totalThirdParty, sym)}</TableCell>
               </TableRow>
             </TableBody>
             <TableFooter>
               <TableRow>
                 <TableCell className="font-semibold">Grand Total</TableCell>
-                <TableCell className="text-right font-mono font-semibold">{fmt(grandTotal, sym)}</TableCell>
+                <TableCell className="text-right tabular-nums font-semibold">{fmt(grandTotal, sym)}</TableCell>
               </TableRow>
             </TableFooter>
           </Table>
@@ -629,14 +628,14 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
       {talentCalc.totalInfluencers > 0 && (
         <CollapsibleCard title="Talent Summary" subtitle={fmt(talentCalc.externalBudget, sym)}>
             <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-              <div className="rounded-md border p-3 text-center">
+               <div className="rounded-md border p-3 text-center">
                 <p className="text-muted-foreground text-xs">Internal Budget</p>
-                <p className="text-lg font-bold font-mono">{fmt(talentCalc.internalBudget, sym)}</p>
+                <p className="text-lg font-bold tabular-nums">{fmt(talentCalc.internalBudget, sym)}</p>
                 <p className="text-[10px] text-muted-foreground">Available to pay Creators</p>
               </div>
               <div className="rounded-md border p-3 text-center">
                 <p className="text-muted-foreground text-xs">External Budget</p>
-                <p className="text-lg font-bold font-mono">{fmt(talentCalc.externalBudget, sym)}</p>
+                <p className="text-lg font-bold tabular-nums">{fmt(talentCalc.externalBudget, sym)}</p>
                 <p className="text-[10px] text-muted-foreground">Total incl. fees & contingency</p>
               </div>
             </div>
@@ -654,20 +653,20 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
                 {Object.entries(talentCalc.platformBreakdown).map(([platform, data]) => (
                   <TableRow key={platform}>
                     <TableCell>{platform}</TableCell>
-                    <TableCell className="text-right font-mono">{data.creators.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono">{data.deliverables.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono">{Math.round(data.impressions).toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(data.creatorCost, sym)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{data.creators.toLocaleString()}</TableCell>
+                    <TableCell className="text-right tabular-nums">{data.deliverables.toLocaleString()}</TableCell>
+                    <TableCell className="text-right tabular-nums">{Math.round(data.impressions).toLocaleString()}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(data.creatorCost, sym)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
               <TableFooter>
                 <TableRow>
                   <TableCell className="font-semibold">Total</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">{talentCalc.totalInfluencers.toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">{talentCalc.totalDeliverables.toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">{Math.round(talentCalc.totalImpressions).toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">{fmt(talentCalc.totalFee, sym)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold">{talentCalc.totalInfluencers.toLocaleString()}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold">{talentCalc.totalDeliverables.toLocaleString()}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold">{Math.round(talentCalc.totalImpressions).toLocaleString()}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold">{fmt(talentCalc.totalFee, sym)}</TableCell>
                 </TableRow>
               </TableFooter>
             </Table>
@@ -694,12 +693,12 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
                           Group {i + 1}
                           <span className="text-muted-foreground ml-1">({g.platform})</span>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-xs">{fmt(g.contentFeePerInfl, sym)}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">{fmt(g.repostingPerInfl, sym)}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">{fmt(g.boosterFeePerInfl, sym)}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">{fmt(g.multiplierFeePerInfl, sym)}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">{fmt(g.totalFeePerInfl, sym)}</TableCell>
-                        <TableCell className="text-right font-mono text-xs font-medium">{fmt(g.totalFee, sym)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{fmt(g.contentFeePerInfl, sym)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{fmt(g.repostingPerInfl, sym)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{fmt(g.boosterFeePerInfl, sym)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{fmt(g.multiplierFeePerInfl, sym)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{fmt(g.totalFeePerInfl, sym)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs font-medium">{fmt(g.totalFee, sym)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -741,11 +740,11 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
                         <TableCell colSpan={3} className="font-bold text-xs uppercase tracking-wider text-primary">
                           {phase ?? "N/A (Overhead)"}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-xs font-bold text-primary">{phaseHours.toFixed(1)}h</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs font-bold text-primary">{phaseHours.toFixed(1)}h</TableCell>
                         {hasOptimisation && (
-                          <TableCell className="text-right font-mono text-xs font-bold text-primary">{fmt(originalPhaseFee, sym)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-xs font-bold text-primary">{fmt(originalPhaseFee, sym)}</TableCell>
                         )}
-                        <TableCell className="text-right font-mono text-xs font-bold text-primary">{fmt(phaseFee, sym)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs font-bold text-primary">{fmt(phaseFee, sym)}</TableCell>
                       </TableRow>
                       {sections.map(section => {
                         const sectionData = serviceHours.bySection[section];
@@ -763,20 +762,20 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
               <TableFooter>
                 <TableRow>
                   <TableCell colSpan={3} className="font-semibold">Total Agency Fee</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">{serviceHours.totalHours.toFixed(1)}h</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold">{serviceHours.totalHours.toFixed(1)}h</TableCell>
                   {hasOptimisation && (
-                    <TableCell className="text-right font-mono font-semibold">{fmt(originalServiceHours.totalFee, sym)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold">{fmt(originalServiceHours.totalFee, sym)}</TableCell>
                   )}
-                  <TableCell className="text-right font-mono font-semibold">{fmt(serviceHours.totalFee, sym)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold">{fmt(serviceHours.totalFee, sym)}</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell colSpan={4} className="text-muted-foreground text-sm">Agency Fee %</TableCell>
                   {hasOptimisation && (
-                    <TableCell className="text-right font-mono text-sm">
+                    <TableCell className="text-right tabular-nums text-sm">
                       {originalGrandTotal > 0 ? `${((originalServiceHours.totalFee / originalGrandTotal) * 100).toFixed(1)}%` : "—"}
                     </TableCell>
                   )}
-                  <TableCell className="text-right font-mono text-sm">
+                  <TableCell className="text-right tabular-nums text-sm">
                     {grandTotal > 0 ? `${((serviceHours.totalFee / grandTotal) * 100).toFixed(1)}%` : "—"}
                   </TableCell>
                 </TableRow>
@@ -790,13 +789,13 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
                     )}
                   </TableCell>
                   {hasOptimisation && (
-                    <TableCell className="text-right font-mono text-sm font-semibold text-primary">
+                    <TableCell className="text-right tabular-nums text-sm font-semibold text-primary">
                       {originalMarginCalc.fee > 0
                         ? `${(((originalMarginCalc.fee - originalMarginCalc.cost) / originalMarginCalc.fee) * 100).toFixed(1)}%`
                         : "—"}
                     </TableCell>
                   )}
-                  <TableCell className="text-right font-mono text-sm">
+                  <TableCell className="text-right tabular-nums text-sm">
                     {optimisedMarginCalc.fee > 0
                       ? `${(((optimisedMarginCalc.fee - optimisedMarginCalc.cost) / optimisedMarginCalc.fee) * 100).toFixed(1)}%`
                       : "—"}
@@ -823,18 +822,18 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paidMediaSpend > 0 && <TableRow><TableCell>Paid Media Spend</TableCell><TableCell className="text-right font-mono">{fmt(paidMediaSpend, sym)}</TableCell></TableRow>}
-                {productionTotal > 0 && <TableRow><TableCell>Production Budget</TableCell><TableCell className="text-right font-mono">{fmt(productionTotal, sym)}</TableCell></TableRow>}
-                {procurementTotal > 0 && <TableRow><TableCell>Product Procurement</TableCell><TableCell className="text-right font-mono">{fmt(procurementTotal, sym)}</TableCell></TableRow>}
-                {otherCosts.gifting > 0 && <TableRow><TableCell>Gifting Materials</TableCell><TableCell className="text-right font-mono">{fmt(otherCosts.gifting, sym)}</TableCell></TableRow>}
-                {otherCosts.audioLicences > 0 && <TableRow><TableCell>Audio Licences</TableCell><TableCell className="text-right font-mono">{fmt(otherCosts.audioLicences, sym)}</TableCell></TableRow>}
-                {otherCosts.events > 0 && <TableRow><TableCell>Events</TableCell><TableCell className="text-right font-mono">{fmt(otherCosts.events, sym)}</TableCell></TableRow>}
-                {otherCosts.blsReports > 0 && <TableRow><TableCell>BLS / Research Reports</TableCell><TableCell className="text-right font-mono">{fmt(otherCosts.blsReports, sym)}</TableCell></TableRow>}
+                {paidMediaSpend > 0 && <TableRow><TableCell>Paid Media Spend</TableCell><TableCell className="text-right tabular-nums">{fmt(paidMediaSpend, sym)}</TableCell></TableRow>}
+                {productionTotal > 0 && <TableRow><TableCell>Production Budget</TableCell><TableCell className="text-right tabular-nums">{fmt(productionTotal, sym)}</TableCell></TableRow>}
+                {procurementTotal > 0 && <TableRow><TableCell>Product Procurement</TableCell><TableCell className="text-right tabular-nums">{fmt(procurementTotal, sym)}</TableCell></TableRow>}
+                {otherCosts.gifting > 0 && <TableRow><TableCell>Gifting Materials</TableCell><TableCell className="text-right tabular-nums">{fmt(otherCosts.gifting, sym)}</TableCell></TableRow>}
+                {otherCosts.audioLicences > 0 && <TableRow><TableCell>Audio Licences</TableCell><TableCell className="text-right tabular-nums">{fmt(otherCosts.audioLicences, sym)}</TableCell></TableRow>}
+                {otherCosts.events > 0 && <TableRow><TableCell>Events</TableCell><TableCell className="text-right tabular-nums">{fmt(otherCosts.events, sym)}</TableCell></TableRow>}
+                {otherCosts.blsReports > 0 && <TableRow><TableCell>BLS / Research Reports</TableCell><TableCell className="text-right tabular-nums">{fmt(otherCosts.blsReports, sym)}</TableCell></TableRow>}
               </TableBody>
               <TableFooter>
                 <TableRow>
                   <TableCell className="font-semibold">Total Third Party</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">{fmt(totalThirdParty, sym)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold">{fmt(totalThirdParty, sym)}</TableCell>
                 </TableRow>
               </TableFooter>
             </Table>

@@ -83,7 +83,7 @@ export interface EngineInput {
   creativeTeamInvolved: boolean;
   contentProduction: boolean;
   contentRevisions: number;
-  contentReviews: boolean;
+  contentReviews: "None" | "Few" | "Many" | "All" | boolean;
 
   // Platform deliverables (from talent groups)
   instagramInfluencers: number;

@@ -117,23 +117,35 @@ export function PhaseGanttRow({
         <div
           className={cn(
             color,
-            "absolute top-1 bottom-1 rounded-md flex items-center justify-center cursor-grab active:cursor-grabbing transition-none select-none",
+            "absolute top-1 bottom-1 rounded-md flex items-center justify-center cursor-grab active:cursor-grabbing transition-none select-none group",
             dragging === "move" && "opacity-90"
           )}
           style={{ left: `${left}%`, width: `${width}%` }}
           onMouseDown={(e) => handleMouseDown(e, "move")}
         >
+          {/* Left Resize Handle */}
           <div
-            className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 rounded-l-md"
+            className="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-white/40 flex items-center justify-center rounded-l-md transition-all active:bg-white/50"
             onMouseDown={(e) => handleMouseDown(e, "left")}
-          />
-          <span className="text-white text-[10px] font-medium truncate px-3 pointer-events-none">
+            title="Drag left edge to change start week"
+          >
+            {/* Visual handle pill */}
+            <div className="w-[2px] h-3 bg-white/70 rounded-full" />
+          </div>
+
+          <span className="text-white text-[10px] font-bold truncate px-4 pointer-events-none tracking-wide">
             {barLabel}
           </span>
+
+          {/* Right Resize Handle */}
           <div
-            className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 rounded-r-md"
+            className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-white/40 flex items-center justify-center rounded-r-md transition-all active:bg-white/50"
             onMouseDown={(e) => handleMouseDown(e, "right")}
-          />
+            title="Drag right edge to change end week/duration"
+          >
+            {/* Visual handle pill */}
+            <div className="w-[2px] h-3 bg-white/70 rounded-full" />
+          </div>
         </div>
       </div>
       <div className="w-12 text-right text-xs font-mono text-muted-foreground shrink-0">
