@@ -227,24 +227,32 @@ const ProjectDetailPage = () => {
     return null;
   };
 
-  // 1. Calculate Base (Office) Agency Fee
+  // 1. Extract Project Currency Values
+  const ed = (project as any)?.extra_data || {};
+  let projAgencyFeePrice = ed.project_currency_revenue ?? project?.price ?? project?.revenue ?? getExtraNum(project, "total price", "price gbp/usd", "price");
+  let projAgencyFeeMediaCost = ed.project_currency_media_cost ?? project?.media_cost ?? getExtraNum(project, "media cost", "cost - paid media budget") ?? 0;
+  let projAgencyFeeGrossBudget = ed.project_currency_gross_budget ?? project?.gross_budget ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+  const projAgencyFee = projAgencyFeePrice !== null ? projAgencyFeePrice - projAgencyFeeMediaCost - projAgencyFeeGrossBudget : null;
+
+  // 2. Extract Base (Office) Values
   let baseAgencyFeePrice = project?.price ?? project?.revenue ?? getExtraNum(project, "total price", "price gbp/usd", "price");
-  let baseAgencyFeeMediaCost = project?.media_cost ?? getExtraNum(project, "media cost", "cost - paid media budget") ?? 0;
-  let baseAgencyFeeGrossBudget = project?.gross_budget ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
-  let baseAgencyFee = project?.gp_full_value;
-  if (baseAgencyFee == null) {
-    baseAgencyFee = baseAgencyFeePrice !== null ? baseAgencyFeePrice - baseAgencyFeeMediaCost - baseAgencyFeeGrossBudget : null;
+  
+  // Calculate the FX ratio explicitly from Revenue (Project / Base)
+  const revenueFxRatio = (projAgencyFeePrice && baseAgencyFeePrice && baseAgencyFeePrice > 0) 
+    ? projAgencyFeePrice / baseAgencyFeePrice 
+    : 1;
+
+  let baseAgencyFeeMediaCost = project?.media_cost ?? getExtraNum(project, "media cost", "cost - paid media budget");
+  if (baseAgencyFeeMediaCost == null) {
+      baseAgencyFeeMediaCost = projAgencyFeeMediaCost / revenueFxRatio;
+  }
+  
+  let baseAgencyFeeGrossBudget = project?.gross_budget ?? getExtraNum(project, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget");
+  if (baseAgencyFeeGrossBudget == null) {
+      baseAgencyFeeGrossBudget = projAgencyFeeGrossBudget / revenueFxRatio;
   }
 
-  // 2. Calculate Project Currency Agency Fee
-  let projAgencyFeePrice = baseAgencyFeePrice;
-  let projAgencyFeeMediaCost = baseAgencyFeeMediaCost;
-  let projAgencyFeeGrossBudget = baseAgencyFeeGrossBudget;
-  const ed = (project as any)?.extra_data || {};
-  if (ed.project_currency_revenue != null) projAgencyFeePrice = ed.project_currency_revenue;
-  if (ed.project_currency_media_cost != null) projAgencyFeeMediaCost = ed.project_currency_media_cost;
-  if (ed.project_currency_gross_budget != null) projAgencyFeeGrossBudget = ed.project_currency_gross_budget;
-  const projAgencyFee = projAgencyFeePrice !== null ? projAgencyFeePrice - projAgencyFeeMediaCost - projAgencyFeeGrossBudget : null;
+  const baseAgencyFee = baseAgencyFeePrice !== null ? baseAgencyFeePrice - baseAgencyFeeMediaCost - baseAgencyFeeGrossBudget : null;
 
   // 3. Final Displayed Agency Fee
   const agencyFee = currencyMode === "project" ? projAgencyFee : baseAgencyFee;

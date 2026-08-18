@@ -757,14 +757,23 @@ const ProfitabilityPage = () => {
         return null;
       };
 
-      const afPrice = p.price ?? p.revenue ?? getExtraNum(p, "project_currency_revenue", "total price", "price gbp/usd", "price");
-      const afMediaCost = p.media_cost ?? getExtraNum(p, "project_currency_media_cost", "media cost", "cost - paid media budget") ?? 0;
-      const afGrossBudget = p.gross_budget ?? getExtraNum(p, "project_currency_gross_budget", "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+      const projAfPrice = getExtraNum(p, "project_currency_revenue") ?? p.price ?? p.revenue ?? getExtraNum(p, "total price", "price gbp/usd", "price");
+      const projAfMediaCost = getExtraNum(p, "project_currency_media_cost") ?? p.media_cost ?? getExtraNum(p, "media cost", "cost - paid media budget") ?? 0;
+      const projAfGrossBudget = getExtraNum(p, "project_currency_gross_budget") ?? p.gross_budget ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+
+      const afPrice = p.price ?? p.revenue ?? getExtraNum(p, "total price", "price gbp/usd", "price");
       
-      let fullAgencyFee = p.gp_full_value;
-      if (fullAgencyFee == null) {
-          fullAgencyFee = afPrice !== null ? afPrice - afMediaCost - afGrossBudget : null;
-      }
+      const revenueFxRatio = (projAfPrice && afPrice && afPrice > 0) 
+        ? projAfPrice / afPrice 
+        : 1;
+
+      let afMediaCost = p.media_cost ?? getExtraNum(p, "media cost", "cost - paid media budget");
+      if (afMediaCost == null) afMediaCost = projAfMediaCost / revenueFxRatio;
+      
+      let afGrossBudget = p.gross_budget ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget");
+      if (afGrossBudget == null) afGrossBudget = projAfGrossBudget / revenueFxRatio;
+      
+      const fullAgencyFee = afPrice !== null ? afPrice - afMediaCost - afGrossBudget : null;
 
       const rateCardRevenue = (p.project_scopes || []).reduce((sum: number, sc: any) => {
         return sum + sc.scoped_hours * (roleRates[sc.role_id] || 0);
