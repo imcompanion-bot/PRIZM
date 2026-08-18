@@ -20,9 +20,10 @@ import {
   CheckCircle,
   ShieldQuestion
 } from "lucide-react";
-import { formatCurrency } from "@/lib/calculations";
+import { formatCurrency, BILLABLE_TEAMS } from "@/lib/calculations";
 import { differenceInDays, format } from "date-fns";
 import { toast } from "sonner";
+import { buildParentalLeaveMap, getWorkingDaysExcludingLeave } from "@/lib/parental-leave";
 
 import { app } from "@/lib/firebase";
 import { getAI, getGenerativeModel, GoogleAIBackend } from "firebase/ai";
@@ -563,14 +564,8 @@ export const MarginSentryWidget = ({
             // Fetch timesheet records for active team across ALL projects in the range (paginated to avoid 1000-row limit)
             const teamAllEntries = await fetchTimeEntriesPaginated(allQueryIds, projectStartDate, limitDateStr);
 
-            let workingDaysSoFar = 0;
-            let curr = new Date(projectStartDate);
-            while (curr <= limitDate) {
-               const day = curr.getDay();
-               if (day !== 0 && day !== 6) workingDaysSoFar++;
-               curr.setDate(curr.getDate() + 1);
-            }
-            if (workingDaysSoFar <= 0) workingDaysSoFar = 1;
+            // Build the parental leave map ONCE for this audit
+            const parentalLeaveMap = buildParentalLeaveMap(people);
 
             // Aggregate actual hours by each individual ID
             const actualLoggedMap: Record<string, number> = {};
@@ -585,7 +580,7 @@ export const MarginSentryWidget = ({
             // Audit timesheets per distinct person name
             activePeopleNames.forEach(normName => {
               const person = people.find(p => p.name.trim().toLowerCase() === normName && isPersonActive(p));
-              if (!person) return;
+              if (!person || !person.team || !BILLABLE_TEAMS.has(person.team.toLowerCase())) return;
 
               // Sum logged hours across ALL duplicate/sibling IDs (exactly like UtilisationTab)
               const siblingIds = nameToSiblingIds[normName] || [];
@@ -594,8 +589,20 @@ export const MarginSentryWidget = ({
                 actualHoursSum += actualLoggedMap[sid] || 0;
               });
 
-              // Compute expected total contract hours (7.5 hours per working day, matching UtilisationTab expected hours)
-              const expectedHours = 7.5 * workingDaysSoFar;
+              // Compute expected total contract hours tailored to the person's employment dates and leave
+              const empStart = person.overall_start_date || person.employment_start_date;
+              const empEnd = person.overall_end_date || person.employment_end_date;
+              
+              const pStart = new Date(projectStartDate);
+              let effectiveStart = empStart && new Date(empStart) > pStart ? new Date(empStart) : pStart;
+              let effectiveEnd = empEnd && new Date(empEnd) < limitDate ? new Date(empEnd) : limitDate;
+
+              if (effectiveStart > effectiveEnd) return;
+
+              const leaveIntervals = parentalLeaveMap.get(normName);
+              const workingDays = getWorkingDaysExcludingLeave(effectiveStart, effectiveEnd, leaveIntervals);
+
+              const expectedHours = 7.5 * workingDays;
 
               if (expectedHours > 0) {
                 const score = Math.min(100, (actualHoursSum / expectedHours) * 100);

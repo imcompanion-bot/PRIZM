@@ -378,7 +378,7 @@ const ProfitabilityPage = () => {
       while (true) {
         const { data, error } = await supabase
           .from("people")
-          .select("id, role_id, team, annual_salary, office, employment_start_date, employment_end_date, overall_start_date, overall_end_date, roles(billable_capacity_hours)")
+          .select("id, name, role_id, team, annual_salary, office, employment_start_date, employment_end_date, overall_start_date, overall_end_date, roles(billable_capacity_hours)")
           .order("id")
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -655,7 +655,6 @@ const ProfitabilityPage = () => {
 
   const clientGroups = useMemo(() => {
     const today = new Date();
-    const todayStr = format(today, "yyyy-MM-dd");
 
     const EXCLUDED_RECORD_TYPES = ["agency - talent savings", "agency - passthrough costs", "agency - rfp / rfi", "agency - holding pot"];
 
@@ -758,9 +757,22 @@ const ProfitabilityPage = () => {
         return null;
       };
 
-      const afPrice = p.price ?? p.revenue ?? getExtraNum(p, "project_currency_revenue", "total price", "price gbp/usd", "price");
-      const afMediaCost = p.media_cost ?? getExtraNum(p, "project_currency_media_cost", "media cost", "cost - paid media budget") ?? 0;
-      const afGrossBudget = p.gross_budget ?? p.budget_cost ?? getExtraNum(p, "project_currency_gross_budget", "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+      const projAfPrice = getExtraNum(p, "project_currency_revenue") ?? p.price ?? p.revenue ?? getExtraNum(p, "total price", "price gbp/usd", "price");
+      const projAfMediaCost = getExtraNum(p, "project_currency_media_cost") ?? p.media_cost ?? getExtraNum(p, "media cost", "cost - paid media budget") ?? 0;
+      const projAfGrossBudget = getExtraNum(p, "project_currency_gross_budget") ?? p.gross_budget ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+
+      const afPrice = p.price ?? p.revenue ?? getExtraNum(p, "total price", "price gbp/usd", "price");
+      
+      const revenueFxRatio = (projAfPrice && afPrice && afPrice > 0) 
+        ? projAfPrice / afPrice 
+        : 1;
+
+      let afMediaCost = p.media_cost ?? getExtraNum(p, "media cost", "cost - paid media budget");
+      if (afMediaCost == null) afMediaCost = projAfMediaCost / revenueFxRatio;
+      
+      let afGrossBudget = p.gross_budget ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget");
+      if (afGrossBudget == null) afGrossBudget = projAfGrossBudget / revenueFxRatio;
+      
       const fullAgencyFee = afPrice !== null ? afPrice - afMediaCost - afGrossBudget : null;
 
       const rateCardRevenue = (p.project_scopes || []).reduce((sum: number, sc: any) => {
@@ -1288,7 +1300,6 @@ const ProfitabilityPage = () => {
 
   const rfpData = useMemo(() => {
     const today = new Date();
-    const todayStr = format(today, "yyyy-MM-dd");
 
     const rfpProjects: RfpProject[] = [];
 
@@ -1415,74 +1426,90 @@ const ProfitabilityPage = () => {
     const windowEndRaw = new Date(appliedEndDate);
     const windowEnd = windowEndRaw > today ? today : windowEndRaw;
 
-    // First pass: Calculate Person Completeness
-    const personCompletenessMap = new Map<string, number>();
-
+    // First pass: Aggregate Person Completeness by Name
+    const siblingsByName = new Map<string, any[]>();
     for (const person of people) {
-      // Exclude non-billable teams (like Finance) from completion calculations
       if (!person.team || !BILLABLE_TEAMS.has(person.team.toLowerCase())) continue;
-
-      const empStart = person.overall_start_date || person.employment_start_date;
-      const empEnd = person.overall_end_date || person.employment_end_date;
-      let effectiveStart = empStart && new Date(empStart) > windowStart ? new Date(empStart) : windowStart;
-      let effectiveEnd = empEnd && new Date(empEnd) < windowEnd ? new Date(empEnd) : windowEnd;
-
-      if (effectiveStart > effectiveEnd) continue;
-
       const normName = (person.name || "").trim().toLowerCase();
-      const leaveIntervals = parentalLeaveMap.get(normName);
-      const workingDays = getWorkingDaysExcludingLeave(effectiveStart, effectiveEnd, leaveIntervals);
-      
-      let expected = workingDays * HOURS_PER_DAY;
-      const leaveHrs = personLeaveHoursMap.get(person.id) || 0;
-      expected = Math.max(0, expected - leaveHrs);
-      
-      const actual = personCappedHoursMap.get(person.id) || 0;
-      const comp = expected > 0 ? Math.min(actual / expected, 1) : 1;
-      personCompletenessMap.set(person.id, comp);
+      if (!siblingsByName.has(normName)) siblingsByName.set(normName, []);
+      siblingsByName.get(normName)!.push(person);
     }
 
-    // Per-project completeness: for each person on a project, their expected hours on that project
-    // is (Logged Hours / Person Completeness).
+    const nameToComp = new Map<string, number>();
+
+    for (const [normName, siblings] of siblingsByName.entries()) {
+      let totalExpected = 0;
+      let totalActual = 0;
+
+      for (const contract of siblings) {
+        const empStart = contract.employment_start_date || contract.overall_start_date;
+        const empEnd = contract.employment_end_date || contract.overall_end_date;
+        
+        let effectiveStart = empStart && new Date(empStart) > windowStart ? new Date(empStart) : windowStart;
+        let effectiveEnd = empEnd && new Date(empEnd) < windowEnd ? new Date(empEnd) : windowEnd;
+
+        if (effectiveStart > effectiveEnd) continue;
+
+        const leaveIntervals = parentalLeaveMap.get(normName);
+        const workingDays = getWorkingDaysExcludingLeave(effectiveStart, effectiveEnd, leaveIntervals);
+        
+        totalExpected += workingDays * HOURS_PER_DAY;
+        totalActual += personCappedHoursMap.get(contract.id) || 0;
+      }
+      
+      const comp = totalExpected > 0 ? Math.min(totalActual / totalExpected, 1) : 1;
+      nameToComp.set(normName, comp);
+    }
+
+    // Per-project completeness: aggregate by person names to avoid duplicate counting of renewals
     const projectComp = new Map<string, { expected: number; actual: number; comp: number }>();
+    
+    const idToName = new Map<string, string>();
+    for (const person of people) {
+      idToName.set(person.id, (person.name || "").trim().toLowerCase());
+    }
+
     for (const [projId, personIds] of projectPeopleMap) {
       const proj = projectsById.get(projId);
       if (!proj) continue;
       
       const hoursMap = projectPersonHoursMap.get(projId);
-      // We removed the `if (!hoursMap) continue;` line here so we can process 0-hour projects
 
-      let projectExpected = 0;
-      let projectActual = 0;
-
-      // Track how many people were supposed to log time on this project
+      let sumComps = 0;
+      let countComps = 0;
       let validPeopleCount = 0;
 
+      // Find unique names who worked on this project
+      const uniqueNamesOnProject = new Set<string>();
       for (const pid of personIds) {
-        const loggedHours = hoursMap?.get(pid) || 0;
-        
-        // If they logged no time, we still need to know if they were *supposed* to
-        const personComp = personCompletenessMap.get(pid);
-        if (personComp === undefined) continue; // Person wasn't active in this window
-        
-        validPeopleCount++;
-        if (loggedHours <= 0) continue; 
-
-        // If they logged hours, their contribution to expected project hours
-        // is based on their overall completeness.
-        const expectedHoursForProject = personComp > 0 ? loggedHours / personComp : loggedHours;
-
-        projectExpected += expectedHoursForProject;
-        projectActual += loggedHours;
+        const normName = idToName.get(pid);
+        if (normName && nameToComp.has(normName)) {
+            uniqueNamesOnProject.add(normName);
+            validPeopleCount++;
+        }
       }
 
-      if (projectExpected > 0) {
-        projectComp.set(projId, { expected: projectExpected, actual: projectActual, comp: Math.min((projectActual / projectExpected) * 100, 100) });
+      for (const normName of uniqueNamesOnProject) {
+        let totalLoggedOnProj = 0;
+        const siblings = siblingsByName.get(normName) || [];
+        for (const contract of siblings) {
+            totalLoggedOnProj += hoursMap?.get(contract.id) || 0;
+        }
+        
+        // Only include people who actually logged time to this project in the mean calculation
+        if (totalLoggedOnProj <= 0) continue; 
+
+        const personComp = nameToComp.get(normName)!;
+        sumComps += personComp;
+        countComps++;
+      }
+
+      if (countComps > 0) {
+        const projCompPct = (sumComps / countComps) * 100;
+        projectComp.set(projId, { expected: countComps, actual: sumComps, comp: Math.min(projCompPct, 100) });
       } else if (validPeopleCount > 0 && hoursMap === undefined) {
-        // If the project had people assigned to it all-time, and they were active during this window,
+        // If the project had billable active people assigned to it all-time, 
         // but no one logged ANY time on the project during this window, it's 0% complete.
-        // Wait, if no one logged time, we don't know the expected hours natively. 
-        // We will just record 0% directly.
         projectComp.set(projId, { expected: 1, actual: 0, comp: 0 });
       }
     }
@@ -1765,7 +1792,6 @@ const ProfitabilityPage = () => {
   // ── Monthly RFP / RFI Cost Trend ──
   const rfpMonthlyTrend = useMemo(() => {
     const today = new Date();
-    const todayStr = format(today, "yyyy-MM-dd");
     const rfpProjectIds = new Set<string>();
     const rfpProjectCurrencyMap: Record<string, { projectCurrency: string; fxRateGbp: number; fxRateUsd: number }> = {};
 
