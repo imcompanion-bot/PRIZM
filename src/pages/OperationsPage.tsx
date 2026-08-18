@@ -5,6 +5,7 @@ import ProjectsPage from "./ProjectsPage";
 import KpiExplorerPage from "./KpiExplorerPage";
 import BillableWorkPage from "./BillableWorkPage";
 import WeeklyUpdatePage from "./WeeklyUpdatePage";
+import PartTimeStaffTab from "./operations/PartTimeStaffTab";
 
 export default function OperationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -50,6 +51,10 @@ export default function OperationsPage() {
                   <FileText className="h-3.5 w-3.5" />
                   Weekly Update
                 </TabsTrigger>
+                <TabsTrigger value="part-time" className="gap-2 text-xs py-1.5 font-display uppercase tracking-wide">
+                  <Briefcase className="h-3.5 w-3.5" />
+                  Part-time Staff
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -68,6 +73,10 @@ export default function OperationsPage() {
 
               <TabsContent value="weekly" className="mt-0 h-full flex flex-col focus-visible:ring-0 focus-visible:ring-offset-0">
                 <WeeklyUpdatePage isEmbedded={true} />
+              </TabsContent>
+
+              <TabsContent value="part-time" className="mt-0 h-full flex flex-col focus-visible:ring-0 focus-visible:ring-offset-0">
+                <PartTimeStaffTab />
               </TabsContent>
             </div>
           </Tabs>
