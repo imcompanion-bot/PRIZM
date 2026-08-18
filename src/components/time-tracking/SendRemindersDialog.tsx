@@ -116,9 +116,13 @@ export function SendRemindersDialog({ people, startDate, endDate, office }: Prop
   }, [startDate, endDate, office]);
 
   const ccList = useMemo(() => {
-    if (office === "UK") return ["churrell@billiondollarboy.com"];
-    if (office === "US") return ["psouthey@billiondollarboy.com"];
-    return ["churrell@billiondollarboy.com", "psouthey@billiondollarboy.com"];
+    if (office === "UK") return ["churrell@billiondollarboy.com", "kbowles@billiondollarboy.com", "sramsey@billiondollarboy.com"];
+    if (office === "US") return ["psouthey@billiondollarboy.com", "jfarber@billiondollarboy.com", "jhurst@billiondollarboy.com"];
+    return [
+      "churrell@billiondollarboy.com", "psouthey@billiondollarboy.com", 
+      "kbowles@billiondollarboy.com", "sramsey@billiondollarboy.com", 
+      "jfarber@billiondollarboy.com", "jhurst@billiondollarboy.com"
+    ];
   }, [office]);
 
   const selectedRecipients = candidates
