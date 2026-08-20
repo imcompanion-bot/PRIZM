@@ -396,7 +396,7 @@ export function calculateServiceHours(input: EngineInput): TaskLine[] {
   // ═══════════════════════════════════════════
   if (input.eventCount > 0) {
     const ev = input.eventCount;
-    push("Production: Events", "Concept & Ideation", "Senior Creative", ev * 16);
+    push("Production: Events", "Concept & Ideation", "Senior Creative", 16);
     push("Production: Events", "Bookings, Execution and Sourcing", "Account Manager", ev * 12);
     push("Production: Events", "Management during event", "Account Manager", ev * 6);
   }
@@ -523,7 +523,7 @@ export function calculateServiceHours(input: EngineInput): TaskLine[] {
   // ═══════════════════════════════════════════
   // ADMIN
   // ═══════════════════════════════════════════
-  push("Admin", "Adhoc Requests", "Global Business Affairs Executive", months * 4);
+  push("Admin", "Adhoc Requests", "Global Business Affairs Executive", 4);
 
   // ═══════════════════════════════════════════
   // MANAGEMENT (calculated LAST — % of all other hours)

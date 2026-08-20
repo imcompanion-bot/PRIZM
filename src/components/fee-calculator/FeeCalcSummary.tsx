@@ -492,6 +492,7 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
             exclusivityWeeks: state.talentBudget.exclusivityWeeks,
             timePressure: state.talentBudget.timePressure,
             restrictedGoods: state.talentBudget.restrictedGoods,
+            seasonal: state.talentBudget.seasonal,
           }
         },
         scopingRules: state.sections
