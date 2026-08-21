@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Plus, Trash2, CalendarDays } from "lucide-react";
+import { Loader2, Plus, Trash2, CalendarDays, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 export default function PartTimeStaffTab() {
   const [loading, setLoading] = useState(true);
@@ -15,6 +17,7 @@ export default function PartTimeStaffTab() {
 
   // Form State
   const [selectedPerson, setSelectedPerson] = useState("");
+  const [open, setOpen] = useState(false);
   const [daysPerWeek, setDaysPerWeek] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -28,7 +31,7 @@ export default function PartTimeStaffTab() {
     try {
       setLoading(true);
       const [peopleRes, configsRes] = await Promise.all([
-        supabase.from("people").select("id, name").order("name"),
+        supabase.from("people").select("id, name").order("name").limit(5000),
         supabase
           .from("part_time_configs")
           .select("*, people(name)")
@@ -38,7 +41,10 @@ export default function PartTimeStaffTab() {
       if (peopleRes.error) throw peopleRes.error;
       if (configsRes.error) throw configsRes.error;
 
-      setPeople(peopleRes.data || []);
+      const uniquePeople = Array.from(
+        new Map((peopleRes.data || []).map((p) => [p.name, p])).values()
+      );
+      setPeople(uniquePeople);
       setConfigs(configsRes.data || []);
     } catch (error: any) {
       console.error("Error fetching part time data", error);
@@ -119,16 +125,54 @@ export default function PartTimeStaffTab() {
         <form onSubmit={handleAddRow} className="p-4 flex flex-wrap gap-4 items-end">
           <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
             <label className="text-xs font-medium text-stone-600">Staff Member</label>
-            <Select value={selectedPerson} onValueChange={setSelectedPerson}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Select person..." />
-              </SelectTrigger>
-              <SelectContent>
-                {people.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={open}
+                  className="w-full justify-between h-9 font-normal bg-white"
+                >
+                  {selectedPerson
+                    ? people.find((p) => p.id === selectedPerson)?.name
+                    : "Select person..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0" align="start">
+                <Command 
+                  filter={(value, search) => {
+                    if (value.toLowerCase().includes(search.toLowerCase())) return 1;
+                    return 0;
+                  }}
+                >
+                  <CommandInput placeholder="Search staff..." />
+                  <CommandList>
+                    <CommandEmpty>No staff found.</CommandEmpty>
+                    <CommandGroup>
+                      {people.map((p) => (
+                        <CommandItem
+                          key={p.id}
+                          value={p.name}
+                          onSelect={() => {
+                            setSelectedPerson(p.id);
+                            setOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedPerson === p.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {p.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
           
           <div className="flex flex-col gap-1.5 w-32">
