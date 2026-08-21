@@ -219,7 +219,7 @@ export function PhasingTab({ state, currencySymbol, appliedRecs = [] }: PhasingT
       creativeTeamInvolved: s.talentContent.creativeTeamInvolved || false,
       contentProduction: s.talentContent.contentProduction || false,
       contentRevisions: s.talentContent.contentRevisions || 0,
-      contentReviews: s.talentContent.contentReviews || false,
+      contentReviews: s.talentContent.contentReviews || "None",
       ...platformStats,
       giftingInfluencers,
       procurementEnabled: s.productProcurement.enabled,
@@ -418,10 +418,16 @@ export function PhasingTab({ state, currencySymbol, appliedRecs = [] }: PhasingT
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Phase Timeline</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Total project: <strong>{totalWeeks} weeks</strong> ({state.durationMonths} months).
-            Drag to move, drag edges to resize. Phases can overlap.
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Total project duration: <strong className="text-foreground">{totalWeeks} weeks</strong> ({state.durationMonths} months).
           </p>
+          <div className="mt-2 p-2 bg-emerald-500/5 border border-emerald-500/10 rounded-md text-[11px] text-muted-foreground flex items-start gap-2 max-w-2xl">
+            <span className="text-emerald-500 font-bold shrink-0">💡 Quick Guide:</span>
+            <span>
+              Each phase is fully interactive! <strong>Drag the center</strong> of any colored block to move its schedule. 
+              <strong> Drag the left or right edges</strong> (indicated by the white handles) to change the phase's start/end dates and overall duration. Phases are permitted to overlap.
+            </span>
+          </div>
         </CardHeader>
         <CardContent className="space-y-1">
           {/* Column headers */}

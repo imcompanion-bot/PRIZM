@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /* ─── types ─── */
 const PLATFORMS = ["Instagram", "TikTok", "YouTube", "Content House"] as const;
@@ -138,7 +139,7 @@ function NumInput({ value, onChange, min = 0, placeholder, formatted, suffix, cl
     if (value === 0) {
       finalStr = placeholder === "-" ? "-" : "0";
     } else {
-      finalStr = formatted ? Intl.NumberFormat('en-US', { notation: "compact", maximumFractionDigits: 1 }).format(value).toLowerCase() : value.toString();
+      finalStr = formatted ? Intl.NumberFormat('en-US', { notation: "compact", maximumFractionDigits: 1 }).format(value).toLowerCase() : value.toLocaleString("en-GB");
     }
 
     return (
@@ -323,10 +324,38 @@ export function TalentBudgetTab({ state, onChange, office, currencySymbol }: Tal
                   <th className="font-medium p-2 border-b w-[110px]" title="Tier">Tier</th>
                   <th className="font-medium p-2 border-b w-[110px]" title="Territory">Territory</th>
                   <th className="font-medium p-2 border-b w-[70px]" title="Average Followers">Avg</th>
-                  <th className="font-medium p-2 border-b w-[55px] text-center" title="Single Image">SI</th>
-                  <th className="font-medium p-2 border-b w-[55px] text-center" title="Multi Image">MI</th>
-                  <th className="font-medium p-2 border-b w-[55px] text-center" title="Short Video">SV</th>
-                  <th className="font-medium p-2 border-b w-[55px] text-center" title="Story Frames">SF</th>
+                  <th className="font-medium p-2 border-b w-[55px] text-center">
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger className="underline decoration-dotted cursor-help">SI</TooltipTrigger>
+                        <TooltipContent>Single Image</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
+                  <th className="font-medium p-2 border-b w-[55px] text-center">
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger className="underline decoration-dotted cursor-help">MI</TooltipTrigger>
+                        <TooltipContent>Multi Image (Carousel)</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
+                  <th className="font-medium p-2 border-b w-[55px] text-center">
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger className="underline decoration-dotted cursor-help">SV</TooltipTrigger>
+                        <TooltipContent>Short Video</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
+                  <th className="font-medium p-2 border-b w-[55px] text-center">
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger className="underline decoration-dotted cursor-help">SF</TooltipTrigger>
+                        <TooltipContent>Story Frames</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
                   <th className="font-medium p-2 border-b w-[60px] text-center" title="Deliverables">Total</th>
                   <th className="font-medium p-2 border-b w-[30px]"></th>
                 </tr>
@@ -359,7 +388,24 @@ export function TalentBudgetTab({ state, onChange, office, currencySymbol }: Tal
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                   <Label className="text-xs font-semibold">Usage Override</Label>
-                                  <Switch checked={g.useUsageOverride} onCheckedChange={(v) => updateGroup(g.id, { useUsageOverride: v })} />
+                                  <Switch 
+                                    checked={g.useUsageOverride} 
+                                    onCheckedChange={(v) => {
+                                      const updates: any = { useUsageOverride: v };
+                                      if (v) {
+                                        if (!g.organicUsageWeeksOverride) {
+                                          updates.organicUsageWeeksOverride = state.organicUsageWeeks || 0;
+                                        }
+                                        if (!g.paidUsageWeeksOverride) {
+                                          updates.paidUsageWeeksOverride = state.paidUsageWeeks || 0;
+                                        }
+                                        if (!g.exclusivityWeeksOverride) {
+                                          updates.exclusivityWeeksOverride = state.exclusivityWeeks || 0;
+                                        }
+                                      }
+                                      updateGroup(g.id, updates);
+                                    }} 
+                                  />
                                 </div>
                                 {g.useUsageOverride && (
                                   <div className="grid grid-cols-3 gap-2">
@@ -432,10 +478,15 @@ export function TalentBudgetTab({ state, onChange, office, currencySymbol }: Tal
                             <div className="space-y-2">
                               <Label className="text-xs text-muted-foreground font-medium">Override Average Followers</Label>
                               <Input
-                                type="number"
-                                className="h-8 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                value={g.avgFollowers || ""}
-                                onChange={(e) => updateGroup(g.id, { avgFollowers: Number(e.target.value) || 0 })}
+                                type="text"
+                                className="h-8 text-sm"
+                                value={g.avgFollowers ? g.avgFollowers.toLocaleString("en-GB") : ""}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/,/g, "");
+                                  if (/^[0-9]*$/.test(val) || val === "") {
+                                    updateGroup(g.id, { avgFollowers: Number(val) || 0 });
+                                  }
+                                }}
                               />
                             </div>
                           </PopoverContent>
@@ -570,10 +621,15 @@ export function TalentBudgetTab({ state, onChange, office, currencySymbol }: Tal
                         <div className="space-y-2">
                           <Label className="text-xs text-muted-foreground font-medium">Override Average Followers</Label>
                           <Input
-                            type="number"
-                            className="h-8 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            value={t.avgFollowers || ""}
-                            onChange={(e) => updateGiftingTier(t.id, { avgFollowers: Number(e.target.value) || 0 })}
+                            type="text"
+                            className="h-8 text-sm"
+                            value={t.avgFollowers ? t.avgFollowers.toLocaleString("en-GB") : ""}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/,/g, "");
+                              if (/^[0-9]*$/.test(val) || val === "") {
+                                updateGiftingTier(t.id, { avgFollowers: Number(val) || 0 });
+                              }
+                            }}
                           />
                         </div>
                       </PopoverContent>

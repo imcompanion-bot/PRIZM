@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { calculateCreatorCosts } from "../components/fee-calculator/creatorCostEngine";
 import { type TalentBudgetState } from "../components/fee-calculator/TalentBudgetTab";
+import { calculateServiceHours } from "../components/fee-calculator/serviceHoursEngine";
 
 describe("Fee Calculator Mathematical Parity", () => {
   it("should calculate creator payment fee as exactly 3% * (talent budget + talent contingency)", () => {
@@ -118,5 +119,63 @@ describe("Fee Calculator Mathematical Parity", () => {
 
     expect(ytGroup!.contentFeePerInfl).toBeCloseTo(610.43, 2);
     expect(chGroup!.contentFeePerInfl).toBe(200.0);
+  });
+
+  it("should match Google Sheet specs for Admin scoping and Production: Events on Adidas Prizm Test inputs", () => {
+    const mockInput: any = {
+      durationMonths: 6,
+      pmEnabled: false,
+      pmInvolvement: "None",
+      creativeEnabled: false,
+      creativeJobs: 0,
+      proposalRevisions: 0,
+      roundsOfFeedback: 0,
+      talentEnabled: false,
+      totalInfluencers: 0,
+      crossPlatformInfluencers: 0,
+      influencerBriefRevisions: 0,
+      longListRevisions: 0,
+      contentIdeation: false,
+      ideationRevisions: 0,
+      creativeTeamInvolved: false,
+      contentProduction: false,
+      contentRevisions: 0,
+      contentReviews: "None",
+      instagramInfluencers: 0,
+      instagramImages: 0,
+      instagramStories: 0,
+      instagramVideos: 0,
+      tiktokInfluencers: 0,
+      tiktokVideos: 0,
+      youtubeInfluencers: 0,
+      youtubeVideos: 0,
+      giftingInfluencers: 0,
+      procurementEnabled: false,
+      totalShipments: 0,
+      productionEnabled: true,
+      contentHouseAssets: 0,
+      arFilters: 0,
+      gifs: 0,
+      eventCount: 2, // 2 events
+      paidMediaEnabled: false,
+      paidMediaPlatforms: 0,
+      paidMediaLiveMonths: 0,
+      paidMediaComplexity: "None",
+      paidMediaSpend: 0,
+      totalPaidStaticAssets: 0,
+      totalPaidDynamicAssets: 0,
+    };
+
+    const serviceResult = calculateServiceHours(mockInput);
+
+    // Find the Admin line
+    const adminLine = serviceResult.find(l => l.section === "Admin");
+    expect(adminLine).toBeDefined();
+    expect(adminLine!.hours).toBe(4.0);
+
+    // Find the Production: Events lines
+    const eventLines = serviceResult.filter(l => l.section === "Production: Events");
+    const totalEventHours = eventLines.reduce((acc, l) => acc + l.hours, 0);
+    expect(totalEventHours).toBe(52.0);
   });
 });
