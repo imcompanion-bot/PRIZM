@@ -30,19 +30,23 @@ export default function PartTimeStaffTab() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [peopleRes, configsRes] = await Promise.all([
-        supabase.from("people").select("id, name").order("name").limit(5000),
+      const [peopleRes1, peopleRes2, configsRes] = await Promise.all([
+        supabase.from("people").select("id, name").order("name").range(0, 999),
+        supabase.from("people").select("id, name").order("name").range(1000, 1999),
         supabase
           .from("part_time_configs")
           .select("*, people(name)")
           .order("created_at", { ascending: false }),
       ]);
 
-      if (peopleRes.error) throw peopleRes.error;
+      if (peopleRes1.error) throw peopleRes1.error;
+      if (peopleRes2.error) throw peopleRes2.error;
       if (configsRes.error) throw configsRes.error;
 
+      const allPeople = [...(peopleRes1.data || []), ...(peopleRes2.data || [])];
+      
       const uniquePeople = Array.from(
-        new Map((peopleRes.data || []).map((p) => [p.name, p])).values()
+        new Map(allPeople.map((p) => [p.name, p])).values()
       );
       setPeople(uniquePeople);
       setConfigs(configsRes.data || []);

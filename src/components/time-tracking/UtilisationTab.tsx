@@ -98,6 +98,15 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
     },
   });
 
+  const { data: partTimeConfigs = [] } = useQuery({
+    queryKey: ["utilisation_part_time_configs"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("part_time_configs").select("*");
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
   // Fetch aggregated utilisation data server-side (grouped by person+project)
     const { data: rawTimeEntries = [] } = useQuery({
     queryKey: ["raw_time_entries_for_completeness", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd")],
@@ -373,12 +382,27 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
         // Track which calendar days have been counted (excluding parental leave)
         const countedDays = new Set<string>();
         const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
+        const ptConfigs = partTimeConfigs
+          .filter(c => c.person_id === person.id)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
         let personWorkingDays = 0;
         for (const d of days) {
           if (isWeekend(d)) continue;
           if (isOnParentalLeave(d, leaveIntervals)) continue;
           countedDays.add(d.toISOString().slice(0, 10));
-          personWorkingDays++;
+
+          let daysPerWeek = 5;
+          const activeConfig = ptConfigs.find(c => {
+            const start = c.start_date ? new Date(c.start_date) : null;
+            const end = c.end_date ? new Date(c.end_date) : null;
+            return (!start || d >= start) && (!end || d <= end);
+          });
+          if (activeConfig && activeConfig.days_per_week) {
+            daysPerWeek = activeConfig.days_per_week;
+          }
+
+          personWorkingDays += (daysPerWeek / 5.0);
         }
 
         const overallEnd2 = person.overall_end_date ? new Date(person.overall_end_date) : null;
@@ -486,7 +510,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
       console.error("CRASH IN PERSON SUMMARIES", e);
       return new Map();
     }
-  }, [people, hoursByPerson, startDate, endDate, officeFilter, parentalLeaveMap, rawTimeEntries]);
+  }, [people, hoursByPerson, startDate, endDate, officeFilter, parentalLeaveMap, rawTimeEntries, partTimeConfigs]);
 
   // Team summaries computed directly from lightweight summaries
   const teamSummaries = useMemo(() => {

@@ -13,7 +13,7 @@ import { getBatchProjectFxRates, getMonthlyBatchFxRates } from "@/lib/fx";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { format, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, startOfWeek, endOfWeek, parseISO } from "date-fns";
-import { buildParentalLeaveMap, getWorkingDaysExcludingLeave } from "@/lib/parental-leave";
+import { buildParentalLeaveMap, getWorkingDaysExcludingLeave, isOnParentalLeave } from "@/lib/parental-leave";
 import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, ArrowUp, ArrowDown, Info } from "lucide-react";
 import * as RechartsPrimitive from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
@@ -386,8 +386,17 @@ const ProfitabilityPage = () => {
         if (!data || data.length < pageSize) break;
         from += pageSize;
       }
-      return allData;
     },
+  });
+
+  const { data: partTimeConfigs = [] } = useQuery({
+    queryKey: ["profitability_part_time_configs"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("part_time_configs").select("*");
+      if (error) throw error;
+      return data || [];
+    }
   });
 
   const { data: utilisationSummary = [] } = useQuery({
@@ -1451,7 +1460,29 @@ const ProfitabilityPage = () => {
         if (effectiveStart > effectiveEnd) continue;
 
         const leaveIntervals = parentalLeaveMap.get(normName);
-        const workingDays = getWorkingDaysExcludingLeave(effectiveStart, effectiveEnd, leaveIntervals);
+        const ptConfigs = partTimeConfigs
+          .filter(c => c.person_id === contract.id)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
+        let workingDays = 0;
+        for (const d of days) {
+          if (isWeekend(d)) continue;
+          if (isOnParentalLeave(d, leaveIntervals)) continue;
+
+          // Find active config for this date
+          let daysPerWeek = 5;
+          const activeConfig = ptConfigs.find(c => {
+            const start = c.start_date ? new Date(c.start_date) : null;
+            const end = c.end_date ? new Date(c.end_date) : null;
+            return (!start || d >= start) && (!end || d <= end);
+          });
+          if (activeConfig && activeConfig.days_per_week) {
+            daysPerWeek = activeConfig.days_per_week;
+          }
+
+          workingDays += (daysPerWeek / 5.0);
+        }
         
         totalExpected += workingDays * HOURS_PER_DAY;
         totalActual += personCappedHoursMap.get(contract.id) || 0;
@@ -1538,7 +1569,7 @@ const ProfitabilityPage = () => {
     }
 
     return { projectComp: projectCompFinal, projectCompRaw: projectComp, clientComp, projectPeopleMap };
-  }, [utilisationSummary, allTimeProjectPersonHours, personCappedHours, projectsById, people, clientGroups, parentalLeaveMap, appliedStartDate, appliedEndDate]);
+  }, [utilisationSummary, allTimeProjectPersonHours, personCappedHours, projectsById, people, clientGroups, parentalLeaveMap, appliedStartDate, appliedEndDate, partTimeConfigs]);
 
   // ── Gross-up adjusted data ──
 
