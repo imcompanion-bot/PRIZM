@@ -64,6 +64,8 @@ export default function HomePage() {
   useEffect(() => {
     if (isCore || isChampion) {
       setViewMode("my_clients");
+    } else {
+      setViewMode("group");
     }
   }, [isCore, isChampion]);
 
@@ -284,6 +286,24 @@ export default function HomePage() {
     return <div className="p-8 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   }
   if (!m) return null;
+
+  if (isCore && (!allocatedClients || allocatedClients.length === 0)) {
+    return (
+      <div className="p-8 h-screen flex flex-col items-center justify-center bg-[#faf8f5]">
+        <div className="max-w-md w-full text-center space-y-6 bg-white p-8 rounded-xl shadow-sm border border-stone-200/60 ring-1 ring-black/5">
+          <div className="mx-auto w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center">
+            <span className="text-amber-500 font-bold text-2xl">!</span>
+          </div>
+          <div className="space-y-2">
+            <h2 className="font-display text-xl font-bold text-stone-900">No Clients Allocated</h2>
+            <p className="text-sm text-stone-500 leading-relaxed">
+              You will need to be allocated clients to see any data on the platform. Please speak to your manager about being allocated to your clients.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const isMyClients = viewMode === "my_clients";
   let disp: any = {};
