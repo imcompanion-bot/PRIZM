@@ -15,7 +15,7 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50/50">
       <div className="max-w-md w-full p-8 bg-white border border-gray-200 rounded-xl shadow-sm text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Project Zen</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">PRISM</h1>
         <p className="text-sm text-muted-foreground mb-8">
           Sign in with your Billion Dollar Boy account to continue.
         </p>
