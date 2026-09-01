@@ -59,7 +59,7 @@ const TrendCharts = ({ startDate, endDate, officeFilter, showFormer }: TrendChar
         from += pageSize;
       }
 
-      return allPeople.filter((p: any) => p.status !== "Inactive");
+      return allPeople.filter((p: any) => p.status !== "Inactive" && p.status !== "Pipeline");
     },
   });
 

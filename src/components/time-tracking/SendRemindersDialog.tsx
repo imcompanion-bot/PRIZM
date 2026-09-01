@@ -212,6 +212,21 @@ export function SendRemindersDialog({ people, startDate, endDate, office }: Prop
               </p>
 
               <div className="rounded-md border divide-y">
+                {candidates.length > 0 && (
+                  <div className="flex items-center gap-3 px-3 py-2 bg-muted/40">
+                    <Checkbox
+                      checked={selected.size === candidates.length}
+                      onCheckedChange={(v) => {
+                        if (v) {
+                          setSelected(new Set(candidates.map((c) => c.name)));
+                        } else {
+                          setSelected(new Set());
+                        }
+                      }}
+                    />
+                    <span className="text-sm font-medium">Select All</span>
+                  </div>
+                )}
                 {candidates.map(c => {
                   const isSel = selected.has(c.name);
                   return (

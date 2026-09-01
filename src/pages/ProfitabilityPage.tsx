@@ -386,7 +386,7 @@ const ProfitabilityPage = () => {
         if (!data || data.length < pageSize) break;
         from += pageSize;
       }
-      return allData;
+      return allData.filter((p: any) => p.status !== "Inactive" && p.status !== "Pipeline");
     },
   });
 
