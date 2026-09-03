@@ -144,8 +144,8 @@ const ProfitabilityPage = () => {
   const setDetailView = useCallback((v: DetailView) => setParam("view", v), [setParam]);
   const statusFilter = (searchParams.get("status") as StatusFilter) || "all";
   const setStatusFilter = useCallback((v: StatusFilter) => setParam("status", v), [setParam]);
-  const grossUp = searchParams.get("grossUp") === "true";
-  const setGrossUp = useCallback((v: boolean) => setParam("grossUp", v ? "true" : null), [setParam]);
+  const grossUp = searchParams.get("grossUp") !== "false";
+  const setGrossUp = useCallback((v: boolean) => setParam("grossUp", v ? null : "false"), [setParam]);
 
   const [sortField, setSortField] = useState<"client" | "revenue" | "cost" | "profit" | "margin" | "timesheets">("profit");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
