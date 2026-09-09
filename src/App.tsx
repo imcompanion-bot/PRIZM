@@ -26,6 +26,7 @@ import FeeCalculatorPage from "./pages/FeeCalculatorPage";
 import WeeklyUpdatePage from "./pages/WeeklyUpdatePage";
 import KpiExplorerPage from "./pages/KpiExplorerPage";
 import HomePage from "./pages/HomePage";
+import DashboardPage from "./pages/DashboardPage";
 import NotFound from "./pages/NotFound";
 import { resumeGlobalImportIfNeeded } from "./components/settings/TimesheetsImport";
 import { supabase } from "@/integrations/supabase/client";
@@ -102,6 +103,7 @@ const App = () => (
               <Route path="/login" element={<LoginPage />} />
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 <Route path="/" element={<HomePage />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
                 <Route path="/projects/:id" element={<ProjectDetailPage />} />
                 <Route path="/client-portfolio" element={<ClientPortfolioPage />} />

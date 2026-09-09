@@ -13,31 +13,12 @@ exports.debugHeadersHttp = (0, https_1.onRequest)({ region: "us-east4", timeoutS
         const sheets = googleapis_1.google.sheets({ version: "v4", auth: authClient });
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SHEET_ID,
-            range: "Data summary - P&L phased (de-risked)!A4:GZ10",
+            range: "Data summary - P&L phased (de-risked)!A4:ZZ3000",
         });
         const rows = response.data.values || [];
-        const headers = rows[0] || [];
-        const oppIdx = headers.findIndex(h => h && String(h).trim().toLowerCase() === "opportunity record type");
-        const resData = {
-            oppIdx,
-            headers: {
-                187: headers[187],
-                188: headers[188],
-                189: headers[189],
-                190: headers[190],
-            },
-            rows: []
-        };
-        for (let i = 1; i < Math.min(6, rows.length); i++) {
-            resData.rows.push({
-                row: i,
-                length: rows[i].length,
-                188: rows[i][188],
-                189: rows[i][189],
-                190: rows[i][190],
-            });
-        }
-        res.json(resData);
+        res.json({
+            rows
+        });
     }
     catch (e) {
         res.status(500).json({ error: e.message });

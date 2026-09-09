@@ -609,6 +609,41 @@ async function runSync() {
                 project_currency_revenue: parseNumber(row[213]),
                 project_currency_media_cost: parseNumber(row[215]),
                 project_currency_gross_budget: parseNumber(row[223]),
+                gp_fy20_21: parseNumber(row[150]),
+                gp_fy21_22: parseNumber(row[151]),
+                gp_fy22_23: parseNumber(row[152]),
+                gp_fy23_24: parseNumber(row[178]),
+                gp_fy24_25: parseNumber(row[201]),
+                gp_fy25_26: parseNumber(row[251]),
+                gp_fy26_27: parseNumber(row[260]),
+                gp_q1_20_21: parseNumber(row[189]),
+                gp_q2_20_21: parseNumber(row[190]),
+                gp_q3_20_21: parseNumber(row[191]),
+                gp_q4_20_21: parseNumber(row[192]),
+                gp_q1_21_22: parseNumber(row[183]),
+                gp_q2_21_22: parseNumber(row[184]),
+                gp_q3_21_22: parseNumber(row[185]),
+                gp_q4_21_22: parseNumber(row[186]),
+                gp_q1_22_23: parseNumber(row[153]),
+                gp_q2_22_23: parseNumber(row[154]),
+                gp_q3_22_23: parseNumber(row[155]),
+                gp_q4_22_23: parseNumber(row[156]),
+                gp_q1_23_24: parseNumber(row[195]),
+                gp_q2_23_24: parseNumber(row[196]),
+                gp_q3_23_24: parseNumber(row[197]),
+                gp_q4_23_24: parseNumber(row[198]),
+                gp_q1_24_25: parseNumber(row[229]),
+                gp_q2_24_25: parseNumber(row[230]),
+                gp_q3_24_25: parseNumber(row[231]),
+                gp_q4_24_25: parseNumber(row[232]),
+                gp_q1_25_26: parseNumber(row[252]),
+                gp_q2_25_26: parseNumber(row[253]),
+                gp_q3_25_26: parseNumber(row[254]),
+                gp_q4_25_26: parseNumber(row[255]),
+                gp_q1_26_27: parseNumber(row[256]),
+                gp_q2_26_27: parseNumber(row[257]),
+                gp_q3_26_27: parseNumber(row[258]),
+                gp_q4_26_27: parseNumber(row[259]),
             },
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -623,7 +658,20 @@ async function runSync() {
                 throw new Error(`Projects Upsert Error: ${error.message}`);
         }
         // Cleanup orphaned projects
-        const { data: existingProjects } = await supabase.from("projects").select("id");
+        const existingProjects = [];
+        let projPage = 0;
+        while (true) {
+            const { data } = await supabase.from("projects").select("id").range(projPage * 1000, (projPage + 1) * 1000 - 1);
+            if (data && data.length > 0) {
+                existingProjects.push(...data);
+                if (data.length < 1000)
+                    break;
+                projPage++;
+            }
+            else {
+                break;
+            }
+        }
         if (existingProjects) {
             const validProjectIdsSet = new Set(projectsBatchMap.keys());
             const orphanIds = existingProjects.map((p) => p.id).filter((id) => !validProjectIdsSet.has(id));
@@ -683,7 +731,20 @@ async function runSync() {
                 throw new Error(`Project Scopes Upsert Error: ${error.message}`);
         }
         // Cleanup orphaned project scopes
-        const { data: existingScopes } = await supabase.from("project_scopes").select("id");
+        const existingScopes = [];
+        let scopePage = 0;
+        while (true) {
+            const { data } = await supabase.from("project_scopes").select("id").range(scopePage * 1000, (scopePage + 1) * 1000 - 1);
+            if (data && data.length > 0) {
+                existingScopes.push(...data);
+                if (data.length < 1000)
+                    break;
+                scopePage++;
+            }
+            else {
+                break;
+            }
+        }
         if (existingScopes) {
             const validScopeIdsSet = new Set(scopesBatchMap.keys());
             const orphanScopeIds = existingScopes.map((s) => s.id).filter((id) => !validScopeIdsSet.has(id));

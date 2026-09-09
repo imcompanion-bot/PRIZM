@@ -2,6 +2,7 @@ export type UserRole = "Master" | "Ambassador" | "Champion" | "Core" | "admin" |
 
 export interface FeaturePermissions {
   home: boolean;
+  dashboard: boolean;
   utilisation: boolean;
   profitability: boolean;
   clientPortfolio: boolean;
@@ -14,6 +15,7 @@ export interface FeaturePermissions {
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, FeaturePermissions> = {
   Master: {
     home: true,
+    dashboard: true,
     utilisation: true,
     profitability: true,
     clientPortfolio: true,
@@ -24,6 +26,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, FeaturePermissions> = {
   },
   Ambassador: {
     home: true,
+    dashboard: true,
     utilisation: true,
     profitability: true,
     clientPortfolio: true,
@@ -34,6 +37,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, FeaturePermissions> = {
   },
   Champion: {
     home: true,
+    dashboard: true,
     utilisation: true,
     profitability: true,
     clientPortfolio: false,
@@ -44,6 +48,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, FeaturePermissions> = {
   },
   Core: {
     home: true,
+    dashboard: true,
     utilisation: true,
     profitability: true,
     clientPortfolio: false,

@@ -24,6 +24,7 @@ import { LogOut } from "lucide-react";
 
 const mainNav = [
   { to: "/", icon: Home, label: "Home" },
+  { to: "/dashboard", icon: LineChart, label: "Dashboard" },
   { to: "/utilisation", icon: Users, label: "Time & Utilisation" },
   { to: "/profitability", icon: TrendingUp, label: "Profitability" },
   { to: "/client-portfolio", icon: FolderKanban, label: "Client Portfolio" },
@@ -60,6 +61,7 @@ const AppLayout = () => {
 
   const visibleMainNav = mainNav.filter(item => {
     if (item.to === "/") return hasFeature("home");
+    if (item.to === "/dashboard") return hasFeature("dashboard");
     if (item.to === "/utilisation") return hasFeature("utilisation");
     if (item.to === "/profitability") return hasFeature("profitability");
     if (item.to === "/client-portfolio") return hasFeature("clientPortfolio");
