@@ -96,9 +96,52 @@ const PeoplePage = () => {
   });
 
   const importPeople = useMutation({
-    mutationFn: async (rows: { name: string; role_id: string; office: string; annual_salary: number | null; employment_start_date: string | null; employment_end_date: string | null }[]) => {
-      const { error } = await supabase.from("people").insert(rows);
-      if (error) throw error;
+    mutationFn: async (rows: { name: string; role_id: string; team: string | null; office: string; annual_salary: number | null; employment_start_date: string | null; employment_end_date: string | null }[]) => {
+      const names = [...new Set(rows.map(r => r.name))];
+      const existing: any[] = [];
+      const batchSize = 50;
+      
+      for (let i = 0; i < names.length; i += batchSize) {
+        const batch = names.slice(i, i + batchSize);
+        const { data, error } = await supabase.from("people").select("*").in("name", batch);
+        if (error) throw error;
+        if (data) existing.push(...data);
+      }
+
+      const toInsert = [];
+      const toUpdate = [];
+
+      for (const row of rows) {
+        const match = existing.find(e => 
+          e.name.toLowerCase() === row.name.toLowerCase() && 
+          e.employment_start_date === row.employment_start_date
+        );
+
+        if (match) {
+          toUpdate.push({
+            ...match,
+            ...row,
+            overall_start_date: row.employment_start_date,
+            overall_end_date: row.employment_end_date
+          });
+        } else {
+          toInsert.push({
+            ...row,
+            overall_start_date: row.employment_start_date,
+            overall_end_date: row.employment_end_date
+          });
+        }
+      }
+
+      if (toInsert.length > 0) {
+        const { error: insErr } = await supabase.from("people").insert(toInsert);
+        if (insErr) throw insErr;
+      }
+
+      if (toUpdate.length > 0) {
+        const { error: updErr } = await supabase.from("people").upsert(toUpdate, { onConflict: "id" });
+        if (updErr) throw updErr;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["people"] });
