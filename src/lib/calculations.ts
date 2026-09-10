@@ -41,6 +41,43 @@ export function formatCurrency(amount: number, currencyOrOffice: string = "UK"):
   }).format(amount);
 }
 
+export function formatCurrencyCompact(amount: number, currencyOrOffice: string = "UK"): string {
+  const currencyMap: Record<string, { locale: string; currency: string }> = {
+    GBP: { locale: "en-GB", currency: "GBP" },
+    USD: { locale: "en-US", currency: "USD" },
+    EUR: { locale: "en-IE", currency: "EUR" },
+    UK: { locale: "en-GB", currency: "GBP" },
+    US: { locale: "en-US", currency: "USD" },
+  };
+  const cfg = currencyMap[currencyOrOffice.toUpperCase()] ?? currencyMap.GBP;
+  
+  const absAmount = Math.abs(amount);
+  if (absAmount >= 100000) {
+    const formatter = new Intl.NumberFormat(cfg.locale, {
+      style: "currency",
+      currency: cfg.currency,
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+    return formatter.format(amount / 1000000) + "m";
+  } else if (absAmount >= 1000) {
+    const formatter = new Intl.NumberFormat(cfg.locale, {
+      style: "currency",
+      currency: cfg.currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+    return formatter.format(amount / 1000) + "k";
+  } else {
+    return new Intl.NumberFormat(cfg.locale, {
+      style: "currency",
+      currency: cfg.currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  }
+}
+
 export function calculateBudgetedFee(scopedHours: number, hourlyRate: number): number {
   return scopedHours * hourlyRate;
 }

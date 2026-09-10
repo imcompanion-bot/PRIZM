@@ -349,6 +349,8 @@ const DashboardPage = () => {
     const risers = [...withDiff].filter(r => r.diff > 0).sort((a, b) => b.diff - a.diff).slice(0, 5);
     const fallers = [...withDiff].filter(r => r.diff < 0).sort((a, b) => a.diff - b.diff).slice(0, 5);
 
+    let baseCount = 0;
+    let baseValue = 0;
     let newCount = 0, retainedCount = 0, churnedCount = 0;
     let newValue = 0, retainedValue = 0, churnedValue = 0;
     
@@ -362,6 +364,11 @@ const DashboardPage = () => {
 
       const hasPrev = Math.abs(prevGp) > 1;
       const hasCurrent = Math.abs(currentGp) > 1;
+
+      if (hasPrev) {
+        baseCount++;
+        baseValue += prevGp;
+      }
 
       if (!hasPrev && hasCurrent) {
         newCount++;
@@ -384,18 +391,28 @@ const DashboardPage = () => {
     sortClientsByAbsValue(retainedClients);
     sortClientsByAbsValue(churnedClients);
 
+    const endCount = baseCount + newCount - churnedCount;
+    const endValue = baseValue + newValue + retainedValue + churnedValue;
+
+    const valBase = baseValue;
+    const valNew = valBase + newValue;
+    const valRetained = valNew + retainedValue;
+    const valChurned = valRetained + churnedValue;
+
     const metrics = {
       volume: [
-        { name: "New", value: newCount, displayValue: newCount, fill: "#10b981", clients: newClients.map(c => c.name) },
-        { name: "Retained", value: 0, displayValue: retainedCount, fill: "#3b82f6", clients: retainedClients.map(c => c.name) },
-        { name: "Churned", value: -churnedCount, displayValue: -churnedCount, fill: "#f43f5e", clients: churnedClients.map(c => c.name) },
-        { name: "Total", value: newCount - churnedCount, displayValue: newCount - churnedCount, fill: "#8b5cf6", clients: [] },
+        { name: basePeriodLabel || "Base", value: [0, baseCount], displayValue: baseCount, fill: "#cbd5e1", clients: [] },
+        { name: "New", value: [baseCount, baseCount + newCount], displayValue: newCount, fill: "#10b981", clients: newClients.map(c => c.name) },
+        { name: "Retained", value: [baseCount + newCount, baseCount + newCount], displayValue: retainedCount, fill: "#3b82f6", clients: retainedClients.map(c => c.name) },
+        { name: "Churned", value: [baseCount + newCount, baseCount + newCount - churnedCount], displayValue: -churnedCount, fill: "#f43f5e", clients: churnedClients.map(c => c.name) },
+        { name: comparePeriod, value: [0, endCount], displayValue: endCount, fill: "#8b5cf6", clients: [] },
       ],
       value: [
-        { name: "New", value: newValue, fill: "#10b981", clients: newClients },
-        { name: "Retained", value: retainedValue, fill: "#3b82f6", clients: retainedClients },
-        { name: "Churned", value: churnedValue, fill: "#f43f5e", clients: churnedClients },
-        { name: "Total", value: newValue + retainedValue + churnedValue, fill: "#8b5cf6", clients: [] },
+        { name: basePeriodLabel || "Base", value: [0, valBase], displayValue: valBase, fill: "#cbd5e1", clients: [] },
+        { name: "New", value: [valBase, valNew], displayValue: newValue, fill: "#10b981", clients: newClients },
+        { name: "Retained", value: [valNew, valRetained], displayValue: retainedValue, fill: "#3b82f6", clients: retainedClients },
+        { name: "Churned", value: [valRetained, valChurned], displayValue: churnedValue, fill: "#f43f5e", clients: churnedClients },
+        { name: comparePeriod, value: [0, endValue], displayValue: endValue, fill: "#8b5cf6", clients: [] },
       ]
     };
 
@@ -441,9 +458,11 @@ const DashboardPage = () => {
 
   // Custom label formatter for the bars
   const renderCustomValueLabel = (props: any) => {
-    const { x, y, width, value } = props;
-    const isNegative = value < 0;
-    const yPos = isNegative ? y + 16 : y - 8;
+    const { x, y, width, height, value, payload } = props;
+    const displayVal = payload?.displayValue !== undefined ? payload.displayValue : value;
+    const yPos = displayVal < 0 ? (y + (height || 0) + 10) : y - 8;
+    const showPlusSign = displayVal > 0 && payload?.name === "New";
+    
     return (
       <text 
         x={x + width / 2} 
@@ -454,36 +473,17 @@ const DashboardPage = () => {
         fontSize={10}
         className="font-medium"
       >
-        {value > 0 ? '+' : ''}{formatCurrency(value, displayCurrency)}
+        {showPlusSign ? '+' : ''}{formatCurrency(displayVal, displayCurrency)}
       </text>
     );
   };
 
   const renderCustomVolumeLabel = (props: any) => {
-    const { x, y, width, value, payload } = props;
+    const { x, y, width, height, value, payload } = props;
     const displayVal = payload?.displayValue !== undefined ? payload.displayValue : value;
-    const isRetained = payload?.name === "Retained";
-    const showPlus = displayVal > 0 && !isRetained;
+    const yPos = displayVal < 0 ? (y + (height || 0) + 10) : y - 8;
+    const showPlusSign = displayVal > 0 && payload?.name === "New";
 
-    return (
-      <text 
-        x={x + width / 2} 
-        y={value >= 0 ? y - 8 : y + 16} 
-        fill="#666" 
-        textAnchor="middle" 
-        dominantBaseline="middle"
-        fontSize={10}
-        className="font-medium"
-      >
-        {showPlus ? '+' : ''}{displayVal}
-      </text>
-    );
-  };
-  
-  const renderCustomValueTrendLabel = (props: any) => {
-    const { x, y, width, value } = props;
-    const isNegative = value < 0;
-    const yPos = isNegative ? y + 16 : y - 8;
     return (
       <text 
         x={x + width / 2} 
@@ -494,10 +494,14 @@ const DashboardPage = () => {
         fontSize={10}
         className="font-medium"
       >
-        {value > 0 ? '+' : ''}{formatCurrency(value, displayCurrency)}
+        {showPlusSign ? '+' : ''}{displayVal}
       </text>
     );
   };
+  
+  const renderCustomValueTrendLabel = renderCustomValueLabel;
+  
+
 
   return (
     <div className="flex-1 space-y-6 p-8 pt-6 bg-[#faf8f5]">
@@ -720,10 +724,11 @@ const DashboardPage = () => {
                         }
                       }
                       
+                      const displayVal = d.displayValue !== undefined ? d.displayValue : d.value;
                       return (
                         <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl min-w-[200px]">
                           <p className="font-semibold mb-2 border-b border-border/50 pb-1">
-                            {d.name} GP Trend <span style={{ color: d.fill }}>({d.value > 0 ? '+' : ''}{formatCurrency(d.value, displayCurrency)})</span>
+                            {d.name} GP Trend <span style={{ color: d.fill }}>({displayVal > 0 ? '+' : ''}{formatCurrency(displayVal, displayCurrency)})</span>
                           </p>
                           {top3.length > 0 && (
                             <div className="space-y-1">
