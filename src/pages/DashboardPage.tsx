@@ -473,7 +473,7 @@ const DashboardPage = () => {
         fontSize={10}
         className="font-medium"
       >
-        {showPlusSign ? '+' : ''}{formatCurrency(displayVal, displayCurrency)}
+        {showPlusSign ? '+' : ''}{formatCurrencyCompact(displayVal, displayCurrency)}
       </text>
     );
   };
@@ -561,7 +561,7 @@ const DashboardPage = () => {
                         return (
                           <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
                             <p className="font-semibold mb-1">{d.name}</p>
-                            <p className="text-emerald-600 font-medium">+{formatCurrency(d.value, displayCurrency)}</p>
+                            <p className="text-emerald-600 font-medium">+{formatCurrencyCompact(d.value, displayCurrency)}</p>
                           </div>
                         );
                       }}
@@ -612,7 +612,7 @@ const DashboardPage = () => {
                         return (
                           <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
                             <p className="font-semibold mb-1">{d.name}</p>
-                            <p className="text-rose-600 font-medium">{formatCurrency(d.value, displayCurrency)}</p>
+                            <p className="text-rose-600 font-medium">{formatCurrencyCompact(d.value, displayCurrency)}</p>
                           </div>
                         );
                       }}
