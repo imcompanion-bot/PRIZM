@@ -457,7 +457,7 @@ const DashboardPage = () => {
   }
 
   // Custom label formatter for the bars
-  const renderCustomValueLabel = (props: any) => {
+  const renderWaterfallValueLabel = (props: any) => {
     const { x, y, width, height, value, payload } = props;
     const displayVal = payload?.displayValue !== undefined ? payload.displayValue : value;
     const yPos = displayVal < 0 ? (y + (height || 0) + 10) : y - 8;
@@ -474,6 +474,24 @@ const DashboardPage = () => {
         className="font-medium"
       >
         {showPlusSign ? '+' : ''}{formatCurrencyCompact(displayVal, displayCurrency)}
+      </text>
+    );
+  };
+
+  const renderCustomValueLabel = (props: any) => {
+    const { x, y, width, height, value } = props;
+    const yPos = value < 0 ? (y + (height || 0) + 10) : y - 8;
+    return (
+      <text 
+        x={x + width / 2} 
+        y={yPos} 
+        fill="#666" 
+        textAnchor="middle" 
+        dominantBaseline="middle"
+        fontSize={10}
+        className="font-medium"
+      >
+        {value > 0 ? '+' : ''}{formatCurrencyCompact(value, displayCurrency)}
       </text>
     );
   };
@@ -498,9 +516,7 @@ const DashboardPage = () => {
       </text>
     );
   };
-  
-  const renderCustomValueTrendLabel = renderCustomValueLabel;
-  
+
 
 
   return (
@@ -621,7 +637,7 @@ const DashboardPage = () => {
                       dataKey="value"
                       fill="#f43f5e"
                       radius={[0, 0, 4, 4]}
-                      label={renderCustomValueTrendLabel}
+                      label={renderCustomValueLabel}
                     />
                   </RechartsPrimitive.BarChart>
                 </ChartContainer>
@@ -728,20 +744,20 @@ const DashboardPage = () => {
                       return (
                         <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl min-w-[200px]">
                           <p className="font-semibold mb-2 border-b border-border/50 pb-1">
-                            {d.name} GP Trend <span style={{ color: d.fill }}>({displayVal > 0 ? '+' : ''}{formatCurrency(displayVal, displayCurrency)})</span>
+                            {d.name} GP Trend <span style={{ color: d.fill }}>({displayVal > 0 ? '+' : ''}{formatCurrencyCompact(displayVal, displayCurrency)})</span>
                           </p>
                           {top3.length > 0 && (
                             <div className="space-y-1">
                               {top3.map((c: any, i: number) => (
                                 <div key={i} className="flex justify-between gap-4">
                                   <span className="truncate max-w-[140px] text-stone-600">{c.name}</span>
-                                  <span className="font-medium tabular-nums text-stone-800">{c.value > 0 ? '+' : ''}{formatCurrency(c.value, displayCurrency)}</span>
+                                  <span className="font-medium tabular-nums text-stone-800">{c.value > 0 ? '+' : ''}{formatCurrencyCompact(c.value, displayCurrency)}</span>
                                 </div>
                               ))}
                               {clients.length > 3 && (
                                 <div className="flex justify-between gap-4 pt-1 border-t border-border/30 mt-1">
                                   <span className="text-stone-500 italic">Others ({clients.length - 3})</span>
-                                  <span className="font-medium tabular-nums text-stone-600">{othersValue > 0 ? '+' : ''}{formatCurrency(othersValue, displayCurrency)}</span>
+                                  <span className="font-medium tabular-nums text-stone-600">{othersValue > 0 ? '+' : ''}{formatCurrencyCompact(othersValue, displayCurrency)}</span>
                                 </div>
                               )}
                             </div>
@@ -753,7 +769,7 @@ const DashboardPage = () => {
                   <RechartsPrimitive.Bar
                     dataKey="value"
                     radius={[4, 4, 0, 0]}
-                    label={renderCustomValueTrendLabel}
+                    label={renderWaterfallValueLabel}
                   >
                     {clientMetrics.value.map((entry, index) => (
                       <RechartsPrimitive.Cell key={`cell-${index}`} fill={entry.fill} />
