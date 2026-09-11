@@ -18,7 +18,7 @@ type SortDirection = "asc" | "desc";
 
 function FilterToggleGroup({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
   return (
-    <div className="inline-flex rounded-lg border-border p-0.5 bg-muted/50 items-stretch bg-[#cfddf2] border-0">
+    <div className="inline-flex rounded-lg border-border p-0 bg-black/5 items-stretch border-0">
       {options.map((opt) => (
         <button
           key={opt.value}
@@ -458,10 +458,12 @@ const DashboardPage = () => {
 
   // Custom label formatter for the bars
   const renderWaterfallValueLabel = (props: any) => {
-    const { x, y, width, height, value, payload } = props;
-    const displayVal = payload?.displayValue !== undefined ? payload.displayValue : value;
-    const yPos = displayVal < 0 ? (y + (height || 0) + 10) : y - 8;
-    const showPlusSign = displayVal > 0 && payload?.name === "New";
+    const { x, y, width, height, index, name } = props;
+    const entry = clientMetrics.value[index];
+    if (!entry) return null;
+    const displayVal = entry.displayValue !== undefined ? entry.displayValue : 0;
+    const yPos = displayVal < 0 ? y + 16 : y - 8;
+    const showPlusSign = displayVal > 0 && name === "New";
     
     return (
       <text 
@@ -480,7 +482,7 @@ const DashboardPage = () => {
 
   const renderCustomValueLabel = (props: any) => {
     const { x, y, width, height, value } = props;
-    const yPos = value < 0 ? (y + (height || 0) + 10) : y - 8;
+    const yPos = value < 0 ? y + 16 : y - 8;
     return (
       <text 
         x={x + width / 2} 
@@ -497,10 +499,12 @@ const DashboardPage = () => {
   };
 
   const renderCustomVolumeLabel = (props: any) => {
-    const { x, y, width, height, value, payload } = props;
-    const displayVal = payload?.displayValue !== undefined ? payload.displayValue : value;
-    const yPos = displayVal < 0 ? (y + (height || 0) + 10) : y - 8;
-    const showPlusSign = displayVal > 0 && payload?.name === "New";
+    const { x, y, width, height, index, name } = props;
+    const entry = clientMetrics.volume[index];
+    if (!entry) return null;
+    const displayVal = entry.displayValue !== undefined ? entry.displayValue : 0;
+    const yPos = displayVal < 0 ? y + 16 : y - 8;
+    const showPlusSign = displayVal > 0 && name === "New";
 
     return (
       <text 
@@ -524,7 +528,32 @@ const DashboardPage = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-display font-bold tracking-tight">Financial Dashboard</h2>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm text-stone-600 bg-black/5 p-0 rounded-lg border-0">
+            <span className="font-medium px-3 text-slate-700">Trend Comparison:</span>
+            <Select value={comparePeriod} onValueChange={setComparePeriod}>
+              <SelectTrigger className="w-[110px] h-8 bg-transparent text-slate-700 hover:bg-black/5 border-0 shadow-none focus:ring-0">
+                <SelectValue placeholder="Period" />
+              </SelectTrigger>
+              <SelectContent>
+                {availablePeriods.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <span className="text-slate-400">vs</span>
+            <Select value={priorPeriods} onValueChange={setPriorPeriods}>
+              <SelectTrigger className="w-[140px] h-8 bg-transparent text-slate-700 hover:bg-black/5 border-0 shadow-none focus:ring-0">
+                <SelectValue placeholder="Prior Periods" />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
+                  <SelectItem key={n} value={n.toString()}>{n} prior period{n > 1 ? 's' : ''}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-px h-6 bg-stone-200 mx-2"></div>
+
           <FilterToggleGroup
             value={periodType}
             onChange={(v) => setPeriodType(v as PeriodType)}
@@ -617,7 +646,8 @@ const DashboardPage = () => {
                       dataKey="name" 
                       tick={{ fontSize: 10 }}
                       angle={-25}
-                      textAnchor="end"
+                      textAnchor="start"
+                      orientation="top"
                       height={50}
                       interval={0}
                     />
@@ -786,28 +816,6 @@ const DashboardPage = () => {
         <Card className="col-span-1 border-0 shadow-sm bg-white/50">
           <CardHeader className="pb-3 border-b border-stone-100 flex flex-row items-center justify-between space-y-0">
             <CardTitle>Gross Profit by Client</CardTitle>
-            <div className="flex items-center gap-2 text-sm text-stone-600">
-              <span className="font-medium">Trend Comparison:</span>
-              <Select value={comparePeriod} onValueChange={setComparePeriod}>
-                <SelectTrigger className="w-[110px] h-8 bg-white text-xs">
-                  <SelectValue placeholder="Period" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availablePeriods.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <span className="text-stone-400">vs</span>
-              <Select value={priorPeriods} onValueChange={setPriorPeriods}>
-                <SelectTrigger className="w-[140px] h-8 bg-white text-xs">
-                  <SelectValue placeholder="Prior Periods" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
-                    <SelectItem key={n} value={n.toString()}>{n} prior period{n > 1 ? 's' : ''}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </CardHeader>
           <CardContent className="pt-4">
             <div className="rounded-md border border-stone-200 bg-white overflow-x-auto">
