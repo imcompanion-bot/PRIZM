@@ -634,6 +634,29 @@ const ProjectDetailPage = () => {
     });
   }, [project, timeEntries, people, allPersonEntriesFetched, totalScopedHours, budgetedInternalCost, budgetedFee, budgetedProfit, agencyFee, agencyFeeSoFar, soFarBudgetHours, soFarBudgetCost, soFarBudgetProfit, profit, totalActualHours, totalActualCost, activeCurrency]);
 
+  const personAggregation = Object.values(timeEntries.reduce((acc: Record<string, { name: string, role: string, hours: number, cost: number }>, te: any) => {
+    const pid = te.person_id;
+    if (!pid) return acc;
+    
+    const personName = te.people?.name || "Unknown";
+    const roleName = te.people?.roles?.name || "Unknown";
+    const salary = te.people?.annual_salary;
+    const team = te.people?.team;
+    const isBillableTeam = team && BILLABLE_TEAMS.has(team.toLowerCase());
+    const cap = isBillableTeam ? te.people?.roles?.billable_capacity_hours : null;
+    
+    const costPerHour = salary ? calculateInternalCostPerHour(salary, cap) : 0;
+    const office = te.people?.office || "UK";
+    const convertedCost = convertCostToActiveCurrency(costPerHour, office);
+    
+    if (!acc[pid]) {
+      acc[pid] = { name: personName, role: roleName, hours: 0, cost: 0 };
+    }
+    acc[pid].hours += te.hours;
+    acc[pid].cost += te.hours * convertedCost;
+    return acc;
+  }, {})).sort((a, b) => b.cost - a.cost);
+
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading...</div>;
   if (!project) return <div className="p-8">Project not found</div>;
 
@@ -955,6 +978,38 @@ const ProjectDetailPage = () => {
             </div>
           </div>
 
+          {/* Resource Cost Breakdown */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="font-display text-lg">Resource Cost Breakdown</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                   <TableRow>
+                    <TableHead>Person</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead className="text-right">Hours Used</TableHead>
+                    <TableHead className="text-right">Internal Cost</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {personAggregation.length === 0 ? (
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No resources recorded.</TableCell></TableRow>
+                  ) : (
+                    personAggregation.map((p, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">{p.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{p.role}</TableCell>
+                        <TableCell className="text-right">{Math.round(p.hours)}h</TableCell>
+                        <TableCell className="text-right">{formatCurrency(p.cost, activeCurrency)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
           {/* Time Entries */}
           <Card>
