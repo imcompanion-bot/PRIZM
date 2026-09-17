@@ -258,7 +258,12 @@ export async function runSync() {
 
     const capStr = String(row[1] || "").replace("%", "");
     const cap = parseFloat(capStr);
-    const capacityHours = isNaN(cap) ? 37.5 : (cap / 100) * 37.5;
+    let capacityHours = 37.5;
+    if (!isNaN(cap)) {
+      // If user typed 0.65, assume they meant 65%. If they typed 65, also assume 65%.
+      const pct = cap <= 1 && cap > 0 ? cap : cap / 100;
+      capacityHours = pct * 37.5;
+    }
 
     rolesBatchMap.set(roleId, {
       id: roleId,
