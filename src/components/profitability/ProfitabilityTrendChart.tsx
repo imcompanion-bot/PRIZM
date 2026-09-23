@@ -788,13 +788,13 @@ const projectOfficeMap = new Map();
                         <span className="font-medium text-foreground">{formatCurrency(d.cost, displayCurrency)}</span>
                       </div>
                       <div className="flex justify-between items-center mb-1 pt-1 border-t border-border/50">
-                        <span className="text-muted-foreground">Base Profit:</span>
+                        <span className="text-muted-foreground">Agency Fees:</span>
                         <span className={cn("font-medium", d.profit < 0 ? "text-destructive" : "text-success")}>{formatCurrency(d.profit, displayCurrency)}</span>
                       </div>
                       {d.efficiencies !== 0 && (
                         <div className="flex justify-between items-center mb-1">
                           <span className="text-muted-foreground">Talent Efficiencies:</span>
-                          <span className="font-medium" style={{ color: "hsl(190, 90%, 40%)" }}>{formatCurrency(d.efficiencies, displayCurrency)}</span>
+                          <span className="font-medium text-muted-foreground">{formatCurrency(d.efficiencies, displayCurrency)}</span>
                         </div>
                       )}
                       {d.efficiencies !== 0 && (
@@ -828,7 +828,7 @@ const projectOfficeMap = new Map();
                   <Cell key={i} fill={entry.profit >= 0 ? "hsl(142, 71%, 45%)" : "hsl(var(--destructive))"} />
                 ))}
               </Bar>
-              <Bar yAxisId="profit" dataKey="efficiencies" stackId="a" radius={[4, 4, 0, 0]} fill="hsl(190, 90%, 40%)" />
+              <Bar yAxisId="profit" dataKey="efficiencies" stackId="a" radius={[4, 4, 0, 0]} fill="hsl(var(--muted-foreground) / 0.5)" />
               <Line
                 yAxisId="margin"
                 type="monotone"
@@ -845,10 +845,10 @@ const projectOfficeMap = new Map();
         <div className="flex items-center justify-center gap-4 mt-2">
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded-sm bg-success" />
-            <span className="text-[10px] text-muted-foreground">Profit</span>
+            <span className="text-[10px] text-muted-foreground">Agency Fees</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: "hsl(190, 90%, 40%)" }} />
+            <span className="inline-block w-3 h-3 rounded-sm bg-muted-foreground/50" />
             <span className="text-[10px] text-muted-foreground">Efficiencies</span>
           </div>
           <div className="flex items-center gap-1.5">
