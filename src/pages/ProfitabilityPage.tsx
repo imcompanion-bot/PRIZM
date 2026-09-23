@@ -1030,22 +1030,38 @@ const ProfitabilityPage = () => {
 
 if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) {
       const teByOpp: Record<string, { amount: number, office: string, id: string }> = {};
+      const projectOfficeMap = new Map();
+      for (const p of projects) {
+        if (p.title) projectOfficeMap.set(p.title.trim().toLowerCase(), p.office);
+      }
       
       for (const eff of talentEfficiencies) {
-        if (!matchesOffice(eff.office, officeFilter)) continue;
         if (eff.efficiency_type !== "Contingency") continue;
         
         const oppName = eff.opportunity_name || "Unknown Opportunity";
+        const cleanName = oppName.replace(/\s*[-–:]?\s*Talent\s+(Efficiencies|Savings)$/i, "").trim().toLowerCase();
+        let effOffice = eff.office;
+        if (!effOffice || effOffice === "Unknown") {
+          effOffice = projectOfficeMap.get(cleanName) || effOffice;
+        }
         
-        let displayAmount = Number(eff.amount) || 0;
-        if (displayCurrency === "USD") {
+        if (!matchesOffice(effOffice, officeFilter)) continue;
+        
+                let displayAmount = Number(eff.amount) || 0;
+        // If the mapped project office is not US, and we are viewing in USD, convert it.
+        // Assuming Contingencies for US projects are already stored in USD.
+        if (displayCurrency === "USD" && effOffice !== "United States" && effOffice !== "US") {
           const monthRate = monthlyFxRates[eff.month_date];
           const gbpToUsd = monthRate || fallbackGbpUsdRate || 1.27;
           displayAmount *= gbpToUsd;
+        } else if (displayCurrency === "GBP" && (effOffice === "United States" || effOffice === "US")) {
+          const monthRate = monthlyFxRates[eff.month_date];
+          const gbpToUsd = monthRate || fallbackGbpUsdRate || 1.27;
+          displayAmount /= gbpToUsd;
         }
         
         if (!teByOpp[oppName]) {
-          teByOpp[oppName] = { amount: 0, office: eff.office, id: eff.id };
+          teByOpp[oppName] = { amount: 0, office: effOffice, id: eff.id };
         }
         teByOpp[oppName].amount += displayAmount;
       }
