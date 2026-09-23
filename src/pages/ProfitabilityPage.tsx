@@ -901,25 +901,17 @@ const ProfitabilityPage = () => {
         : null;
       const soFarBudgetHours = Object.values(soFarHoursPerScope).reduce((s, h) => s + h, 0);
 
-      // Treat Talent Efficiencies differently from base timesheet revenue:
-      // DO NOT pro-rata the revenue across the project timeline based on elapsed working days.
-      // Instead, just take the raw revenue if the project is considered "live" in this period at all.
       let fallbackWindowPct = 0;
       if (totalScopedFull === 0) {
-        const recordType = (p.opportunity_record_type || "").trim().toLowerCase();
-        const titleLower = (p.title || "").toLowerCase();
-        const isTE = recordType === "agency - talent savings" || titleLower.includes("talent savings") || titleLower.includes("talent efficiencies");
-        
-        if (isTE) {
-            fallbackWindowPct = 1; // Take the full amount
-        } else {
-            const effStart = projStart > windowStart ? projStart : windowStart;
-            const effEnd = projEnd < windowEnd ? projEnd : windowEnd;
-            const projWD = countWorkingDays(projStart, projEnd);
-            const winWD = countWorkingDays(effStart, effEnd);
-            fallbackWindowPct = projWD > 0 ? winWD / projWD : 0;
-        }
+        const effStart = projStart > windowStart ? projStart : windowStart;
+        const effEnd = projEnd < windowEnd ? projEnd : windowEnd;
+        const projWD = countWorkingDays(projStart, projEnd);
+        const winWD = countWorkingDays(effStart, effEnd);
+        fallbackWindowPct = projWD > 0 ? winWD / projWD : 0;
       }
+
+
+
 
 
       let revenue = fullRevenue * (totalScopedFull > 0 ? windowPct : fallbackWindowPct);
