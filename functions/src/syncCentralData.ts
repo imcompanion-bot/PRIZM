@@ -772,6 +772,117 @@ export async function runSync() {
     }
   }
 
+  // 5. TALENT EFFICIENCIES
+  logger.info("Syncing Talent Efficiencies...");
+  await updateProgress(95);
+
+  const parseEfficiencies = (rows: any[][], type: string, startColOffset: number = 0) => {
+    if (!rows || rows.length < 2) return [];
+    
+    // Find the header row (look for "Opportunity" or similar)
+    let headerRowIdx = -1;
+    let oppColIdx = -1;
+    let officeColIdx = -1;
+    
+    for (let i = 0; i < Math.min(rows.length, 10); i++) {
+       const row = rows[i];
+       for (let j = 0; j < row.length; j++) {
+          const cell = String(row[j] || "").toLowerCase().trim();
+          if (cell === "opportunity" || cell === "opportunity name" || cell === "project" || cell === "project name") {
+             headerRowIdx = i;
+             oppColIdx = j;
+          }
+          if (cell === "office" || cell === "location" || cell === "uk/us") {
+             officeColIdx = j;
+          }
+       }
+       if (headerRowIdx !== -1) break;
+    }
+    
+    if (headerRowIdx === -1) {
+       logger.warn(`Could not find header row for ${type}`);
+       return [];
+    }
+
+    // Identify month columns
+    const monthCols: { colIdx: number, monthDate: string }[] = [];
+    const headers = rows[headerRowIdx];
+    for (let j = 0; j < headers.length; j++) {
+       const val = headers[j];
+       if (!val) continue;
+       const parsedDate = parseDate(val);
+       if (parsedDate) {
+           const d = new Date(parsedDate);
+           monthCols.push({ colIdx: j, monthDate: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`});
+       } else {
+           const strVal = String(val).trim();
+           const match = strVal.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[- ](\d{2}|\d{4})$/i);
+           if (match) {
+               const monthStr = match[1];
+               let yearStr = match[2];
+               if (yearStr.length === 2) yearStr = `20${yearStr}`;
+               const d = new Date(`${monthStr} 1, ${yearStr}`);
+               if (!isNaN(d.getTime())) {
+                   monthCols.push({ colIdx: j, monthDate: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`});
+               }
+           }
+       }
+    }
+
+    const results: any[] = [];
+    for (let i = headerRowIdx + 1; i < rows.length; i++) {
+       const row = rows[i];
+       // Contingency data starts in Col B (index 1), handled dynamically if headers matched, but if not we rely on column headers. 
+       // Because oppColIdx dynamically found it, it doesn't matter if it's A or B.
+       const oppName = oppColIdx >= 0 ? row[oppColIdx] : null;
+       const office = officeColIdx >= 0 ? row[officeColIdx] : null;
+       
+       if (!oppName) continue;
+       
+       for (const mc of monthCols) {
+          const amount = parseNumber(row[mc.colIdx]);
+          if (amount && amount !== 0) {
+             results.push({
+                id: uuidv5(`eff_${type}_${oppName}_${mc.monthDate}`, NAMESPACE),
+                opportunity_name: String(oppName).trim(),
+                office: office ? String(office).trim() : "Unknown",
+                efficiency_type: type,
+                month_date: mc.monthDate,
+                amount: amount,
+                created_at: new Date().toISOString()
+             });
+          }
+       }
+    }
+    return results;
+  };
+
+  try {
+    const contingencyRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: "Talent Contingency (de-risked)!A1:ZZ",
+    });
+    const savingsRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: "Talent Savings Summary!A1:ZZ",
+    });
+
+    const contingencyData = parseEfficiencies(contingencyRes.data.values || [], 'Contingency');
+    const savingsData = parseEfficiencies(savingsRes.data.values || [], 'Savings');
+    const allEfficiencies = [...contingencyData, ...savingsData];
+
+    logger.info(`Found ${allEfficiencies.length} total talent efficiencies`);
+    
+    if (allEfficiencies.length > 0) {
+      for (let i = 0; i < allEfficiencies.length; i += 100) {
+        const { error } = await supabase.from("talent_efficiencies" as any).upsert(allEfficiencies.slice(i, i + 100));
+        if (error) throw new Error(`Talent Efficiencies Upsert Error: ${error.message}`);
+      }
+    }
+  } catch (e: any) {
+    logger.error(`Error syncing talent efficiencies: ${e.message}`);
+  }
+
   // Update data_imports timestamp from server-side (bypasses any client-side RLS limits!)
   await updateProgress(100);
   const { error: timestampError } = await supabase.from("data_imports" as any).upsert(

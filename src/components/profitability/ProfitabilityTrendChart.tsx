@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/calculations";
 import { getMonthlyBatchFxRates } from "@/lib/fx";
 import { cn } from "@/lib/utils";
 import {
-  format, startOfMonth, endOfMonth, eachMonthOfInterval, eachDayOfInterval, isWeekend,
+  format, startOfMonth, endOfMonth, eachMonthOfInterval, eachDayOfInterval, isWeekend, parseISO,
 } from "date-fns";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -31,6 +31,7 @@ interface Props {
   endDate: string;
   displayCurrency: string;
   statusFilter: "all" | "ended";
+  includeEfficiencies: boolean;
   grossUpFactors?: Map<string, number>;
   allGrossUpFactors?: Map<string, number>;
   onTrendData?: (data: {
@@ -60,7 +61,7 @@ function getWorkingDays(start: Date, end: Date): number {
   return eachDayOfInterval({ start, end }).filter((d) => !isWeekend(d)).length;
 }
 
-const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCurrency, statusFilter, grossUpFactors, allGrossUpFactors, onTrendData }: Props) => {
+const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCurrency, statusFilter, includeEfficiencies, grossUpFactors, allGrossUpFactors, onTrendData }: Props) => {
   const today = useMemo(() => new Date(), []);
   const todayStr = format(today, "yyyy-MM-dd");
 
@@ -192,6 +193,28 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
     staleTime: Infinity,
   });
 
+  const { data: talentEfficiencies = [] } = useQuery({
+    queryKey: ["profitability_talent_efficiencies", cutoffDate, endDate],
+    queryFn: async () => {
+      const allData: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("talent_efficiencies")
+          .select("*")
+          .gte("month_date", cutoffDate)
+          .lte("month_date", endDate)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        allData.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allData;
+    },
+  });
+
   // Compute a fallback GBP/USD rate from projects that have real FX rates
   const fallbackGbpUsdRate = useMemo(() => {
     const ratios: number[] = [];
@@ -208,14 +231,14 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
   const _baseTrend = useMemo(() => {
     // Determine the end of the interval (the earliest between the selected endDate and the last full month)
     const lastFullMonth = startOfMonth(today);
-    const selectedEnd = new Date(endDate);
+    const selectedEnd = parseISO(endDate);
     
     // If the selected end date is in the future or current month, cap at last full month to avoid incomplete data.
     // Otherwise, cap at the selected end date's month start.
     const effectiveEndMonth = selectedEnd < lastFullMonth ? startOfMonth(selectedEnd) : lastFullMonth;
 
     const allMonths = eachMonthOfInterval({
-      start: startOfMonth(new Date(cutoffDate)),
+      start: startOfMonth(parseISO(cutoffDate)),
       end: effectiveEndMonth,
     });
     // Include the effectiveEndMonth itself in the chart if it's strictly before lastFullMonth, 
@@ -233,23 +256,24 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
       const client = (p.ultimate_parent || p.title || "").toLowerCase();
       if (client.includes("billion dollar boy")) return false;
       const recordType = (p.opportunity_record_type || "").trim().toLowerCase();
-      if (EXCLUDED_RECORD_TYPES.includes(recordType)) return false;
-
       const titleLower = (p.title || "").toLowerCase();
-      if (
-        titleLower.includes("talent savings") ||
-        titleLower.includes("talent efficiencies") ||
-        titleLower.includes("holding pot") ||
-        titleLower.includes("passthrough costs")
-      ) {
-        return false;
+      
+      const isTE = recordType === "agency - talent savings" || titleLower.includes("talent savings") || titleLower.includes("talent efficiencies");
+      
+      if (isTE) {
+        if (!includeEfficiencies) return false;
+      } else {
+        if (EXCLUDED_RECORD_TYPES.includes(recordType)) return false;
+        if (titleLower.includes("holding pot") || titleLower.includes("passthrough costs")) {
+          return false;
+        }
       }
 
       const totalScoped = (p.project_scopes || []).reduce((s: number, sc: any) => s + (sc.scoped_hours || 0), 0);
-      if (totalScoped <= 0) return false;
+      if (!isTE && totalScoped <= 0) return false;
       // Status filter
       if (statusFilter === "ended") {
-        const projEnd = new Date(p.end_date);
+        const projEnd = parseISO(p.end_date);
         if (projEnd > today) return false;
       }
       return true;
@@ -334,8 +358,8 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
       if (agencyFee <= 0) continue;
 
       // Monthly revenue using phases or linear fallback
-      const projStart = new Date(p.start_date);
-      const projEnd = new Date(p.end_date);
+      const projStart = parseISO(p.start_date);
+      const projEnd = parseISO(p.end_date);
       const monthlyRevenue: Record<string, number> = {};
 
       const projPhases = projectPhases.filter((ph: any) => ph.project_id === p.id);
@@ -346,8 +370,8 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
       if (hasPhaseData) {
         for (const phase of projPhases) {
           if (!phase.start_date || !phase.end_date) continue;
-          const phaseStart = new Date(phase.start_date);
-          const phaseEnd = new Date(phase.end_date);
+          const phaseStart = parseISO(phase.start_date);
+          const phaseEnd = parseISO(phase.end_date);
 
           const phaseValue = projPhaseAllocs
             .filter((pa: any) => pa.phase_id === phase.id)
@@ -388,7 +412,8 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
         }
       }
 
-      projectCalcs.push({ id: p.id, title: p.title, office: p.office, client: p.ultimate_parent || p.title, startDate: p.start_date, endDate: p.end_date, projectCurrency, fxRateGbp, fxRateUsd, monthlyRevenue });
+      const isTE = p.opportunity_record_type?.toLowerCase() === "agency - talent savings" || (p.title || "").toLowerCase().includes("talent savings") || (p.title || "").toLowerCase().includes("talent efficiencies");
+      projectCalcs.push({ id: p.id, title: p.title, office: p.office, client: p.ultimate_parent || p.title, startDate: p.start_date, endDate: p.end_date, projectCurrency, fxRateGbp, fxRateUsd, monthlyRevenue, isTE });
     }
 
     // Currency conversion helper
@@ -459,19 +484,26 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
           monthLabel: format(month, "MMM yy"),
           revDisplay,
           baseCostDisplay,
+          isTE: pc.isTE,
         });
       }
     }
 
     return { months, perProjectMonths };
-  }, [projects, allRateCards, projectPhases, phaseAllocations, monthlyCostMap, officeFilter, cutoffDate, displayCurrency, today, todayStr, statusFilter, fallbackGbpUsdRate]);
+  }, [projects, allRateCards, projectPhases, phaseAllocations, monthlyCostMap, officeFilter, cutoffDate, displayCurrency, today, todayStr, statusFilter, fallbackGbpUsdRate, includeEfficiencies]);
 
   // Apply gross-up factors + aggregate. Cheap — re-runs instantly on toggle.
   const _computedTrend = useMemo(() => {
     const { months, perProjectMonths } = _baseTrend;
-    type Bucket = { revenue: number; cost: number; profit: number };
+    type Bucket = { revenue: number; cost: number; profit: number; efficiencies: number; teContributors: { name: string; amount: number }[] };
     const overall: Record<string, Bucket> = {};
     const byProject: ProjectMonthlyEntry[] = [];
+
+    // Initialize all months
+    for (const m of months) {
+      const k = format(m, "yyyy-MM-01");
+      overall[k] = { revenue: 0, cost: 0, profit: 0, efficiencies: 0, teContributors: [] };
+    }
 
     for (const e of perProjectMonths) {
       let costDisplay = e.baseCostDisplay;
@@ -481,10 +513,16 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
       }
       const profit = e.revDisplay - costDisplay;
 
-      if (!overall[e.monthKey]) overall[e.monthKey] = { revenue: 0, cost: 0, profit: 0 };
-      overall[e.monthKey].revenue += e.revDisplay;
-      overall[e.monthKey].cost += costDisplay;
-      overall[e.monthKey].profit += profit;
+      if (!overall[e.monthKey]) overall[e.monthKey] = { revenue: 0, cost: 0, profit: 0, efficiencies: 0, teContributors: [] };
+      
+      if (e.isTE) {
+        overall[e.monthKey].efficiencies += e.revDisplay;
+        overall[e.monthKey].teContributors.push({ name: e.title, amount: e.revDisplay });
+      } else {
+        overall[e.monthKey].revenue += e.revDisplay;
+        overall[e.monthKey].cost += costDisplay;
+        overall[e.monthKey].profit += profit;
+      }
 
       if (Math.round(e.revDisplay) !== 0 || Math.round(costDisplay) !== 0) {
         byProject.push({
@@ -499,20 +537,58 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
       }
     }
 
+
+if (includeEfficiencies) {
+      for (const eff of talentEfficiencies) {
+        if (!matchesOffice(eff.office, officeFilter)) continue;
+        if (eff.efficiency_type !== "Contingency") continue;
+        
+        const k = eff.month_date;
+        if (!overall[k]) continue;
+        
+        let displayAmount = Number(eff.amount) || 0;
+        if (displayCurrency === "USD") {
+          const monthRate = monthlyFxRates[k];
+          const gbpToUsd = monthRate || fallbackGbpUsdRate || 1.27;
+          displayAmount *= gbpToUsd;
+        }
+        
+        overall[k].efficiencies += displayAmount;
+        overall[k].teContributors.push({ name: eff.opportunity_name || "Contingency", amount: displayAmount });
+      }
+    }
+
     const overallArr = months.map((m) => {
       const k = format(m, "yyyy-MM-01");
-      const d = overall[k] || { revenue: 0, cost: 0, profit: 0 };
+      const d = overall[k];
+
+      const topTEs = [...d.teContributors]
+        .reduce((acc, curr) => {
+          const existing = acc.find(x => x.name === curr.name);
+          if (existing) {
+            existing.amount += curr.amount;
+          } else {
+            acc.push({ ...curr });
+          }
+          return acc;
+        }, [])
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 3);
+
       return {
+        topTEs,
         month: format(m, "MMM yy"),
         revenue: Math.round(d.revenue),
         cost: Math.round(d.cost),
         profit: Math.round(d.profit),
-        margin: d.revenue > 0 ? Math.round((d.profit / d.revenue) * 100) : 0,
+        efficiencies: Math.round(d.efficiencies),
+        totalProfit: Math.round(d.profit + d.efficiencies),
+        margin: (d.revenue + d.efficiencies) > 0 ? Math.round(((d.profit + d.efficiencies) / (d.revenue + d.efficiencies)) * 100) : 0,
       };
     });
 
     return { overallArr, byProject };
-  }, [_baseTrend, grossUpFactors]);
+  }, [_baseTrend, grossUpFactors, includeEfficiencies, talentEfficiencies, officeFilter, displayCurrency, monthlyFxRates, fallbackGbpUsdRate]);
 
   const overallData = _computedTrend.overallArr;
   const projectMonthlyData = _computedTrend.byProject;
@@ -535,8 +611,13 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
     const altFactors = isCurrentlyGrossedUp ? new Map<string, number>() : allGrossUpFactors;
 
     const { months, perProjectMonths } = _baseTrend;
-    type Bucket = { revenue: number; cost: number; profit: number };
+    type Bucket = { revenue: number; cost: number; profit: number; efficiencies: number; teContributors: { name: string; amount: number }[] };
     const overall: Record<string, Bucket> = {};
+
+    for (const m of months) {
+      const k = format(m, "yyyy-MM-01");
+      overall[k] = { revenue: 0, cost: 0, profit: 0, efficiencies: 0, teContributors: [] };
+    }
 
     for (const e of perProjectMonths) {
       let costDisplay = e.baseCostDisplay;
@@ -546,29 +627,71 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
       }
       const profit = e.revDisplay - costDisplay;
 
-      if (!overall[e.monthKey]) overall[e.monthKey] = { revenue: 0, cost: 0, profit: 0 };
-      overall[e.monthKey].revenue += e.revDisplay;
-      overall[e.monthKey].cost += costDisplay;
-      overall[e.monthKey].profit += profit;
+      if (!overall[e.monthKey]) overall[e.monthKey] = { revenue: 0, cost: 0, profit: 0, efficiencies: 0, teContributors: [] };
+      
+      if (e.isTE) {
+        overall[e.monthKey].efficiencies += e.revDisplay;
+        overall[e.monthKey].teContributors.push({ name: e.title, amount: e.revDisplay });
+      } else {
+        overall[e.monthKey].revenue += e.revDisplay;
+        overall[e.monthKey].cost += costDisplay;
+        overall[e.monthKey].profit += profit;
+      }
+    }
+if (includeEfficiencies) {
+      for (const eff of talentEfficiencies) {
+        if (!matchesOffice(eff.office, officeFilter)) continue;
+        if (eff.efficiency_type !== "Contingency") continue;
+        
+        const k = eff.month_date;
+        if (!overall[k]) continue;
+        
+        let displayAmount = Number(eff.amount) || 0;
+        if (displayCurrency === "USD") {
+          const monthRate = monthlyFxRates[k];
+          const gbpToUsd = monthRate || fallbackGbpUsdRate || 1.27;
+          displayAmount *= gbpToUsd;
+        }
+        
+        overall[k].efficiencies += displayAmount;
+        overall[k].teContributors.push({ name: eff.opportunity_name || "Contingency", amount: displayAmount });
+      }
     }
 
     return months.map((m) => {
       const k = format(m, "yyyy-MM-01");
-      const d = overall[k] || { revenue: 0, cost: 0, profit: 0 };
+      const d = overall[k];
+
+      const topTEs = [...d.teContributors]
+        .reduce((acc, curr) => {
+          const existing = acc.find(x => x.name === curr.name);
+          if (existing) {
+            existing.amount += curr.amount;
+          } else {
+            acc.push({ ...curr });
+          }
+          return acc;
+        }, [])
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 3);
+
       return {
+        topTEs,
         month: format(m, "MMM yy"),
         revenue: Math.round(d.revenue),
         cost: Math.round(d.cost),
         profit: Math.round(d.profit),
-        margin: d.revenue > 0 ? Math.round((d.profit / d.revenue) * 100) : 0,
+        efficiencies: Math.round(d.efficiencies),
+        totalProfit: Math.round(d.profit + d.efficiencies),
+        margin: (d.revenue + d.efficiencies) > 0 ? Math.round(((d.profit + d.efficiencies) / (d.revenue + d.efficiencies)) * 100) : 0,
       };
     });
-  }, [_baseTrend, grossUpFactors, allGrossUpFactors, overallData]);
+  }, [_baseTrend, grossUpFactors, allGrossUpFactors, overallData, includeEfficiencies, talentEfficiencies, officeFilter, displayCurrency, monthlyFxRates, fallbackGbpUsdRate]);
 
   // Compute Y-axis domain dynamically based on currently visible data
   const profitYDomain = useMemo(() => {
     if (!overallData.length) return undefined;
-    const currentProfits = overallData.map(d => d.profit);
+    const currentProfits = overallData.map(d => d.totalProfit);
     
     const minProfit = Math.min(...currentProfits);
     const maxProfit = Math.max(...currentProfits);
@@ -620,22 +743,58 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
                   if (!active || !payload?.length) return null;
                   const d = payload[0]?.payload;
                   return (
-                    <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
-                      <p className="font-medium mb-1">{d.month}</p>
-                      <p className="text-muted-foreground">Revenue: <span className="font-medium text-foreground">{formatCurrency(d.revenue, displayCurrency)}</span></p>
-                      <p className="text-muted-foreground">Cost: <span className="font-medium text-foreground">{formatCurrency(d.cost, displayCurrency)}</span></p>
-                      <p className="text-muted-foreground">Profit: <span className={cn("font-medium", d.profit < 0 ? "text-destructive" : "text-success")}>{formatCurrency(d.profit, displayCurrency)}</span></p>
-                      <p className="text-muted-foreground">Margin: <span className="font-medium text-foreground">{d.margin}%</span></p>
+                    <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl min-w-[200px]">
+                      <p className="font-medium mb-2 pb-1 border-b border-border/50">{d.month}</p>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-muted-foreground">Agency Fee:</span>
+                        <span className="font-medium text-foreground">{formatCurrency(d.revenue, displayCurrency)}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-muted-foreground">Cost:</span>
+                        <span className="font-medium text-foreground">{formatCurrency(d.cost, displayCurrency)}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-1 pt-1 border-t border-border/50">
+                        <span className="text-muted-foreground">Base Profit:</span>
+                        <span className={cn("font-medium", d.profit < 0 ? "text-destructive" : "text-success")}>{formatCurrency(d.profit, displayCurrency)}</span>
+                      </div>
+                      {d.efficiencies !== 0 && (
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-muted-foreground">Talent Efficiencies:</span>
+                          <span className="font-medium" style={{ color: "hsl(190, 90%, 40%)" }}>{formatCurrency(d.efficiencies, displayCurrency)}</span>
+                        </div>
+                      )}
+                      {d.efficiencies !== 0 && (
+                        <div className="flex justify-between items-center mb-1 pt-1 border-t border-border/50">
+                          <span className="text-muted-foreground font-semibold">Total Profit:</span>
+                          <span className={cn("font-medium", d.totalProfit < 0 ? "text-destructive" : "text-success")}>{formatCurrency(d.totalProfit, displayCurrency)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center mt-2 pt-1 border-t border-border/50">
+                        <span className="text-muted-foreground">Margin:</span>
+                        <span className="font-medium text-foreground">{d.margin}%</span>
+                      </div>
+                      {d.efficiencies !== 0 && d.topTEs?.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-border/50">
+                          <p className="text-muted-foreground font-semibold mb-1 uppercase text-[10px] tracking-wider">Top TE Contributors:</p>
+                          {d.topTEs.map((te: any, i: number) => (
+                            <div key={i} className="flex justify-between items-center mb-0.5 gap-4">
+                              <span className="text-[10px] text-muted-foreground truncate max-w-[150px]" title={te.name}>{te.name}</span>
+                              <span className="text-[10px] text-foreground font-medium">{formatCurrency(Math.round(te.amount), displayCurrency)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 }}
               />
               <ReferenceLine yAxisId="profit" y={0} stroke="hsl(var(--border))" />
-              <Bar yAxisId="profit" dataKey="profit" radius={[4, 4, 0, 0]}>
+              <Bar yAxisId="profit" dataKey="profit" stackId="a" radius={overallData.some(d => d.efficiencies !== 0) ? [0, 0, 0, 0] : [4, 4, 0, 0]}>
                 {overallData.map((entry, i) => (
                   <Cell key={i} fill={entry.profit >= 0 ? "hsl(142, 71%, 45%)" : "hsl(var(--destructive))"} />
                 ))}
               </Bar>
+              <Bar yAxisId="profit" dataKey="efficiencies" stackId="a" radius={[4, 4, 0, 0]} fill="hsl(190, 90%, 40%)" />
               <Line
                 yAxisId="margin"
                 type="monotone"
@@ -652,11 +811,15 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
         <div className="flex items-center justify-center gap-4 mt-2">
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded-sm bg-success" />
-            <span className="text-[10px] text-muted-foreground">Profit (bars)</span>
+            <span className="text-[10px] text-muted-foreground">Profit</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: "hsl(190, 90%, 40%)" }} />
+            <span className="text-[10px] text-muted-foreground">Efficiencies</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-4 h-0.5 bg-primary rounded" style={{ borderTop: "2px dashed" }} />
-            <span className="text-[10px] text-muted-foreground">Margin % (line)</span>
+            <span className="text-[10px] text-muted-foreground">Margin %</span>
           </div>
         </div>
       </CardContent>

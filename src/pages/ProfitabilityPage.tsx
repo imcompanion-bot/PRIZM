@@ -77,7 +77,7 @@ function ToggleGroup({ value, onChange, options }: { value: string; onChange: (v
           onClick={() => onChange(opt.value)}
           className={cn(
             "px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center justify-center",
-            value === opt.value ? "bg-background shadow-sm text-white bg-[#4b71d8]" : "text-muted-foreground hover:text-foreground"
+            value === opt.value ? "bg-background shadow-sm text-white bg-[#4b70d8]" : "text-muted-foreground hover:text-foreground"
           )}
         >
           {opt.label}
@@ -146,6 +146,9 @@ const ProfitabilityPage = () => {
   const setStatusFilter = useCallback((v: StatusFilter) => setParam("status", v), [setParam]);
   const grossUp = searchParams.get("grossUp") !== "false";
   const setGrossUp = useCallback((v: boolean) => setParam("grossUp", v ? null : "false"), [setParam]);
+
+  const includeEfficiencies = searchParams.get("includeEfficiencies") !== "false";
+  const setIncludeEfficiencies = useCallback((v: boolean) => setParam("includeEfficiencies", v ? null : "false"), [setParam]);
 
   const [sortField, setSortField] = useState<"client" | "revenue" | "cost" | "profit" | "margin" | "timesheets">("profit");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -483,7 +486,7 @@ const ProfitabilityPage = () => {
     for (const person of people) {
       if (!person.role_id || !person.annual_salary || person.annual_salary <= 0) continue;
       
-      const end = person.overall_end_date ? new Date(person.overall_end_date) : null;
+      const end = person.overall_end_date ? parseISO(person.overall_end_date) : null;
       if (end && end < now) continue;
       
       const isBillableTeam = person.team && BILLABLE_TEAMS.has(person.team.toLowerCase());
@@ -578,6 +581,28 @@ const ProfitabilityPage = () => {
     queryKey: ["monthly_batch_fx_rates", cutoffDate, endDateStr],
     queryFn: () => getMonthlyBatchFxRates(cutoffDate, endDateStr),
     staleTime: Infinity,
+  });
+
+  const { data: talentEfficiencies = [] } = useQuery({
+    queryKey: ["profitability_talent_efficiencies", cutoffDate, endDateStr],
+    queryFn: async () => {
+      const allData: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("talent_efficiencies")
+          .select("*")
+          .gte("month_date", cutoffDate)
+          .lte("month_date", endDateStr)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        allData.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allData;
+    },
   });
 
   // Compute a fallback GBP/USD rate from projects that have real FX rates (used only until historicalFxRates loads)
@@ -691,16 +716,17 @@ const ProfitabilityPage = () => {
 
       // Exclude passthrough / talent savings record types
       const recordType = (p.opportunity_record_type || "").trim().toLowerCase();
-      if (EXCLUDED_RECORD_TYPES.includes(recordType)) return false;
-
       const titleLower = (p.title || "").toLowerCase();
-      if (
-        titleLower.includes("talent savings") ||
-        titleLower.includes("talent efficiencies") ||
-        titleLower.includes("holding pot") ||
-        titleLower.includes("passthrough costs")
-      ) {
-        return false;
+      
+      const isTE = recordType === "agency - talent savings" || titleLower.includes("talent savings") || titleLower.includes("talent efficiencies");
+      
+      if (isTE) {
+        if (!includeEfficiencies) return false;
+      } else {
+        if (EXCLUDED_RECORD_TYPES.includes(recordType)) return false;
+        if (titleLower.includes("holding pot") || titleLower.includes("passthrough costs")) {
+          return false;
+        }
       }
 
       return true;
@@ -793,15 +819,15 @@ const ProfitabilityPage = () => {
       // Proportion agency fee / scope to the portion of the project that overlaps the selected window
       // using each scope's phase_percentages (12 equal day-slices of the project timeline) rather than
       // a flat working-day pro-rata. Cost is window-clipped via get_project_costs_monthly RPC.
-      const projStart = new Date(p.start_date);
-      const projEnd = new Date(p.end_date);
+      const projStart = parseISO(p.start_date);
+      const projEnd = parseISO(p.end_date);
       const isComplete = projEnd <= today;
 
       const totalScopedFull = (p.project_scopes || []).reduce((s: number, sc: any) => s + (sc.scoped_hours || 0), 0);
 
       // Window bounds (cap "elapsed" end at today so we never count future work)
-      const windowStart = new Date(cutoffDate);
-      const windowEndRaw = new Date(endDateStr);
+      const windowStart = parseISO(cutoffDate);
+      const windowEndRaw = parseISO(endDateStr);
       const windowEnd = windowEndRaw > today ? today : windowEndRaw;
 
       // Helper: for a single scope, compute how many of its scoped_hours fall within [windowStart, windowEnd]
@@ -1001,6 +1027,74 @@ const ProfitabilityPage = () => {
       });
     }
 
+
+if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) {
+      const teByOpp: Record<string, { amount: number, office: string, id: string }> = {};
+      
+      for (const eff of talentEfficiencies) {
+        if (!matchesOffice(eff.office, officeFilter)) continue;
+        if (eff.efficiency_type !== "Contingency") continue;
+        
+        const oppName = eff.opportunity_name || "Unknown Opportunity";
+        
+        let displayAmount = Number(eff.amount) || 0;
+        if (displayCurrency === "USD") {
+          const monthRate = monthlyFxRates[eff.month_date];
+          const gbpToUsd = monthRate || fallbackGbpUsdRate || 1.27;
+          displayAmount *= gbpToUsd;
+        }
+        
+        if (!teByOpp[oppName]) {
+          teByOpp[oppName] = { amount: 0, office: eff.office, id: eff.id };
+        }
+        teByOpp[oppName].amount += displayAmount;
+      }
+      
+      for (const [oppName, data] of Object.entries(teByOpp)) {
+        if (data.amount === 0) continue;
+        
+        const cleanName = oppName.replace(/\s*[-–:]?\s*Talent\s+(Efficiencies|Savings)$/i, "").trim().toLowerCase();
+        let matchedClient = "Unassigned / Other";
+        let matchedSfAccount = null;
+        
+        const matchedProject = projects.find((p: any) => p.title && p.title.toLowerCase() === cleanName);
+        if (matchedProject) {
+           matchedClient = matchedProject.ultimate_parent || matchedProject.title || matchedClient;
+           matchedSfAccount = matchedProject.parent_account || matchedProject.sf_account || null;
+        } else {
+           const possibleClients = Object.keys(clientMap).sort((a,b) => b.length - a.length);
+           for (const pc of possibleClients) {
+             if (pc && pc.length > 2 && oppName.toLowerCase().startsWith(pc.toLowerCase())) {
+                matchedClient = pc;
+                break;
+             }
+           }
+        }
+        
+        if (!clientMap[matchedClient]) {
+          clientMap[matchedClient] = [];
+        }
+        
+        clientMap[matchedClient].push({
+          id: data.id,
+          title: oppName,
+          office: data.office,
+          sfAccount: matchedSfAccount,
+          scopedHours: 0,
+          actualHours: 0,
+          revenue: data.amount,
+          cost: 0,
+          profit: data.amount,
+          margin: 100,
+          budgetMargin: 100,
+          budgetRevenue: data.amount,
+          budgetCost: 0,
+          status: "Ended",
+          hasNoScope: true,
+        });
+      }
+    }
+
     const groups: ClientGroup[] = Object.entries(clientMap)
       .map(([client, allProjects]) => {
         const projects = statusFilter === "ended" ? allProjects.filter(p => p.status === "Ended") : allProjects;
@@ -1031,7 +1125,7 @@ const ProfitabilityPage = () => {
       .filter((g): g is ClientGroup => g !== null);
 
     return groups.sort((a, b) => b.profit - a.profit);
-  }, [projects, costMap, allTimeCostMap, allRateCards, officeFilter, cutoffDate, displayCurrency, projectPhases, phaseAllocations, statusFilter, fallbackGbpUsdRate, historicalFxRates, companyRoleCostStats, projectRoleCostStats]);
+  }, [projects, costMap, allTimeCostMap, allRateCards, officeFilter, cutoffDate, displayCurrency, projectPhases, phaseAllocations, statusFilter, fallbackGbpUsdRate, historicalFxRates, companyRoleCostStats, projectRoleCostStats, includeEfficiencies, talentEfficiencies, monthlyFxRates]);
 
   // ── Role-level burn by client ──
   const roleBurnByClient = useMemo(() => {
@@ -1117,8 +1211,8 @@ const ProfitabilityPage = () => {
         if (!projData) continue;
         const p = projData as any;
         const scopes = p.project_scopes || [];
-        const projStart = new Date(p.start_date);
-        const projEnd = new Date(p.end_date);
+        const projStart = parseISO(p.start_date);
+        const projEnd = parseISO(p.end_date);
         const isComplete = projEnd <= today;
         const { projectCurrency, fxRateGbp, fxRateUsd } = getProjectFxRates(p);
 
@@ -1135,7 +1229,7 @@ const ProfitabilityPage = () => {
           const hasPhaseAllocs = projPhaseAllocs.length > 0;
 
           const completedPhaseIds = projPhases
-            .filter((ph: any) => ph.end_date && new Date(ph.end_date) <= today)
+            .filter((ph: any) => ph.end_date && parseISO(ph.end_date) <= today)
             .map((ph: any) => ph.id);
 
           if (hasPhaseAllocs && completedPhaseIds.length > 0) {
@@ -1324,7 +1418,7 @@ const ProfitabilityPage = () => {
       if (pEnd && pEnd < cutoffDate) continue;
       if (pStart && pStart > todayStr) continue;
       // Respect ended/live toggle
-      const projEnd = new Date(p.end_date + "T00:00:00");
+      const projEnd = parseISO(p.end_date);
       const isComplete = projEnd < today;
       if (statusFilter === "ended" && !isComplete) continue;
 
@@ -1432,8 +1526,8 @@ const ProfitabilityPage = () => {
       personCappedHoursMap.set(row.person_id, Number(row.capped_hours));
     }
 
-    const windowStart = new Date(appliedStartDate);
-    const windowEndRaw = new Date(appliedEndDate);
+    const windowStart = parseISO(appliedStartDate);
+    const windowEndRaw = parseISO(appliedEndDate);
     const windowEnd = windowEndRaw > today ? today : windowEndRaw;
 
     // First pass: Aggregate Person Completeness by Name
@@ -1455,8 +1549,8 @@ const ProfitabilityPage = () => {
         const empStart = contract.employment_start_date || contract.overall_start_date;
         const empEnd = contract.employment_end_date || contract.overall_end_date;
         
-        let effectiveStart = empStart && new Date(empStart) > windowStart ? new Date(empStart) : windowStart;
-        let effectiveEnd = empEnd && new Date(empEnd) < windowEnd ? new Date(empEnd) : windowEnd;
+        let effectiveStart = empStart && parseISO(empStart) > windowStart ? parseISO(empStart) : windowStart;
+        let effectiveEnd = empEnd && parseISO(empEnd) < windowEnd ? parseISO(empEnd) : windowEnd;
 
         if (effectiveStart > effectiveEnd) continue;
 
@@ -1474,8 +1568,8 @@ const ProfitabilityPage = () => {
           // Find active config for this date
           let daysPerWeek = 5;
           const activeConfig = ptConfigs.find(c => {
-            const start = c.start_date ? new Date(c.start_date) : null;
-            const end = c.end_date ? new Date(c.end_date) : null;
+            const start = c.start_date ? parseISO(c.start_date) : null;
+            const end = c.end_date ? parseISO(c.end_date) : null;
             return (!start || d >= start) && (!end || d <= end);
           });
           if (activeConfig && activeConfig.days_per_week) {
@@ -1837,7 +1931,7 @@ const ProfitabilityPage = () => {
       const pEnd = p.end_date ? p.end_date.trim() : null;
       if (pEnd && pEnd < cutoffDate) continue;
       if (pStart && pStart > todayStr) continue;
-      const projEnd = new Date(p.end_date + "T00:00:00");
+      const projEnd = parseISO(p.end_date);
       const isComplete = projEnd < today;
       if (statusFilter === "ended" && !isComplete) continue;
 
@@ -1902,8 +1996,8 @@ const ProfitabilityPage = () => {
     const endMonth = endDateStr.slice(0, 7);
     const allMonths: string[] = [];
     {
-      let cur = new Date(startMonth + "-01T00:00:00");
-      const end = new Date(endMonth + "-01T00:00:00");
+      let cur = parseISO(startMonth + "-01");
+      const end = parseISO(endMonth + "-01");
       while (cur <= end) {
         allMonths.push(format(cur, "yyyy-MM"));
         cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
@@ -1911,7 +2005,7 @@ const ProfitabilityPage = () => {
     }
 
     return allMonths.map((monthKey) => {
-      const d = new Date(monthKey + "-15");
+      const d = parseISO(monthKey + "-15");
       return {
         month: isNaN(d.getTime()) ? monthKey : format(d, "MMM yy"),
         cost: Math.round(monthMap.get(monthKey) || 0),
@@ -1938,8 +2032,8 @@ const ProfitabilityPage = () => {
   };
 
   const periodLabel = timePeriod === "3" ? "3 Months" : timePeriod === "6" ? "6 Months" : timePeriod === "12" ? "12 Months" : (() => {
-    const s = new Date(customStartDate + "T00:00:00");
-    const e = new Date(customEndDate + "T00:00:00");
+    const s = parseISO(customStartDate);
+    const e = parseISO(customEndDate);
     if (isNaN(s.getTime()) || isNaN(e.getTime())) return "Custom";
     return `${format(s, "d MMM yyyy")} – ${format(e, "d MMM yyyy")}`;
   })();
@@ -2013,7 +2107,7 @@ const ProfitabilityPage = () => {
                   return next;
                 }, { replace: true });
               }}
-              selectedClass="bg-[#4b71d8] text-white hover:bg-[#4b71d8] hover:text-white focus:bg-[#4b71d8] focus:text-white"
+              selectedClass="bg-[#4b70d8] text-white hover:bg-[#4b70d8] hover:text-white focus:bg-[#4b70d8] focus:text-white"
               rangeMiddleClass="aria-selected:bg-[#cfddf2] aria-selected:text-[#1a1a1a]"
               hoverPreviewClass="!bg-[#cfddf2] !text-[#1a1a1a] rounded-none"
               cellClass="h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected])]:bg-[#cfddf2] first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20"
@@ -2033,7 +2127,7 @@ const ProfitabilityPage = () => {
               className={cn(
                 "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                 grossUp
-                  ? "bg-[#4b71d8] text-white shadow-sm"
+                  ? "bg-[#4b70d8] text-white shadow-sm"
                   : "bg-[#cfddf2] text-muted-foreground hover:text-foreground"
               )}
               title="Gross up costs pro-rata based on timesheet completeness"
@@ -2041,12 +2135,26 @@ const ProfitabilityPage = () => {
               Gross Up Missing Time
             </button>
           </div>
+          <div className="inline-flex rounded-lg border-border p-0.5 bg-[#cfddf2] border-0">
+            <button
+              onClick={() => setIncludeEfficiencies(!includeEfficiencies)}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                includeEfficiencies
+                  ? "bg-[#4b70d8] text-white shadow-sm"
+                  : "bg-[#cfddf2] text-muted-foreground hover:text-foreground"
+              )}
+              title="Include talent efficiencies in total profitability calculations"
+            >
+              Include TE
+            </button>
+          </div>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-5 gap-3 mb-6">
-        <KpiCard label="Agency Fee" value={formatCurrency(displayTotals.revenue, displayCurrency)} subtitle={`${displayTotals.projectCount} projects`} />
+        <KpiCard label={includeEfficiencies ? "Agency Fee + TEs" : "Agency Fee"} value={formatCurrency(displayTotals.revenue, displayCurrency)} subtitle={`${displayTotals.projectCount} projects`} />
         <KpiCard label="Internal Cost" value={formatCurrency(displayTotals.cost, displayCurrency)} />
         <KpiCard
           label="Profit"
@@ -2067,7 +2175,7 @@ const ProfitabilityPage = () => {
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <ProfitabilityTrendChart officeFilter={officeFilter} cutoffDate={cutoffDate} endDate={endDateStr} displayCurrency={displayCurrency} statusFilter={statusFilter} grossUpFactors={grossUpFactors} allGrossUpFactors={allGrossUpFactors} onTrendData={handleTrendData} />
+        <ProfitabilityTrendChart officeFilter={officeFilter} cutoffDate={cutoffDate} endDate={endDateStr} displayCurrency={displayCurrency} statusFilter={statusFilter} includeEfficiencies={includeEfficiencies} grossUpFactors={grossUpFactors} allGrossUpFactors={allGrossUpFactors} onTrendData={handleTrendData} />
 
         {/* RFP / RFI Cost Card */}
         <Card>

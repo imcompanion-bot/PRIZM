@@ -13,15 +13,19 @@ export const debugHeadersHttp = onRequest(
       const authClient = await auth.getClient();
       const sheets = google.sheets({ version: "v4", auth: authClient as any });
 
-      const response = await sheets.spreadsheets.values.get({
+      const res1 = await sheets.spreadsheets.values.get({
         spreadsheetId: SHEET_ID,
-        range: "Data summary - P&L phased (de-risked)!A4:ZZ3000",
+        range: "Talent Contingency (de-risked)!A1:G10",
+      });
+      
+      const res2 = await sheets.spreadsheets.values.get({
+        spreadsheetId: SHEET_ID,
+        range: "Talent Savings Summary!A1:G10",
       });
 
-      const rows = response.data.values || [];
-
       res.json({
-        rows
+        contingency: res1.data.values,
+        savings: res2.data.values
       });
     } catch (e: any) {
       res.status(500).json({ error: e.message });

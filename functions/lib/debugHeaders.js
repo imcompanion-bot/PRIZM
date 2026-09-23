@@ -11,13 +11,17 @@ exports.debugHeadersHttp = (0, https_1.onRequest)({ region: "us-east4", timeoutS
         });
         const authClient = await auth.getClient();
         const sheets = googleapis_1.google.sheets({ version: "v4", auth: authClient });
-        const response = await sheets.spreadsheets.values.get({
+        const res1 = await sheets.spreadsheets.values.get({
             spreadsheetId: SHEET_ID,
-            range: "Data summary - P&L phased (de-risked)!A4:ZZ3000",
+            range: "Talent Contingency (de-risked)!A1:G10",
         });
-        const rows = response.data.values || [];
+        const res2 = await sheets.spreadsheets.values.get({
+            spreadsheetId: SHEET_ID,
+            range: "Talent Savings Summary!A1:G10",
+        });
         res.json({
-            rows
+            contingency: res1.data.values,
+            savings: res2.data.values
         });
     }
     catch (e) {
