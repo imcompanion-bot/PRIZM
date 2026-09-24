@@ -1076,11 +1076,13 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
         const cleanName = oppName.replace(/\s*[-–:]?\s*Talent\s+(Efficiencies|Savings)$/i, "").trim().toLowerCase();
         let matchedClient = "Unassigned / Other";
         let matchedSfAccount = null;
+        let existingProjRow = null;
         
         const matchedProject = projects.find((p: any) => p.title && p.title.toLowerCase() === cleanName);
         if (matchedProject) {
            matchedClient = matchedProject.ultimate_parent || matchedProject.title || matchedClient;
            matchedSfAccount = matchedProject.parent_account || matchedProject.sf_account || null;
+           existingProjRow = clientMap[matchedClient]?.find(p => p.id === matchedProject.id);
         } else {
            const possibleClients = Object.keys(clientMap).sort((a,b) => b.length - a.length);
            for (const pc of possibleClients) {
@@ -1095,23 +1097,37 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
           clientMap[matchedClient] = [];
         }
         
-        clientMap[matchedClient].push({
-          id: data.id,
-          title: oppName,
-          office: data.office,
-          sfAccount: matchedSfAccount,
-          scopedHours: 0,
-          actualHours: 0,
-          revenue: data.amount,
-          cost: 0,
-          profit: data.amount,
-          margin: 100,
-          budgetMargin: 100,
-          budgetRevenue: data.amount,
-          budgetCost: 0,
-          status: "Ended",
-          hasNoScope: true,
-        });
+        if (existingProjRow) {
+          existingProjRow.revenue += data.amount;
+          existingProjRow.profit += data.amount;
+          existingProjRow.budgetRevenue += data.amount;
+          
+          existingProjRow.margin = existingProjRow.revenue > 0 ? (existingProjRow.profit / existingProjRow.revenue) * 100 : (existingProjRow.profit < 0 ? -100 : 0);
+          
+          if (existingProjRow.hasNoScope) {
+            existingProjRow.budgetMargin = existingProjRow.margin;
+          } else {
+            existingProjRow.budgetMargin = existingProjRow.budgetRevenue > 0 ? ((existingProjRow.budgetRevenue - existingProjRow.budgetCost) / existingProjRow.budgetRevenue) * 100 : -100;
+          }
+        } else {
+          clientMap[matchedClient].push({
+            id: data.id,
+            title: oppName,
+            office: data.office,
+            sfAccount: matchedSfAccount,
+            scopedHours: 0,
+            actualHours: 0,
+            revenue: data.amount,
+            cost: 0,
+            profit: data.amount,
+            margin: 100,
+            budgetMargin: 100,
+            budgetRevenue: data.amount,
+            budgetCost: 0,
+            status: "Ended",
+            hasNoScope: true,
+          });
+        }
       }
     }
 
