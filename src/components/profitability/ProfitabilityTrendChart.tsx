@@ -34,6 +34,7 @@ interface Props {
   includeEfficiencies: boolean;
   grossUpFactors?: Map<string, number>;
   allGrossUpFactors?: Map<string, number>;
+  filteredProjects: any[];
   onTrendData?: (data: {
     overall: Array<{ month: string; revenue: number; cost: number; profit: number; margin: number }>;
     byProject: ProjectMonthlyEntry[];
@@ -61,7 +62,7 @@ function getWorkingDays(start: Date, end: Date): number {
   return eachDayOfInterval({ start, end }).filter((d) => !isWeekend(d)).length;
 }
 
-const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCurrency, statusFilter, includeEfficiencies, grossUpFactors, allGrossUpFactors, onTrendData }: Props) => {
+const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCurrency, statusFilter, includeEfficiencies, grossUpFactors, allGrossUpFactors, filteredProjects, onTrendData }: Props) => {
   const today = useMemo(() => new Date(), []);
   const todayStr = format(today, "yyyy-MM-dd");
 
@@ -248,36 +249,7 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
     // We only exclude `lastFullMonth` if it's the current incomplete month.
     const months = allMonths.filter((m) => m < lastFullMonth || m.getTime() === effectiveEndMonth.getTime());
 
-    // Filter qualifying projects (same criteria as parent)
-    const filtered = projects.filter((p: any) => {
-      if (!matchesOffice(p.office, officeFilter)) return false;
-      if (p.start_date < "2024-01-01") return false;
-      if (p.end_date < cutoffDate || p.start_date > endDate) return false;
-      const client = (p.ultimate_parent || p.title || "").toLowerCase();
-      if (client.includes("billion dollar boy")) return false;
-      const recordType = (p.opportunity_record_type || "").trim().toLowerCase();
-      const titleLower = (p.title || "").toLowerCase();
-      
-      const isTE = recordType === "agency - talent savings" || titleLower.includes("talent savings") || titleLower.includes("talent efficiencies");
-      
-      if (isTE) {
-        if (!includeEfficiencies) return false;
-      } else {
-        if (EXCLUDED_RECORD_TYPES.includes(recordType)) return false;
-        if (titleLower.includes("holding pot") || titleLower.includes("passthrough costs")) {
-          return false;
-        }
-      }
-
-      const totalScoped = (p.project_scopes || []).reduce((s: number, sc: any) => s + (sc.scoped_hours || 0), 0);
-      if (!isTE && totalScoped <= 0) return false;
-      // Status filter
-      if (statusFilter === "ended") {
-        const projEnd = parseISO(p.end_date);
-        if (projEnd > today) return false;
-      }
-      return true;
-    });
+    const filtered = filteredProjects;
 
     // Pre-compute per-project monthly revenue
     interface ProjectCalc {
@@ -346,9 +318,22 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
         return null;
       };
 
+      const projAfPrice = getExtraNum(p, "project_currency_revenue") ?? p.price ?? p.revenue ?? getExtraNum(p, "total price", "price gbp/usd", "price");
+      const projAfMediaCost = getExtraNum(p, "project_currency_media_cost") ?? p.media_cost ?? getExtraNum(p, "media cost", "cost - paid media budget") ?? 0;
+      const projAfGrossBudget = getExtraNum(p, "project_currency_gross_budget") ?? p.gross_budget ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+
       const afPrice = p.price ?? p.revenue ?? getExtraNum(p, "total price", "price gbp/usd", "price");
-      const afMediaCost = p.media_cost ?? getExtraNum(p, "media cost", "cost - paid media budget") ?? 0;
-      const afGrossBudget = p.gross_budget ?? p.budget_cost ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget") ?? 0;
+      
+      const revenueFxRatio = (projAfPrice && afPrice && afPrice > 0) 
+        ? projAfPrice / afPrice 
+        : 1;
+
+      let afMediaCost = p.media_cost ?? getExtraNum(p, "media cost", "cost - paid media budget");
+      if (afMediaCost == null) afMediaCost = projAfMediaCost / revenueFxRatio;
+      
+      let afGrossBudget = p.gross_budget ?? p.budget_cost ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget");
+      if (afGrossBudget == null) afGrossBudget = projAfGrossBudget / revenueFxRatio;
+
       const fullAgencyFee = afPrice !== null ? afPrice - afMediaCost - afGrossBudget : null;
 
       const rateCardRevenue = (p.project_scopes || []).reduce((sum: number, sc: any) => {
@@ -365,7 +350,15 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
       const projPhases = projectPhases.filter((ph: any) => ph.project_id === p.id);
       const projPhaseIds = new Set(projPhases.map((ph: any) => ph.id));
       const projPhaseAllocs = phaseAllocations.filter((pa: any) => projPhaseIds.has(pa.phase_id));
-      const hasPhaseData = projPhases.length > 0 && projPhaseAllocs.length > 0;
+      
+      let totalAllocatedValue = 0;
+      for (const pa of projPhaseAllocs) {
+        const scope = (p.project_scopes || []).find((sc: any) => sc.id === pa.project_scope_id);
+        const rate = scope ? (roleRates[scope.role_id] || 0) : 0;
+        totalAllocatedValue += Number(pa.hours) * rate;
+      }
+      
+      const hasPhaseData = projPhases.length > 0 && projPhaseAllocs.length > 0 && totalAllocatedValue > 0;
 
       if (hasPhaseData) {
         for (const phase of projPhases) {
@@ -381,7 +374,7 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
               return sum + Number(pa.hours) * rate;
             }, 0);
 
-          const phaseFee = rateCardRevenue > 0 ? agencyFee * (phaseValue / rateCardRevenue) : 0;
+          const phaseFee = agencyFee * (phaseValue / totalAllocatedValue);
           if (phaseFee <= 0) continue;
 
           const totalPhaseDays = getWorkingDays(phaseStart, phaseEnd);
@@ -545,7 +538,6 @@ const projectOfficeMap = new Map();
     
     if (includeEfficiencies) {
       for (const eff of talentEfficiencies) {
-        if (eff.efficiency_type !== "Contingency") continue;
         
         const oppName = eff.opportunity_name || "Unknown Opportunity";
         const cleanName = oppName.replace(/\s*[-–:]?\s*Talent\s+(Efficiencies|Savings)$/i, "").trim().toLowerCase();
@@ -783,30 +775,43 @@ const projectOfficeMap = new Map();
                         <span className="text-muted-foreground">Agency Fee:</span>
                         <span className="font-medium text-foreground">{formatCurrency(d.revenue, displayCurrency)}</span>
                       </div>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-muted-foreground">Cost:</span>
-                        <span className="font-medium text-foreground">{formatCurrency(d.cost, displayCurrency)}</span>
-                      </div>
-                      <div className="flex justify-between items-center mb-1 pt-1 border-t border-border/50">
-                        <span className="text-muted-foreground">Agency Fees:</span>
-                        <span className={cn("font-medium", d.profit < 0 ? "text-destructive" : "text-success")}>{formatCurrency(d.profit, displayCurrency)}</span>
-                      </div>
                       {d.efficiencies !== 0 && (
                         <div className="flex justify-between items-center mb-1">
-                          <span className="text-muted-foreground">Talent Efficiencies:</span>
-                          <span className="font-medium text-muted-foreground">{formatCurrency(d.efficiencies, displayCurrency)}</span>
+                          <span className="text-muted-foreground">TEs:</span>
+                          <span className="font-medium text-foreground">{formatCurrency(d.efficiencies, displayCurrency)}</span>
                         </div>
                       )}
-                      {d.efficiencies !== 0 && (
-                        <div className="flex justify-between items-center mb-1 pt-1 border-t border-border/50">
-                          <span className="text-muted-foreground font-semibold">Total Profit:</span>
-                          <span className={cn("font-medium", d.totalProfit < 0 ? "text-destructive" : "text-success")}>{formatCurrency(d.totalProfit, displayCurrency)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center mt-2 pt-1 border-t border-border/50">
-                        <span className="text-muted-foreground">Margin:</span>
+                      
+                      <div className="flex justify-between items-center mb-1 pt-1 border-t border-border/50">
+                        <span className="text-muted-foreground">Total Gross Profit:</span>
+                        <span className="font-medium text-foreground">{formatCurrency(d.revenue + d.efficiencies, displayCurrency)}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-muted-foreground">Internal Costs:</span>
+                        <span className="font-medium text-foreground">{formatCurrency(d.cost, displayCurrency)}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center mb-1 pt-1 border-t border-border/50">
+                        <span className="text-muted-foreground font-semibold">Total Profit:</span>
+                        <span className={cn("font-medium", d.totalProfit < 0 ? "text-destructive" : "text-success")}>{formatCurrency(d.totalProfit, displayCurrency)}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center mt-1 pt-1 border-t border-border/50">
+                        <span className="text-muted-foreground font-semibold">Total Margin:</span>
                         <span className="font-medium text-foreground">{d.margin}%</span>
                       </div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-muted-foreground">Margin from agency fees:</span>
+                        <span className="font-medium text-foreground">{d.revenue > 0 ? Math.round((d.profit / d.revenue) * 100) : 0}%</span>
+                      </div>
+
+                      {d.efficiencies !== 0 && (
+                        <div className="flex justify-between items-center mb-1 pt-1 border-t border-border/50">
+                          <span className="text-muted-foreground">TE % of total Gross Profit:</span>
+                          <span className="font-medium text-foreground">{Math.round((d.efficiencies / (d.revenue + d.efficiencies)) * 100)}%</span>
+                        </div>
+                      )}
+
                       {d.efficiencies !== 0 && d.topTEs?.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-border/50">
                           <p className="text-muted-foreground font-semibold mb-1 uppercase text-[10px] tracking-wider">Top TE Contributors:</p>

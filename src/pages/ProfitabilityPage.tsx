@@ -12,7 +12,7 @@ import { formatCurrency, calculateInternalCostPerHour, BILLABLE_TEAMS } from "@/
 import { getBatchProjectFxRates, getMonthlyBatchFxRates } from "@/lib/fx";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { format, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, startOfWeek, endOfWeek, parseISO } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth, eachMonthOfInterval, eachDayOfInterval, isWeekend, startOfWeek, endOfWeek, parseISO } from "date-fns";
 import { buildParentalLeaveMap, getWorkingDaysExcludingLeave, isOnParentalLeave } from "@/lib/parental-leave";
 import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, ArrowUp, ArrowDown, Info } from "lucide-react";
 import * as RechartsPrimitive from "recharts";
@@ -686,16 +686,12 @@ const ProfitabilityPage = () => {
     return map;
   }, [utilisationSummary, peopleByIdForBudget]);
 
-  // ── Compute Client Profitability ──
-
-  const clientGroups = useMemo(() => {
-    const today = new Date();
-
+  // ── Base Filtered Projects ──
+  const baseFilteredProjects = useMemo(() => {
     const EXCLUDED_RECORD_TYPES = ["agency - talent savings", "agency - passthrough costs", "agency - rfp / rfi", "agency - holding pot"];
-
     const TIMESHEET_DATA_START = "2024-01-01";
 
-    const filtered = projects.filter((p: any) => {
+    return projects.filter((p: any) => {
       if (!matchesOffice(p.office, officeFilter)) return false;
       // Exclude projects that started before timesheet data exists (1 Jan 2025) to avoid inflated margins
       if (p.start_date && p.start_date.trim() < TIMESHEET_DATA_START) return false;
@@ -721,7 +717,7 @@ const ProfitabilityPage = () => {
       const isTE = recordType === "agency - talent savings" || titleLower.includes("talent savings") || titleLower.includes("talent efficiencies");
       
       if (isTE) {
-        if (!includeEfficiencies) return false;
+        return false; // TEs are injected directly from the talent_efficiencies table instead
       } else {
         if (EXCLUDED_RECORD_TYPES.includes(recordType)) return false;
         if (titleLower.includes("holding pot") || titleLower.includes("passthrough costs")) {
@@ -731,6 +727,25 @@ const ProfitabilityPage = () => {
 
       return true;
     });
+  }, [projects, officeFilter, cutoffDate, todayStr, isCore, allocatedClients]);
+
+  const trendFilteredProjects = useMemo(() => {
+    const today = new Date();
+    return baseFilteredProjects.filter((p: any) => {
+      if (statusFilter === "ended") {
+        const projEnd = parseISO(p.end_date);
+        if (projEnd > today) return false;
+      }
+      return true;
+    });
+  }, [baseFilteredProjects, statusFilter]);
+
+  // ── Compute Client Profitability ──
+
+  const clientGroups = useMemo(() => {
+    const today = new Date();
+
+    const filtered = baseFilteredProjects;
 
     // Helper: count working days between two dates
     const countWorkingDays = (from: Date, to: Date) => {
@@ -817,8 +832,7 @@ const ProfitabilityPage = () => {
       const fullRevenue = fullAgencyFee !== null && fullAgencyFee > 0 ? fullAgencyFee : rateCardRevenue;
 
       // Proportion agency fee / scope to the portion of the project that overlaps the selected window
-      // using each scope's phase_percentages (12 equal day-slices of the project timeline) rather than
-      // a flat working-day pro-rata. Cost is window-clipped via get_project_costs_monthly RPC.
+      // by spreading across months (exactly matching the ProfitabilityTrendChart logic).
       const projStart = parseISO(p.start_date);
       const projEnd = parseISO(p.end_date);
       const isComplete = projEnd <= today;
@@ -830,111 +844,86 @@ const ProfitabilityPage = () => {
       const windowEndRaw = parseISO(endDateStr);
       const windowEnd = windowEndRaw > today ? today : windowEndRaw;
 
-      // Helper: for a single scope, compute how many of its scoped_hours fall within [windowStart, windowEnd]
-      // by walking its 12 phases (each 1/12th of project duration) and intersecting with the window.
-      const totalProjectDays = Math.max(1, Math.round((projEnd.getTime() - projStart.getTime()) / 86400000) + 1);
-      const daysPerPhase = totalProjectDays / 12;
+      // Identify the target months string array for matching
+      const targetMonths = eachMonthOfInterval({ start: startOfMonth(windowStart), end: startOfMonth(windowEnd) })
+        .map(m => format(m, "yyyy-MM-01"));
 
-      const phaseHoursInWindow = (sc: any): number => {
-        const scoped = Number(sc.scoped_hours) || 0;
-        if (scoped <= 0) return 0;
-        const pcts = (sc.phase_percentages || {}) as Record<string, number | string>;
-        const hasAnyPct = Object.values(pcts).some((v) => {
-          const num = typeof v === "string" ? parseFloat(v.replace("%", "")) : Number(v);
-          return !isNaN(num) && num > 0;
-        });
-        // No phasing → assume default 4-phase split: 30% / 30% / 20% / 20% across equal quarters of the project
-        const effectivePcts: Record<string, number | string> = hasAnyPct
-          ? pcts
-          : { "Phase 1": 30, "Phase 2": 30, "Phase 3": 20, "Phase 4": 20 };
-        const phaseCount = hasAnyPct ? 12 : 4;
-        const daysPerPhaseLocal = totalProjectDays / phaseCount;
-        
-        let sumPct = 0;
-        for (let phase = 1; phase <= phaseCount; phase++) {
-          const rawPct = effectivePcts[`Phase ${phase}`] ?? effectivePcts[`phase ${phase}`] ?? effectivePcts[`Phase${phase}`] ?? effectivePcts[`phase${phase}`] ?? effectivePcts[String(phase)] ?? 0;
-          const pct = typeof rawPct === "string" ? parseFloat(rawPct.replace("%", "")) : Number(rawPct);
-          if (!isNaN(pct) && pct > 0) sumPct += pct;
-        }
-        const pctScale = sumPct > 0 ? 100 / sumPct : 1;
+      let revenue = 0;
+      let totalScoped = 0;
+      const effectiveScopedHoursByScopeId: Record<string, number> = {};
 
-        let hoursInWin = 0;
-        for (let phase = 1; phase <= phaseCount; phase++) {
-          const rawPct =
-            effectivePcts[`Phase ${phase}`] ?? effectivePcts[`phase ${phase}`] ?? effectivePcts[`Phase${phase}`] ?? effectivePcts[`phase${phase}`] ?? effectivePcts[String(phase)] ?? 0;
-          let pct = typeof rawPct === "string" ? parseFloat(rawPct.replace("%", "")) : Number(rawPct);
-          if (isNaN(pct) || pct <= 0) continue;
-          pct = pct * pctScale;
-          
-          const phaseHours = (pct / 100) * scoped;
-          const phaseStartDay = Math.round((phase - 1) * daysPerPhaseLocal);
-          const phaseEndDay = Math.round(phase * daysPerPhaseLocal) - 1;
-          const phaseStart = new Date(projStart.getTime() + phaseStartDay * 86400000);
-          const phaseEnd = new Date(projStart.getTime() + phaseEndDay * 86400000);
-          const totalPhaseWD = countWorkingDays(phaseStart, phaseEnd);
-          if (totalPhaseWD === 0) continue;
-          const effStart = phaseStart > windowStart ? phaseStart : windowStart;
-          const effEnd = phaseEnd < windowEnd ? phaseEnd : windowEnd;
-          const winPhaseWD = countWorkingDays(effStart, effEnd);
-          if (winPhaseWD === 0) continue;
-          hoursInWin += phaseHours * (winPhaseWD / totalPhaseWD);
-        }
-        return hoursInWin;
-      };
+      const projPhases = projectPhases.filter((ph: any) => ph.project_id === p.id);
+      const projPhaseIds = new Set(projPhases.map((ph: any) => ph.id));
+      const projPhaseAllocs = phaseAllocations.filter((pa: any) => projPhaseIds.has(pa.phase_id));
 
-      const soFarHoursPerScope: Record<string, number> = {};
-      (p.project_scopes || []).forEach((sc: any) => {
-        soFarHoursPerScope[sc.id] = phaseHoursInWindow(sc);
-      });
-
-      const windowPct = totalScopedFull > 0
-        ? Math.min(1, Object.values(soFarHoursPerScope).reduce((s, h) => s + h, 0) / totalScopedFull)
-        : 0;
-
-      const hasRoleRates = Object.keys(roleRates).length > 0;
-      const soFarBudgetFee = hasRoleRates
-        ? (p.project_scopes || []).reduce((sum: number, sc: any) => {
-            const hours = soFarHoursPerScope[sc.id] || 0;
-            const rate = roleRates[sc.role_id] || 0;
-            return sum + hours * rate;
-          }, 0)
-        : null;
-      const soFarBudgetHours = Object.values(soFarHoursPerScope).reduce((s, h) => s + h, 0);
-
-      let fallbackWindowPct = 0;
-      if (totalScopedFull === 0) {
-        const effStart = projStart > windowStart ? projStart : windowStart;
-        const effEnd = projEnd < windowEnd ? projEnd : windowEnd;
-        const projWD = countWorkingDays(projStart, projEnd);
-        const winWD = countWorkingDays(effStart, effEnd);
-        fallbackWindowPct = projWD > 0 ? winWD / projWD : 0;
+      let totalAllocatedValue = 0;
+      for (const pa of projPhaseAllocs) {
+        const scope = (p.project_scopes || []).find((sc: any) => sc.id === pa.project_scope_id);
+        const rate = scope ? (roleRates[scope.role_id] || 0) : 0;
+        totalAllocatedValue += Number(pa.hours) * rate;
       }
-
-
-
-
-
-      let revenue = fullRevenue * (totalScopedFull > 0 ? windowPct : fallbackWindowPct);
-      if (fullAgencyFee !== null && fullAgencyFee > 0) {
-        if (soFarBudgetFee !== null && rateCardRevenue > 0) {
-          // Match the budget-fee shape (role-rate weighted) within the window
-          revenue = fullAgencyFee * (soFarBudgetFee / rateCardRevenue);
-        } else if (totalScopedFull > 0) {
-          revenue = fullAgencyFee * (soFarBudgetHours / totalScopedFull);
-        } else {
-          revenue = fullAgencyFee * fallbackWindowPct;
-        }
-      } else if (soFarBudgetFee !== null) {
-        revenue = soFarBudgetFee;
-      } else if (totalScopedFull > 0) {
-        revenue = rateCardRevenue * (soFarBudgetHours / totalScopedFull);
-      } else {
-        revenue = rateCardRevenue * fallbackWindowPct;
-      }
-
-      const totalScoped = soFarBudgetHours;
-      const effectiveScopedHoursByScopeId = soFarHoursPerScope;
       
+      const hasPhaseData = projPhases.length > 0 && projPhaseAllocs.length > 0 && totalAllocatedValue > 0;
+
+      if (hasPhaseData) {
+        for (const phase of projPhases) {
+          if (!phase.start_date || !phase.end_date) continue;
+          const phaseStart = parseISO(phase.start_date);
+          const phaseEnd = parseISO(phase.end_date);
+
+          const phaseAllocationsForThisPhase = projPhaseAllocs.filter((pa: any) => pa.phase_id === phase.id);
+
+          const phaseValue = phaseAllocationsForThisPhase.reduce((sum: number, pa: any) => {
+            const scope = (p.project_scopes || []).find((sc: any) => sc.id === pa.project_scope_id);
+            const rate = scope ? (roleRates[scope.role_id] || 0) : 0;
+            return sum + Number(pa.hours) * rate;
+          }, 0);
+
+          const phaseFee = fullRevenue * (phaseValue / totalAllocatedValue);
+          if (phaseFee <= 0) continue;
+
+          const totalPhaseDays = countWorkingDays(phaseStart, phaseEnd);
+          if (totalPhaseDays === 0) continue;
+
+          const phaseMonths = eachMonthOfInterval({ start: startOfMonth(phaseStart), end: startOfMonth(phaseEnd) });
+          for (const m of phaseMonths) {
+            const mEnd = endOfMonth(m);
+            const overlapStart = m < phaseStart ? phaseStart : m;
+            const overlapEnd = mEnd > phaseEnd ? phaseEnd : mEnd;
+            const overlapDays = countWorkingDays(overlapStart, overlapEnd);
+            const monthKey = format(m, "yyyy-MM-01");
+            if (targetMonths.includes(monthKey)) {
+              revenue += phaseFee * (overlapDays / totalPhaseDays);
+              for (const pa of phaseAllocationsForThisPhase) {
+                const h = Number(pa.hours) * (overlapDays / totalPhaseDays);
+                effectiveScopedHoursByScopeId[pa.project_scope_id] = (effectiveScopedHoursByScopeId[pa.project_scope_id] || 0) + h;
+                totalScoped += h;
+              }
+            }
+          }
+        }
+      } else {
+        const totalDays = countWorkingDays(projStart, projEnd);
+        if (totalDays > 0) {
+          const projMonths = eachMonthOfInterval({ start: startOfMonth(projStart), end: startOfMonth(projEnd) });
+          for (const m of projMonths) {
+            const mEnd = endOfMonth(m);
+            const overlapStart = m < projStart ? projStart : m;
+            const overlapEnd = mEnd > projEnd ? projEnd : mEnd;
+            const overlapDays = countWorkingDays(overlapStart, overlapEnd);
+            const monthKey = format(m, "yyyy-MM-01");
+            if (targetMonths.includes(monthKey)) {
+              revenue += fullRevenue * (overlapDays / totalDays);
+              for (const sc of p.project_scopes || []) {
+                const h = (sc.scoped_hours || 0) * (overlapDays / totalDays);
+                effectiveScopedHoursByScopeId[sc.id] = (effectiveScopedHoursByScopeId[sc.id] || 0) + h;
+                totalScoped += h;
+              }
+            }
+          }
+        }
+      }
+     
       const projCost = costMap[p.id] || { totalHours: 0, costGbp: 0, costUsd: 0 };
       // Use totalHours from get_project_costs RPC so displayed hours are consistent
       // with the cost calculation (which includes all people with salaries, even those without a role_id).
@@ -1040,7 +1029,6 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
       }
       
       for (const eff of talentEfficiencies) {
-        if (eff.efficiency_type !== "Contingency") continue;
         
         const oppName = eff.opportunity_name || "Unknown Opportunity";
         const cleanName = oppName.replace(/\s*[-–:]?\s*Talent\s+(Efficiencies|Savings)$/i, "").trim().toLowerCase();
@@ -1161,7 +1149,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
       .filter((g): g is ClientGroup => g !== null);
 
     return groups.sort((a, b) => b.profit - a.profit);
-  }, [projects, costMap, allTimeCostMap, allRateCards, officeFilter, cutoffDate, displayCurrency, projectPhases, phaseAllocations, statusFilter, fallbackGbpUsdRate, historicalFxRates, companyRoleCostStats, projectRoleCostStats, includeEfficiencies, talentEfficiencies, monthlyFxRates]);
+  }, [baseFilteredProjects, projects, costMap, allTimeCostMap, allRateCards, officeFilter, cutoffDate, displayCurrency, projectPhases, phaseAllocations, statusFilter, fallbackGbpUsdRate, historicalFxRates, companyRoleCostStats, projectRoleCostStats, includeEfficiencies, talentEfficiencies, monthlyFxRates]);
 
   // ── Role-level burn by client ──
   const roleBurnByClient = useMemo(() => {
@@ -2211,7 +2199,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <ProfitabilityTrendChart officeFilter={officeFilter} cutoffDate={cutoffDate} endDate={endDateStr} displayCurrency={displayCurrency} statusFilter={statusFilter} includeEfficiencies={includeEfficiencies} grossUpFactors={grossUpFactors} allGrossUpFactors={allGrossUpFactors} onTrendData={handleTrendData} />
+        <ProfitabilityTrendChart officeFilter={officeFilter} cutoffDate={cutoffDate} endDate={endDateStr} displayCurrency={displayCurrency} statusFilter={statusFilter} includeEfficiencies={includeEfficiencies} grossUpFactors={grossUpFactors} allGrossUpFactors={allGrossUpFactors} filteredProjects={trendFilteredProjects} onTrendData={handleTrendData} />
 
         {/* RFP / RFI Cost Card */}
         <Card>
@@ -2397,7 +2385,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
                         onClick={() => handleSort("revenue")}
                         className="inline-flex items-center justify-end gap-1 font-semibold hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded px-1 transition-colors py-0.5"
                       >
-                        Agency Fee
+                        {includeEfficiencies ? "Agency Fee + TEs" : "Agency Fee"}
                         {sortField === "revenue" && (
                           sortOrder === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                         )}
