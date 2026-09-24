@@ -355,13 +355,25 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
         // Add working days from this employment period that haven't been counted yet
         const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
         let newWorkingDays = 0;
+        const ptConfigs = partTimeConfigs
+          .filter(c => siblingIds.has(c.person_id))
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         for (const d of days) {
           if (isWeekend(d)) continue;
           if (isOnParentalLeave(d, leaveIntervals)) continue;
           const dk = d.toISOString().slice(0, 10);
           if (!existing.countedDays.has(dk)) {
             existing.countedDays.add(dk);
-            newWorkingDays++;
+            let daysPerWeek = 5;
+            const activeConfig = ptConfigs.find(c => {
+              const start = c.start_date ? new Date(c.start_date) : null;
+              const end = c.end_date ? new Date(c.end_date) : null;
+              return (!start || d >= start) && (!end || d <= end);
+            });
+            if (activeConfig && activeConfig.days_per_week) {
+              daysPerWeek = activeConfig.days_per_week;
+            }
+            newWorkingDays += (daysPerWeek / 5.0);
           }
         }
         existing.expectedTotalHours += newWorkingDays * HOURS_PER_DAY * allocationPercent;
@@ -383,7 +395,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
         const countedDays = new Set<string>();
         const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
         const ptConfigs = partTimeConfigs
-          .filter(c => c.person_id === person.id)
+          .filter(c => siblingIds.has(c.person_id))
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         let personWorkingDays = 0;
@@ -422,7 +434,8 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
           for (const e of personEntries) {
             const h = Number(e.hours) || 0;
             if (e.date) {
-              const d = new Date(e.date);
+              const [year, month, day] = e.date.split("-").map(Number);
+              const d = new Date(year, month - 1, day);
               if (!isNaN(d.getTime())) {
                 const ws = format(startOfWeek(d, { weekStartsOn: 1 }), "yyyy-MM-dd");
                 hoursByWeek.set(ws, (hoursByWeek.get(ws) || 0) + h);

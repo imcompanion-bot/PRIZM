@@ -155,6 +155,15 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
     },
   });
 
+  const { data: partTimeConfigs = [] } = useQuery({
+    queryKey: ["analysis_part_time_configs"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("part_time_configs").select("*");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const { data: timeEntries = [] } = useQuery({
     queryKey: ["time_entries_utilisation", format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd")],
     queryFn: async () => {
@@ -821,7 +830,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       roleName: string; billableCapacity: number;
       countedDays: Set<string>;
       totalActual: number; billableActual: number; leaveActual: number;
-      hasEnded: boolean;
+      hasEnded: boolean; expectedDays: number;
     }>();
 
     for (const person of filtered) {
@@ -899,7 +908,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
         return { ...r, utilisation, benchmark, expectedNonBillable, actualNonBillable, gap };
       })
       .filter(r => r.totalWorking > 0);
-  }, [people, officeFilter, startDate, endDate, benchmarkPersonHours, showFormer]);
+  }, [people, officeFilter, startDate, endDate, benchmarkPersonHours, showFormer, partTimeConfigs]);
 
   const [roleChartView, setRoleChartView] = useState<"gap" | "volume" | "team">("team");
 
@@ -1154,7 +1163,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
         }
       }
 
-      const mk = format(new Date(row.month_date), "yyyy-MM");
+      const mk = row.month_date ? row.month_date.substring(0, 7) : "";
       const key = `${row.person_id}::${mk}`;
       if (!map.has(key)) map.set(key, { total: 0, billable: 0, leave: 0 });
       const rec = map.get(key)!;
@@ -1386,7 +1395,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
 
     // Per-role people count and per-person per-month breakdown
     const peopleByTeamRole: Record<string, Record<string, string[]>> = {};
-    const personMonthByTeamRole: Record<string, Record<string, Record<string, { month: string; monthLabel: string; actual: number; benchmark: number }[]>>> = {};
+    const personMonthByTeamRole: Record<string, Record<string, Record<string, { month: string; monthLabel: string; actual: number; benchmark: number; actualBillable: number; working: number; expectedBillable: number; expectedTotal: number; actualBillable: number; working: number; expectedBillable: number; expectedTotal: number; actualBillable: number; working: number; expectedBillable: number; expectedTotal: number }[]>>> = {};
     for (const team of teams) {
       peopleByTeamRole[team] = {};
       personMonthByTeamRole[team] = {};
@@ -1408,6 +1417,10 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
               monthLabel: format(m, "MMM yyyy"),
               actual: working > 0 ? (acc.actualBillable / working) * 100 : 0,
               benchmark: acc.expectedTotal > 0 ? (acc.expectedBillable / acc.expectedTotal) * 100 : 0,
+              actualBillable: acc.actualBillable,
+              working,
+              expectedBillable: acc.expectedBillable,
+              expectedTotal: acc.expectedTotal,
             };
           });
         }
@@ -2052,8 +2065,12 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
                 const rows = perPerson[name] || [];
                 const valid = rows.filter(r => r.actual > 0 || r.benchmark > 0);
                 if (valid.length === 0) return { actual: 0, benchmark: 0 };
-                const actual = valid.reduce((s, r) => s + r.actual, 0) / valid.length;
-                const benchmark = valid.reduce((s, r) => s + r.benchmark, 0) / valid.length;
+                const totalWorking = valid.reduce((s, r) => s + r.working, 0);
+                const totalActualBillable = valid.reduce((s, r) => s + r.actualBillable, 0);
+                const totalExpected = valid.reduce((s, r) => s + r.expectedTotal, 0);
+                const totalExpectedBillable = valid.reduce((s, r) => s + r.expectedBillable, 0);
+                const actual = totalWorking > 0 ? (totalActualBillable / totalWorking) * 100 : 0;
+                const benchmark = totalExpected > 0 ? (totalExpectedBillable / totalExpected) * 100 : 0;
                 return { actual, benchmark };
               };
               return (
