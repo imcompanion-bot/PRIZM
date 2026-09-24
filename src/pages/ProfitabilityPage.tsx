@@ -43,6 +43,7 @@ interface ProjectProfit {
   budgetCost: number;
   status: "Live" | "Ended" | "Not Started";
   hasNoScope?: boolean;
+  teAmount?: number;
 }
 
 interface ClientGroup {
@@ -55,6 +56,7 @@ interface ClientGroup {
   scopedHours: number;
   actualHours: number;
   budgetMargin: number;
+  teAmount: number;
 }
 
 // ── Helpers ──
@@ -404,7 +406,7 @@ const ProfitabilityPage = () => {
   });
 
   const { data: utilisationSummary = [] } = useQuery({
-    queryKey: ["profitability_utilisation_summary", appliedStartDate, appliedEndDate],
+    queryKey: ["profitability_utilisation_summary", cutoffDate, endDateStr],
     staleTime: 5 * 60 * 1000,
     enabled: monthlyCosts.length > 0,
     queryFn: async () => {
@@ -413,8 +415,8 @@ const ProfitabilityPage = () => {
       let from = 0;
       while (true) {
         const { data, error } = await supabase.rpc("get_utilisation_summary", {
-          _start_date: appliedStartDate,
-          _end_date: appliedEndDate
+          _start_date: cutoffDate,
+          _end_date: endDateStr
         })
           .order("project_id")
           .order("person_id")
@@ -429,7 +431,7 @@ const ProfitabilityPage = () => {
   });
 
   const { data: personCappedHours = [] } = useQuery({
-    queryKey: ["profitability_person_capped_hours", appliedStartDate, appliedEndDate],
+    queryKey: ["profitability_person_capped_hours", cutoffDate, endDateStr],
     staleTime: 5 * 60 * 1000,
     enabled: monthlyCosts.length > 0,
     queryFn: async () => {
@@ -438,8 +440,8 @@ const ProfitabilityPage = () => {
       let from = 0;
       while (true) {
         const { data, error } = await supabase.rpc("get_person_capped_hours", {
-          _start_date: appliedStartDate,
-          _end_date: appliedEndDate
+          _start_date: cutoffDate,
+          _end_date: endDateStr
         })
           .order("person_id")
           .range(from, from + PAGE_SIZE - 1);
@@ -1017,6 +1019,7 @@ const ProfitabilityPage = () => {
         budgetCost: hasNoScope ? costDisplay : budgetCostEst,
         status,
         hasNoScope,
+        teAmount: 0,
       });
     }
 
@@ -1089,6 +1092,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
           existingProjRow.revenue += data.amount;
           existingProjRow.profit += data.amount;
           existingProjRow.budgetRevenue += data.amount;
+          existingProjRow.teAmount = (existingProjRow.teAmount || 0) + data.amount;
           
           existingProjRow.margin = existingProjRow.revenue > 0 ? (existingProjRow.profit / existingProjRow.revenue) * 100 : (existingProjRow.profit < 0 ? -100 : 0);
           
@@ -1114,6 +1118,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
             budgetCost: 0,
             status: "Ended",
             hasNoScope: true,
+            teAmount: data.amount,
           });
         }
       }
@@ -1134,6 +1139,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
         const budgetMargin = budgetRevenue > 0
           ? (budgetProfit / budgetRevenue) * 100
           : budgetProfit < 0 ? -100 : 0;
+        const teAmount = projects.reduce((s, p) => s + (p.teAmount || 0), 0);
         return {
           client,
           projects: projects.sort((a, b) => b.profit - a.profit),
@@ -1144,6 +1150,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
           scopedHours,
           actualHours,
           budgetMargin,
+          teAmount,
         };
       })
       .filter((g): g is ClientGroup => g !== null);
@@ -1550,8 +1557,8 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
       personCappedHoursMap.set(row.person_id, Number(row.capped_hours));
     }
 
-    const windowStart = parseISO(appliedStartDate);
-    const windowEndRaw = parseISO(appliedEndDate);
+    const windowStart = parseISO(cutoffDate);
+    const windowEndRaw = parseISO(endDateStr);
     const windowEnd = windowEndRaw > today ? today : windowEndRaw;
 
     // First pass: Aggregate Person Completeness by Name
@@ -1688,7 +1695,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
     }
 
     return { projectComp: projectCompFinal, projectCompRaw: projectComp, clientComp, projectPeopleMap };
-  }, [utilisationSummary, allTimeProjectPersonHours, personCappedHours, projectsById, people, clientGroups, parentalLeaveMap, appliedStartDate, appliedEndDate, partTimeConfigs]);
+  }, [utilisationSummary, allTimeProjectPersonHours, personCappedHours, projectsById, people, clientGroups, parentalLeaveMap, cutoffDate, endDateStr, partTimeConfigs]);
 
   // ── Gross-up adjusted data ──
 
@@ -1756,6 +1763,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
         scopedHours,
         actualHours,
         budgetMargin,
+        teAmount: group.teAmount,
       };
     });
 
@@ -1787,7 +1795,8 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
     const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
     const projectCount = displayClientGroups.reduce((s, c) => s + c.projects.length, 0);
     const profitableClients = displayClientGroups.filter(c => c.revenue > 0 && (c.profit / c.revenue) * 100 >= 50).length;
-    return { revenue, cost, profit, margin, projectCount, clientCount: displayClientGroups.length, profitableClients };
+    const teAmount = displayClientGroups.reduce((s, c) => s + (c.teAmount || 0), 0);
+    return { revenue, cost, profit, margin, projectCount, clientCount: displayClientGroups.length, profitableClients, teAmount };
   }, [displayClientGroups]);
 
   // ── Push data to analytics context ──
@@ -2177,7 +2186,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-6 gap-3 mb-6">
         <KpiCard label={includeEfficiencies ? "Agency Fee + TEs" : "Agency Fee"} value={formatCurrency(displayTotals.revenue, displayCurrency)} subtitle={`${displayTotals.projectCount} projects`} />
         <KpiCard label="Internal Cost" value={formatCurrency(displayTotals.cost, displayCurrency)} />
         <KpiCard
@@ -2186,9 +2195,13 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
           isNegative={displayTotals.profit < 0 ? true : false}
         />
         <KpiCard
-          label="Margin"
+          label={includeEfficiencies ? "Margin (incl. TEs)" : "Margin"}
           value={`${Math.round(displayTotals.margin)}%`}
           isNegative={displayTotals.margin < 0 ? true : false}
+        />
+        <KpiCard
+          label="TE % of GP"
+          value={includeEfficiencies ? (displayTotals.revenue > 0 ? `${Math.round((displayTotals.teAmount / displayTotals.revenue) * 100)}%` : "0%") : "N/A"}
         />
         <KpiCard
           label="Clients with 50%+ Margin"
@@ -2199,7 +2212,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <ProfitabilityTrendChart officeFilter={officeFilter} cutoffDate={cutoffDate} endDate={endDateStr} displayCurrency={displayCurrency} statusFilter={statusFilter} includeEfficiencies={includeEfficiencies} grossUpFactors={grossUpFactors} allGrossUpFactors={allGrossUpFactors} filteredProjects={trendFilteredProjects} onTrendData={handleTrendData} />
+        <ProfitabilityTrendChart officeFilter={officeFilter} cutoffDate={cutoffDate} endDate={endDateStr} displayCurrency={displayCurrency} statusFilter={statusFilter} includeEfficiencies={includeEfficiencies} grossUpFactors={grossUpFactors} allGrossUpFactors={allGrossUpFactors} filteredProjects={trendFilteredProjects} isCore={isCore} allocatedClients={allocatedClients} onTrendData={handleTrendData} />
 
         {/* RFP / RFI Cost Card */}
         <Card>

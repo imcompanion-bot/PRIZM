@@ -35,6 +35,8 @@ interface Props {
   grossUpFactors?: Map<string, number>;
   allGrossUpFactors?: Map<string, number>;
   filteredProjects: any[];
+  isCore?: boolean;
+  allocatedClients?: string[];
   onTrendData?: (data: {
     overall: Array<{ month: string; revenue: number; cost: number; profit: number; margin: number }>;
     byProject: ProjectMonthlyEntry[];
@@ -62,7 +64,7 @@ function getWorkingDays(start: Date, end: Date): number {
   return eachDayOfInterval({ start, end }).filter((d) => !isWeekend(d)).length;
 }
 
-const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCurrency, statusFilter, includeEfficiencies, grossUpFactors, allGrossUpFactors, filteredProjects, onTrendData }: Props) => {
+const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCurrency, statusFilter, includeEfficiencies, grossUpFactors, allGrossUpFactors, filteredProjects, isCore, allocatedClients, onTrendData }: Props) => {
   const today = useMemo(() => new Date(), []);
   const todayStr = format(today, "yyyy-MM-dd");
 
@@ -269,7 +271,7 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
 
     for (const project of filtered) {
       const p = project as any;
-      const projectCurrency = p.fee_calc_currency || p.rate_cards?.currency || "GBP";
+      const projectCurrency = p.fee_calc_currency || p.rate_cards?.currency || (p.office === "United States" ? "USD" : "GBP");
       let fxRateGbp: number;
       let fxRateUsd: number;
       if (p.fx_rate_gbp || p.fx_rate_usd) {
@@ -331,7 +333,7 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
       let afMediaCost = p.media_cost ?? getExtraNum(p, "media cost", "cost - paid media budget");
       if (afMediaCost == null) afMediaCost = projAfMediaCost / revenueFxRatio;
       
-      let afGrossBudget = p.gross_budget ?? p.budget_cost ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget");
+      let afGrossBudget = p.gross_budget ?? getExtraNum(p, "gross budget full value (gbp / usd)", "gross budget full value", "gross budget", "cost - net budget");
       if (afGrossBudget == null) afGrossBudget = projAfGrossBudget / revenueFxRatio;
 
       const fullAgencyFee = afPrice !== null ? afPrice - afMediaCost - afGrossBudget : null;
@@ -483,7 +485,7 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
     }
 
     return { months, perProjectMonths };
-  }, [projects, allRateCards, projectPhases, phaseAllocations, monthlyCostMap, officeFilter, cutoffDate, displayCurrency, today, todayStr, statusFilter, fallbackGbpUsdRate, includeEfficiencies]);
+  }, [filteredProjects, allRateCards, projectPhases, phaseAllocations, monthlyCostMap, officeFilter, cutoffDate, displayCurrency, today, todayStr, statusFilter, fallbackGbpUsdRate, includeEfficiencies]);
 
   // Apply gross-up factors + aggregate. Cheap — re-runs instantly on toggle.
   const _computedTrend = useMemo(() => {
@@ -547,6 +549,25 @@ const projectOfficeMap = new Map();
         }
         
         if (!matchesOffice(effOffice, officeFilter)) continue;
+        
+        if (isCore && allocatedClients) {
+          let matchedClient = "Unassigned / Other";
+          const matchedProject = projects.find((p: any) => p.title && p.title.trim().toLowerCase() === cleanName);
+          if (matchedProject) {
+            matchedClient = matchedProject.ultimate_parent || matchedProject.title || matchedClient;
+          } else {
+             const possibleClients = [...allocatedClients].sort((a,b) => b.length - a.length);
+             for (const pc of possibleClients) {
+               if (pc && pc.length > 2 && oppName.toLowerCase().startsWith(pc.toLowerCase())) {
+                  matchedClient = pc;
+                  break;
+               }
+             }
+          }
+          if (!allocatedClients.some(ac => ac.toLowerCase() === matchedClient.toLowerCase())) {
+            continue;
+          }
+        }
         
         const k = eff.month_date;
         if (!overall[k]) continue;
