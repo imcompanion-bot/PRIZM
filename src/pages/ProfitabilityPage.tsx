@@ -32,6 +32,7 @@ interface ProjectProfit {
   title: string;
   office: string | null;
   sfAccount: string | null;
+  parentAccount?: string | null;
   scopedHours: number;
   actualHours: number;
   revenue: number;
@@ -1007,7 +1008,8 @@ const ProfitabilityPage = () => {
         id: p.id,
         title: p.title,
         office: p.office,
-        sfAccount: p.parent_account || p.sf_account || null,
+        parentAccount: p.parent_account || null,
+        sfAccount: p.sf_account || null,
         scopedHours: hasNoScope ? actualHours : totalScoped,
         actualHours,
         revenue: revenueDisplay,
@@ -1734,6 +1736,10 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
         : budgetProfit < 0 ? -100 : 0;
 
       const sortedProjects = [...adjustedProjects].sort((projA, projB) => {
+        const rankA = projA.status === "Live" ? 0 : 1;
+        const rankB = projB.status === "Live" ? 0 : 1;
+        if (rankA !== rankB) return rankA - rankB;
+
         let comp = 0;
         if (sortField === "client") {
           comp = projA.title.localeCompare(projB.title);
@@ -2503,7 +2509,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
                   displayClientGroups.map((group) => {
                     const isExpanded = expandedClients.has(group.client);
                     return (
-                      <>
+                      <Fragment key={group.client}>
                         <TableRow
                           key={group.client}
                           className="cursor-pointer hover:bg-muted/50"
@@ -2779,12 +2785,13 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
                             })
                             .sort((a, b) => b.pft - a.pft)
                             .map(({ acct, projs, rev, cst, pft, mgn }) => {
-                              const isAccountExpanded = expandedAccounts.has(acct);
+                              const accountKey = `${group.client}:::${acct}`;
+                              const isAccountExpanded = expandedAccounts.has(accountKey);
                               return (
-                                <Fragment key={acct}>
+                                <Fragment key={accountKey}>
                                   <TableRow 
                                     className="cursor-pointer hover:bg-muted/50"
-                                    onClick={() => toggleAccount(acct)}
+                                    onClick={() => toggleAccount(accountKey)}
                                   >
                                     <TableCell className="text-sm pl-10 font-medium">
                                       <div className="flex items-center gap-1.5">
@@ -2937,7 +2944,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
                               );
                             });
                         })()}
-                      </>
+                      </Fragment>
                     );
                   })
                 )}
