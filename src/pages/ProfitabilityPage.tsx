@@ -905,23 +905,47 @@ const ProfitabilityPage = () => {
           }
         }
       } else {
-        const totalDays = countWorkingDays(projStart, projEnd);
+        const allWorkingDays = eachDayOfInterval({ start: projStart, end: projEnd }).filter((d: Date) => !isWeekend(d));
+        const totalDays = allWorkingDays.length;
         if (totalDays > 0) {
-          const projMonths = eachMonthOfInterval({ start: startOfMonth(projStart), end: startOfMonth(projEnd) });
-          for (const m of projMonths) {
-            const mEnd = endOfMonth(m);
-            const overlapStart = m < projStart ? projStart : m;
-            const overlapEnd = mEnd > projEnd ? projEnd : mEnd;
-            const overlapDays = countWorkingDays(overlapStart, overlapEnd);
-            const monthKey = format(m, "yyyy-MM-01");
-            if (targetMonths.includes(monthKey)) {
-              revenue += fullRevenue * (overlapDays / totalDays);
-              for (const sc of p.project_scopes || []) {
-                const h = (sc.scoped_hours || 0) * (overlapDays / totalDays);
-                effectiveScopedHoursByScopeId[sc.id] = (effectiveScopedHoursByScopeId[sc.id] || 0) + h;
-                totalScoped += h;
+          if (totalDays < 4) {
+            const dailyRev = fullRevenue / totalDays;
+            allWorkingDays.forEach((d: Date) => {
+              const monthKey = format(d, "yyyy-MM-01");
+              if (targetMonths.includes(monthKey)) {
+                revenue += dailyRev;
+                for (const sc of p.project_scopes || []) {
+                  const dailyH = (sc.scoped_hours || 0) / totalDays;
+                  effectiveScopedHoursByScopeId[sc.id] = (effectiveScopedHoursByScopeId[sc.id] || 0) + dailyH;
+                  totalScoped += dailyH;
+                }
               }
-            }
+            });
+          } else {
+            const q1End = Math.floor(totalDays * 0.25);
+            const q2End = Math.floor(totalDays * 0.50);
+            const q3End = Math.floor(totalDays * 0.75);
+
+            allWorkingDays.forEach((d: Date, i: number) => {
+              let weight = 0;
+              let qDays = 1;
+              if (i < q1End) { weight = 0.30; qDays = q1End; }
+              else if (i < q2End) { weight = 0.30; qDays = q2End - q1End; }
+              else if (i < q3End) { weight = 0.20; qDays = q3End - q2End; }
+              else { weight = 0.20; qDays = totalDays - q3End; }
+              
+              const dailyRev = (fullRevenue * weight) / qDays;
+
+              const monthKey = format(d, "yyyy-MM-01");
+              if (targetMonths.includes(monthKey)) {
+                revenue += dailyRev;
+                for (const sc of p.project_scopes || []) {
+                  const dailyH = ((sc.scoped_hours || 0) * weight) / qDays;
+                  effectiveScopedHoursByScopeId[sc.id] = (effectiveScopedHoursByScopeId[sc.id] || 0) + dailyH;
+                  totalScoped += dailyH;
+                }
+              }
+            });
           }
         }
       }
@@ -2695,7 +2719,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
                                   proj.status === "Ended" ? "border-muted-foreground text-muted-foreground" :
                                   "border-amber-500 text-amber-500"
                                 )}>
-                                  {proj.status === "Live" ? "Live — Agency Fees are Pro Rata" : proj.status}
+                                  {proj.status === "Live" ? (proj.hasNoScope ? "Live — Agency Fees are 30/30/20/20" : "Live") : proj.status}
                                 </Badge>
                               </div>
                             </TableCell>
@@ -2867,7 +2891,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
                                             proj.status === "Ended" ? "border-muted-foreground text-muted-foreground" :
                                             "border-amber-500 text-amber-500"
                                           )}>
-                                            {proj.status === "Live" ? "Live — Agency Fees are Pro Rata" : proj.status}
+                                            {proj.status === "Live" ? (proj.hasNoScope ? "Live — Agency Fees are 30/30/20/20" : "Live") : proj.status}
                                           </Badge>
                                         </div>
                                       </TableCell>

@@ -393,16 +393,30 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
           }
         }
       } else {
-        const totalDays = getWorkingDays(projStart, projEnd);
+        const allWorkingDays = eachDayOfInterval({ start: projStart, end: projEnd }).filter((d: Date) => !isWeekend(d));
+        const totalDays = allWorkingDays.length;
         if (totalDays > 0) {
-          const projMonths = eachMonthOfInterval({ start: startOfMonth(projStart), end: startOfMonth(projEnd) });
-          for (const m of projMonths) {
-            const mEnd = endOfMonth(m);
-            const overlapStart = m < projStart ? projStart : m;
-            const overlapEnd = mEnd > projEnd ? projEnd : mEnd;
-            const overlapDays = getWorkingDays(overlapStart, overlapEnd);
-            const monthKey = format(m, "yyyy-MM-01");
-            monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + agencyFee * (overlapDays / totalDays);
+          if (totalDays < 4) {
+            const dailyRev = agencyFee / totalDays;
+            allWorkingDays.forEach((d: Date) => {
+              const monthKey = format(d, "yyyy-MM-01");
+              monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + dailyRev;
+            });
+          } else {
+            const q1End = Math.floor(totalDays * 0.25);
+            const q2End = Math.floor(totalDays * 0.50);
+            const q3End = Math.floor(totalDays * 0.75);
+
+            allWorkingDays.forEach((d: Date, i: number) => {
+              let dailyRev = 0;
+              if (i < q1End) dailyRev = (agencyFee * 0.30) / q1End;
+              else if (i < q2End) dailyRev = (agencyFee * 0.30) / (q2End - q1End);
+              else if (i < q3End) dailyRev = (agencyFee * 0.20) / (q3End - q2End);
+              else dailyRev = (agencyFee * 0.20) / (totalDays - q3End);
+              
+              const monthKey = format(d, "yyyy-MM-01");
+              monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + dailyRev;
+            });
           }
         }
       }
