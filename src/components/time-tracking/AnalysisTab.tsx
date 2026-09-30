@@ -849,7 +849,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       if (effectiveStart > effectiveEnd) continue;
 
       const normName = person.name.trim().toLowerCase();
-      const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : null;
+      const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : (person.employment_end_date ? new Date(person.employment_end_date) : null);
       const thisEnded = overallEnd ? overallEnd < new Date() : false;
       const dedupKey = `${normName}::${roleName}`;
       const existing = deduped.get(dedupKey);
@@ -968,7 +968,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       const normName = person.name.trim().toLowerCase();
       const dedupKey = `${normName}::${team}`;
       const existing = deduped.get(dedupKey);
-      const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : null;
+      const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : (person.employment_end_date ? new Date(person.employment_end_date) : null);
       const thisEnded = overallEnd ? overallEnd < new Date() : false;
       const leaveIntervals = parentalLeaveMap.get(normName);
 
@@ -1251,7 +1251,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
         const normName = person.name.trim().toLowerCase();
         const dedupKey = `${normName}::${person.team || "Unassigned"}`;
         const leaveIntervals = parentalLeaveMap.get(normName);
-        const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : null;
+        const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : (person.employment_end_date ? new Date(person.employment_end_date) : null);
         const thisEnded = overallEnd ? overallEnd < new Date() : false;
 
         const existing = deduped.get(dedupKey);
@@ -1580,7 +1580,7 @@ const AnalysisTab = ({ startDate, endDate, officeFilter, showFormer }: AnalysisT
       const billableCapacityHrs = role?.billable_capacity_hours != null ? getDailyCapacity(role.billable_capacity_hours) : 7.5;
       const normName = person.name.trim().toLowerCase();
       const leaveIntervals = parentalLeaveMap.get(normName);
-      const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : null;
+      const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : (person.employment_end_date ? new Date(person.employment_end_date) : null);
       const thisEnded = overallEnd ? overallEnd < new Date() : false;
 
       const existing = deduped.get(normName);

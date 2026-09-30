@@ -431,18 +431,31 @@ async function runSync() {
             if (!sheetPersonIds.has(p.id)) {
                 const normName = p.name.toLowerCase().trim();
                 const targetCurrentId = nameToCurrentId.get(normName);
-                if (targetCurrentId) {
-                    logger.info(`Checking and relinking any time entries from stale ID ${p.id} to new ID ${targetCurrentId}`);
-                    const { error: relinkErr } = await supabase
-                        .from("time_entries")
-                        .update({ person_id: targetCurrentId })
-                        .eq("person_id", p.id);
-                    if (relinkErr) {
-                        logger.error(`Error bulk relinking time entries for ${p.id}:`, relinkErr);
+                if (targetCurrentId && targetCurrentId !== p.id) {
+                    logger.info(`Checking and relinking all related records from stale ID ${p.id} to new ID ${targetCurrentId}`);
+                    const tablesToRelink = [
+                        "time_entries",
+                        "allocations",
+                        "allocations_v2",
+                        "resource_allocations",
+                        "part_time_configs",
+                        "client_team_allocations"
+                    ];
+                    for (const table of tablesToRelink) {
+                        const { error: relinkErr } = await supabase
+                            .from(table)
+                            .update({ person_id: targetCurrentId })
+                            .eq("person_id", p.id);
+                        if (relinkErr) {
+                            logger.error(`Error bulk relinking ${table} for ${p.id}:`, relinkErr);
+                        }
                     }
-                    await supabase.from("people").delete().eq("id", p.id);
+                    const { error: delErr } = await supabase.from("people").delete().eq("id", p.id);
+                    if (delErr) {
+                        logger.error(`Failed to delete stale person record ${p.id}:`, delErr);
+                    }
                 }
-                else {
+                else if (!targetCurrentId) {
                     deactivationsMap.set(p.id, {
                         id: p.id,
                         name: p.name,

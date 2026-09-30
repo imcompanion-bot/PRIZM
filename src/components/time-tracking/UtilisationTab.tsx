@@ -383,7 +383,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
         }
         
         // Use overall_end_date to determine "former" status
-        const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : null;
+        const overallEnd = person.overall_end_date ? new Date(person.overall_end_date) : (person.employment_end_date ? new Date(person.employment_end_date) : null);
         const thisEnded = overallEnd ? overallEnd < new Date() : false;
         if (!thisEnded) existing.hasEnded = false;
         
@@ -417,7 +417,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
           personWorkingDays += (daysPerWeek / 5.0);
         }
 
-        const overallEnd2 = person.overall_end_date ? new Date(person.overall_end_date) : null;
+        const overallEnd2 = person.overall_end_date ? new Date(person.overall_end_date) : (person.employment_end_date ? new Date(person.employment_end_date) : null);
         const hasEnded = overallEnd2 ? overallEnd2 < new Date() : false;
         // Calculate total hours across all siblings from the aggregated RPC data
         let personActual = 0, personBillable = 0, personLeave = 0;
@@ -681,7 +681,7 @@ const UtilisationTab = ({ startDate, endDate, officeFilter, showFormer }: Utilis
   const reminderPeople = useMemo(() => {
     const out: Array<{ id: string; name: string; email?: string; completeness: number; actualHours: number; expectedHours: number }> = [];
     for (const p of personSummaries.values()) {
-      if (!showFormer && p.hasEnded) continue;
+      if (p.hasEnded) continue;
       const completeness = p.accurateCompleteness;
       out.push({ id: p.id, name: p.name, email: p.email || undefined, completeness, actualHours: p.actualHours, expectedHours: p.expectedTotalHours });
     }
