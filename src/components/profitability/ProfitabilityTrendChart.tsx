@@ -32,8 +32,8 @@ interface Props {
   displayCurrency: string;
   statusFilter: "all" | "ended";
   includeEfficiencies: boolean;
-  grossUpFactors?: Map<string, number>;
-  allGrossUpFactors?: Map<string, number>;
+  grossUpFactors?: Map<string, Map<string, number>>;
+  allGrossUpFactors?: Map<string, Map<string, number>>;
   filteredProjects: any[];
   isCore?: boolean;
   allocatedClients?: string[];
@@ -517,7 +517,8 @@ const ProfitabilityTrendChart = ({ officeFilter, cutoffDate, endDate, displayCur
     for (const e of perProjectMonths) {
       let costDisplay = e.baseCostDisplay;
       if (costDisplay) {
-        const factor = grossUpFactors?.get(e.id);
+        const factorMap = grossUpFactors?.get(e.id);
+        const factor = factorMap?.get(e.monthKey);
         if (factor && factor > 1) costDisplay *= factor;
       }
       const profit = e.revDisplay - costDisplay;
@@ -652,7 +653,7 @@ const projectOfficeMap = new Map();
     if (!allGrossUpFactors?.size) return overallData;
     // If current grossUpFactors equals allGrossUpFactors, compute without (empty factors)
     const isCurrentlyGrossedUp = grossUpFactors?.size === allGrossUpFactors.size;
-    const altFactors = isCurrentlyGrossedUp ? new Map<string, number>() : allGrossUpFactors;
+    const altFactors = isCurrentlyGrossedUp ? new Map<string, Map<string, number>>() : allGrossUpFactors;
 
     const { months, perProjectMonths } = _baseTrend;
     type Bucket = { revenue: number; cost: number; profit: number; efficiencies: number; teContributors: { name: string; amount: number }[] };
@@ -666,7 +667,8 @@ const projectOfficeMap = new Map();
     for (const e of perProjectMonths) {
       let costDisplay = e.baseCostDisplay;
       if (costDisplay) {
-        const factor = altFactors.get(e.id);
+        const factorMap = altFactors?.get(e.id);
+        const factor = factorMap?.get(e.monthKey);
         if (factor && factor > 1) costDisplay *= factor;
       }
       const profit = e.revDisplay - costDisplay;

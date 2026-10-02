@@ -431,6 +431,32 @@ const ProfitabilityPage = () => {
     },
   });
 
+  const { data: utilisationSummaryMonthly = [] } = useQuery({
+    queryKey: ["profitability_utilisation_summary_monthly", cutoffDate, endDateStr],
+    staleTime: 5 * 60 * 1000,
+    enabled: monthlyCosts.length > 0,
+    queryFn: async () => {
+      const PAGE_SIZE = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase.rpc("get_utilisation_summary_monthly", {
+          _start_date: cutoffDate,
+          _end_date: endDateStr
+        })
+          .order("month_date")
+          .order("person_id")
+          .order("project_id")
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        if (!data || data.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+      return allData as { person_id: string; project_id: string | null; month_date: string; total_hours: number; leave_hours: number }[];
+    }
+  });
+
   const { data: personCappedHours = [] } = useQuery({
     queryKey: ["profitability_person_capped_hours", cutoffDate, endDateStr],
     staleTime: 5 * 60 * 1000,
@@ -1760,27 +1786,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
         : budgetProfit < 0 ? -100 : 0;
 
       const sortedProjects = [...adjustedProjects].sort((projA, projB) => {
-        const rankA = projA.status === "Live" ? 0 : 1;
-        const rankB = projB.status === "Live" ? 0 : 1;
-        if (rankA !== rankB) return rankA - rankB;
-
-        let comp = 0;
-        if (sortField === "client") {
-          comp = projA.title.localeCompare(projB.title);
-        } else if (sortField === "revenue") {
-          comp = projA.revenue - projB.revenue;
-        } else if (sortField === "cost") {
-          comp = projA.cost - projB.cost;
-        } else if (sortField === "profit") {
-          comp = projA.profit - projB.profit;
-        } else if (sortField === "margin") {
-          comp = projA.margin - projB.margin;
-        } else if (sortField === "timesheets") {
-          const compA = completenessData.projectComp.get(projA.id) ?? 0;
-          const compB = completenessData.projectComp.get(projB.id) ?? 0;
-          comp = compA - compB;
-        }
-        return sortOrder === "asc" ? comp : -comp;
+        return projB.profit - projA.profit;
       });
 
       return {
@@ -1926,19 +1932,109 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
     return result;
   }, [grossUp, roleBurnByClient, clientGroups, completenessData, hoursByProjectRole, roleNameMap]);
 
-  // ── Per-project gross-up factors (always computed for Y-axis domain) ──
+  // ── Per-project monthly gross-up factors (always computed for Y-axis domain) ──
   const allGrossUpFactors = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const [projId, comp] of completenessData.projectComp) {
-      if (comp > 0 && comp < 99.5) {
-        map.set(projId, 100 / comp);
+    const map = new Map<string, Map<string, number>>();
+
+    const getExpectedHours = (personId: string, monthKey: string) => {
+      const person = people.find(p => p.id === personId);
+      if (!person) return 0;
+      
+      const monthStart = new Date(monthKey);
+      const monthEnd = endOfMonth(monthStart);
+      
+      const empStart = person.employment_start_date ? new Date(person.employment_start_date)
+        : person.overall_start_date ? new Date(person.overall_start_date) : null;
+      const empEnd = person.employment_end_date ? new Date(person.employment_end_date)
+        : person.overall_end_date ? new Date(person.overall_end_date) : null;
+
+      if (empStart && empStart > monthEnd) return 0;
+      if (empEnd && empEnd < monthStart) return 0;
+
+      const effectiveStart = empStart && empStart > monthStart ? empStart : monthStart;
+      const effectiveEnd = empEnd && empEnd < monthEnd ? empEnd : monthEnd;
+      if (effectiveStart > effectiveEnd) return 0;
+      
+      const normName = (person.name || "").trim().toLowerCase();
+      const leaveIntervals = parentalLeaveMap.get(normName);
+      
+      let workingDays = 0;
+      const ptConfigs = partTimeConfigs
+        .filter(c => c.person_id === person.id)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        
+      const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
+      for (const d of days) {
+        if (isWeekend(d)) continue;
+        if (isOnParentalLeave(d, leaveIntervals)) continue;
+        
+        let daysPerWeek = 5;
+        const activeConfig = ptConfigs.find(c => {
+          const start = c.start_date ? new Date(c.start_date) : null;
+          const end = c.end_date ? new Date(c.end_date) : null;
+          return (!start || d >= start) && (!end || d <= end);
+        });
+        if (activeConfig && activeConfig.days_per_week) {
+          daysPerWeek = activeConfig.days_per_week;
+        }
+        workingDays += (daysPerWeek / 5.0);
+      }
+      return workingDays * 8; // 8 hours per day
+    };
+
+    const personMonthComp = new Map<string, Map<string, number>>();
+    const personMonthTotal = new Map<string, Map<string, number>>();
+    
+    for (const row of utilisationSummaryMonthly) {
+      if (!personMonthTotal.has(row.person_id)) personMonthTotal.set(row.person_id, new Map());
+      const current = personMonthTotal.get(row.person_id)!.get(row.month_date) || 0;
+      personMonthTotal.get(row.person_id)!.set(row.month_date, current + (row.total_hours || 0));
+    }
+    
+    for (const [personId, months] of personMonthTotal) {
+      if (!personMonthComp.has(personId)) personMonthComp.set(personId, new Map());
+      for (const [monthKey, total] of months) {
+        const expected = getExpectedHours(personId, monthKey);
+        if (expected > 0) {
+          personMonthComp.get(personId)!.set(monthKey, Math.min((total / expected) * 100, 100));
+        }
       }
     }
+
+    const projMonthComps = new Map<string, Map<string, { sum: number, count: number }>>();
+    for (const row of utilisationSummaryMonthly) {
+      if (row.project_id !== null && row.total_hours > 0) {
+        const comp = personMonthComp.get(row.person_id)?.get(row.month_date);
+        if (comp !== undefined) {
+          if (!projMonthComps.has(row.project_id)) projMonthComps.set(row.project_id, new Map());
+          if (!projMonthComps.get(row.project_id)!.has(row.month_date)) {
+            projMonthComps.get(row.project_id)!.set(row.month_date, { sum: 0, count: 0 });
+          }
+          const mData = projMonthComps.get(row.project_id)!.get(row.month_date)!;
+          mData.sum += comp;
+          mData.count++;
+        }
+      }
+    }
+
+    for (const [projId, months] of projMonthComps) {
+      const pMap = new Map<string, number>();
+      for (const [monthKey, data] of months) {
+        if (data.count > 0) {
+          const comp = data.sum / data.count;
+          if (comp > 0 && comp < 99.5) {
+            pMap.set(monthKey, Math.min(100 / comp, 3));
+          }
+        }
+      }
+      if (pMap.size > 0) map.set(projId, pMap);
+    }
+    
     return map;
-  }, [completenessData]);
+  }, [utilisationSummaryMonthly, people, partTimeConfigs, parentalLeaveMap]);
 
   // Active gross-up factors (only applied when toggle is on)
-  const EMPTY_MAP = useMemo(() => new Map<string, number>(), []);
+  const EMPTY_MAP = useMemo(() => new Map<string, Map<string, number>>(), []);
   const grossUpFactors = useMemo(() => {
     if (!grossUp) return EMPTY_MAP;
     return allGrossUpFactors;
@@ -2223,11 +2319,27 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
           label="Profit"
           value={formatCurrency(displayTotals.profit, displayCurrency)}
           isNegative={displayTotals.profit < 0 ? true : false}
+          subtitle={
+            includeEfficiencies && displayTotals.teAmount > 0
+              ? `TEs: ${displayCurrency === "GBP" ? "£" : "$"}${(displayTotals.teAmount / 1000000).toFixed(1)}m / ${displayTotals.profit > 0 ? Math.round((displayTotals.teAmount / displayTotals.profit) * 100) : 0}% of profit`
+              : undefined
+          }
         />
         <KpiCard
           label={includeEfficiencies ? "Margin (incl. TEs)" : "Margin"}
           value={`${Math.round(displayTotals.margin)}%`}
           isNegative={displayTotals.margin < 0 ? true : false}
+          subtitle={
+            includeEfficiencies && displayTotals.teAmount > 0
+              ? (() => {
+                  const revWithoutTE = displayTotals.revenue - displayTotals.teAmount;
+                  const profitWithoutTE = displayTotals.profit - displayTotals.teAmount;
+                  const marginWithoutTE = revWithoutTE > 0 ? (profitWithoutTE / revWithoutTE) * 100 : 0;
+                  const diff = displayTotals.margin - marginWithoutTE;
+                  return `TEs: +${Math.round(diff)}% pp`;
+                })()
+              : undefined
+          }
         />
         <KpiCard
           label="TE % of GP"
@@ -2553,11 +2665,27 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
                               {group.profit >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                               {formatCurrency(group.profit, displayCurrency)}
                             </div>
+                            {includeEfficiencies && (group.teAmount || 0) > 0 && (
+                              <div className="text-[10px] text-muted-foreground font-normal mt-0.5">
+                                TEs: {displayCurrency === "GBP" ? "£" : "$"}{Math.round(group.teAmount / 1000).toLocaleString()}k
+                                {group.profit > 0 ? ` / ${Math.round((group.teAmount / group.profit) * 100)}% of profit` : ""}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="text-right text-sm font-medium">
                             <span className={cn("px-2 py-0.5 rounded text-xs font-semibold", getMarginColor(group.margin))}>
                               {Math.round(group.margin)}%
                             </span>
+                            {includeEfficiencies && (group.teAmount || 0) > 0 && (() => {
+                              const revWithout = group.revenue - group.teAmount;
+                              const profitWithout = group.profit - group.teAmount;
+                              const marginWithout = revWithout > 0 ? Math.round((profitWithout / revWithout) * 100) : 0;
+                              return (
+                                <div className="text-[10px] text-muted-foreground font-normal mt-0.5">
+                                  Excl. TEs: {marginWithout}%
+                                </div>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell className="text-sm">
                             {(() => {

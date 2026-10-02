@@ -74,7 +74,11 @@ const TrendCharts = ({ startDate, endDate, officeFilter, showFormer }: TrendChar
         const { data, error } = await supabase.rpc("get_utilisation_summary_monthly", {
           _start_date: format(startDate, "yyyy-MM-dd"),
           _end_date: format(endDate, "yyyy-MM-dd"),
-        }).range(from, from + PAGE_SIZE - 1);
+        })
+          .order("month_date")
+          .order("person_id")
+          .order("project_id")
+          .range(from, from + PAGE_SIZE - 1);
         if (error) throw error;
         allData = allData.concat(data || []);
         if (!data || data.length < PAGE_SIZE) break;
