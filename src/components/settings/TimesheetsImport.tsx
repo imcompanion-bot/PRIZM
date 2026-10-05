@@ -190,11 +190,119 @@ const recordImport = async (dataset: string, rowCount: number, queryClient: any)
 
 const cleanStr = (value: string) => (value || "").replace(/^["']+|["']+$/g, "").trim();
 
-export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
-  const queryClient = useQueryClient();
+
+const ImportDropzone = ({
+  type,
+  title,
+  description,
+  acceptText,
+  isPending,
+  importProgress,
+  onProcess
+}: {
+  type: string;
+  title: string;
+  description: string;
+  acceptText: string;
+  isPending: boolean;
+  importProgress: ImportProgress | null;
+  onProcess: (lines: string[][]) => Promise<void>;
+}) => {
   const [isDragging, setIsDragging] = useState(false);
   const [parsing, setParsing] = useState(false);
-  const [overrideExisting, setOverrideExisting] = useState(() => {
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  }, []);
+
+  const handleFileUpload = (file: File) => {
+    if (!file.name.endsWith('.csv')) {
+      toast.error("Please upload a valid CSV file");
+      return;
+    }
+
+    setParsing(true);
+    Papa.parse<string[]>(file, {
+      header: false,
+      skipEmptyLines: true,
+      complete: (results) => {
+        onProcess(results.data).finally(() => setParsing(false));
+      },
+      error: (error) => {
+        console.error("CSV Parse Error:", error);
+        toast.error(`Error reading CSV: ${error.message}`);
+        setParsing(false);
+      }
+    });
+  };
+  
+  return (
+    <div 
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`
+        relative border-2 border-dashed rounded-xl p-8 transition-colors flex flex-col items-center justify-center gap-4 text-center cursor-pointer
+        ${isDragging ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-muted/50'}
+        ${(parsing || isPending) ? 'opacity-50 pointer-events-none' : ''}
+      `}
+      onClick={() => {
+        const el = document.getElementById(`csv-upload-input-${type}`);
+        if (el) el.click();
+      }}
+    >
+      <input 
+        type="file" 
+        id={`csv-upload-input-${type}`}
+        accept=".csv" 
+        className="hidden" 
+        onChange={(e) => {
+          if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
+          e.target.value = '';
+        }}
+      />
+      
+      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+        {parsing || isPending ? (
+          <Loader2 className="h-6 w-6 text-primary animate-spin" />
+        ) : (
+          <FileSpreadsheet className="h-6 w-6 text-primary" />
+        )}
+      </div>
+      
+      <div>
+        <p className="text-sm font-medium">
+          {parsing ? "Parsing CSV..." : 
+           importProgress ? `Importing Timesheets (${importProgress.current.toLocaleString()} / ${importProgress.total.toLocaleString()})...` : 
+           isPending ? "Importing Timesheets..." : acceptText}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
+  const queryClient = useQueryClient();
+    const [overrideExisting, setOverrideExisting] = useState(() => {
     const stored = localStorage.getItem("prism_import_override");
     return stored ? JSON.parse(stored) : true;
   });
@@ -239,22 +347,83 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
   }, []);
 
   const importEntries = useMutation({
-    mutationFn: async ({ entries, fromDate, toDate }: { entries: any[]; fromDate: string | null; toDate: string | null }) => {
+    mutationFn: async ({ entries, fromDate, toDate, importType }: { entries: any[]; fromDate: string | null; toDate: string | null; importType: 'harvest' | 'float' }) => {
       updateGlobalImportState(true, { current: 0, total: entries.length });
       await saveImportQueue(entries, fromDate, toDate, 0);
 
       try {
         if (overrideExisting) {
-          if (fromDate && toDate) {
-            const { error } = await supabase.from('time_entries').delete().gte('date', fromDate).lte('date', toDate);
-            if (error) throw error;
-          } else if (fromDate) {
-            const { error } = await supabase.from('time_entries').delete().gte('date', fromDate);
-            if (error) throw error;
+          const uniquePersonIds = [...new Set(entries.map(e => e.person_id).filter(Boolean))];
+          const uniqueFallbackNames = [...new Set(entries.filter(e => !e.person_id && e.fallback_person_name).map(e => e.fallback_person_name))];
+          
+          let uniqueOffices: string[] = [];
+          if (uniquePersonIds.length > 0) {
+            const peopleInCsv: any[] = [];
+            for (let i = 0; i < uniquePersonIds.length; i += 500) {
+              const chunk = uniquePersonIds.slice(i, i + 500);
+              const { data } = await supabase.from('people').select('office').in('id', chunk);
+              if (data) peopleInCsv.push(...data);
+            }
+            uniqueOffices = [...new Set(peopleInCsv.map(p => p.office).filter(Boolean))];
+          }
+
+          const doBlanketDelete = async () => {
+            if (fromDate && toDate) {
+              const { error } = await supabase.from('time_entries').delete().gte('date', fromDate).lte('date', toDate);
+              if (error) throw error;
+            } else if (fromDate) {
+              const { error } = await supabase.from('time_entries').delete().gte('date', fromDate);
+              if (error) throw error;
+            } else {
+              const { error } = await supabase.from('time_entries').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+              if (error) throw error;
+            }
+          };
+
+          if (uniqueOffices.length === 0 && uniqueFallbackNames.length === 0) {
+            await doBlanketDelete();
+          } else if (uniqueOffices.length === 0 && uniqueFallbackNames.length > 0) {
+            const baseQuery = () => {
+              let q = supabase.from('time_entries').delete().is('person_id', null);
+              if (fromDate && toDate) return q.gte('date', fromDate).lte('date', toDate);
+              if (fromDate) return q.gte('date', fromDate);
+              return q;
+            };
+            for (let i = 0; i < uniqueFallbackNames.length; i += 500) {
+              const chunk = uniqueFallbackNames.slice(i, i + 500);
+              const { error } = await baseQuery().in('person_name', chunk);
+              if (error) throw error;
+            }
           } else {
-            // Instead of deleting all one by one, use a raw SQL RPC or a not.is.null filter to delete all
-            const { error } = await supabase.from('time_entries').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-            if (error) throw error;
+            const { data: allPeopleInOffices } = await supabase.from('people').select('id').in('office', uniqueOffices);
+            const allPeopleIdsToDelete = (allPeopleInOffices || []).map((p: any) => p.id);
+
+            const baseQuery = () => {
+              let q = supabase.from('time_entries').delete();
+              if (fromDate && toDate) return q.gte('date', fromDate).lte('date', toDate);
+              if (fromDate) return q.gte('date', fromDate);
+              return q;
+            };
+
+            for (let i = 0; i < allPeopleIdsToDelete.length; i += 500) {
+              const chunk = allPeopleIdsToDelete.slice(i, i + 500);
+              const { error } = await baseQuery().in('person_id', chunk);
+              if (error) throw error;
+            }
+
+            if (uniqueFallbackNames.length > 0) {
+              const baseQueryFallback = () => {
+                let q = supabase.from('time_entries').delete().is('person_id', null);
+                if (fromDate && toDate) return q.gte('date', fromDate).lte('date', toDate);
+                if (fromDate) return q.gte('date', fromDate);
+                return q;
+              };
+              for (let i = 0; i < uniqueFallbackNames.length; i += 500) {
+                const chunk = uniqueFallbackNames.slice(i, i + 500);
+                const { error } = await baseQueryFallback().in('person_name', chunk);
+                if (error) throw error;
+              }
+            }
           }
         }
 
@@ -311,7 +480,7 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
     }
   });
 
-  const processCsvData = async (lines: string[][]) => {
+  const processCsvData = async (lines: string[][], type: 'harvest' | 'float') => {
     if (lines.length < 2) { toast.error("No valid data found in CSV"); return; }
     
     const headers = lines[0].map((h) => (h || "").trim().toLowerCase());
@@ -323,11 +492,14 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
       return -1;
     };
 
-    const col = {
+    const col = type === 'harvest' ? {
       date: findCol("date"),
       hours: findCol("hours"),
       notes: findCol("notes"),
       task: findCol("task"),
+      phase: -1,
+      logged_billable: -1,
+      logged_non_billable: -1,
       project_name: findCol("project_name", "project name", "project"),
       project_code: findCol("project_code", "project code", "code"),
       person_name: findCol("person_name", "person name", "name"),
@@ -337,11 +509,36 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
       role: findCol("role"),
       project_title: findCol("project_title", "project title"),
       opportunity_number: findCol("opportunity_number", "opportunity number", "opp")
+    } : {
+      date: findCol("date"),
+      hours: -1,
+      notes: findCol("notes"),
+      task: findCol("task"),
+      phase: findCol("phase"),
+      logged_billable: findCol("logged billable hours"),
+      logged_non_billable: findCol("logged non-billable hours"),
+      project_name: findCol("project"),
+      project_code: findCol("project code"),
+      person_name: findCol("person"),
+      first_name: -1,
+      last_name: -1,
+      office: -1,
+      role: findCol("role"),
+      project_title: -1,
+      opportunity_number: -1
     };
 
     const hasPersonName = col.person_name !== -1 || (col.first_name !== -1 && col.last_name !== -1);
-    if (col.date === -1 || col.hours === -1 || !hasPersonName) {
-      toast.error("Missing required columns: date, hours, person_name (or first_name & last_name)");
+    if (col.date === -1 || (!hasPersonName)) {
+      toast.error("Missing required columns: date, person name");
+      return;
+    }
+    if (type === 'harvest' && col.hours === -1) {
+      toast.error("Missing required column: hours");
+      return;
+    }
+    if (type === 'float' && col.logged_billable === -1 && col.logged_non_billable === -1) {
+      toast.error("Missing required columns: logged billable hours or logged non-billable hours");
       return;
     }
 
@@ -419,7 +616,14 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
         latestDate = parsedDate;
       }
 
-      const hVal = parseFloat(cells[col.hours]?.replace(/[^\d.-]/g, ''));
+      let hVal = 0;
+      if (type === 'harvest') {
+        hVal = parseFloat(cells[col.hours]?.replace(/[^\d.-]/g, ''));
+      } else {
+        const b = parseFloat(cells[col.logged_billable]?.replace(/[^\d.-]/g, '')) || 0;
+        const nb = parseFloat(cells[col.logged_non_billable]?.replace(/[^\d.-]/g, '')) || 0;
+        hVal = b + nb;
+      }
       if (isNaN(hVal) || hVal <= 0) continue;
 
       let fullName = "";
@@ -462,16 +666,29 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
       let isBillable = true;
       const rawNotes = col.notes !== -1 ? cleanStr(cells[col.notes] || "") : "";
       const rawTask = col.task !== -1 ? cleanStr(cells[col.task] || "") : "";
+      const rawPhase = col.phase !== -1 ? cleanStr(cells[col.phase] || "") : "";
 
       let notes = "";
-      if (rawTask && rawNotes) {
-        notes = `${rawTask}: ${rawNotes}`;
-      } else if (rawTask) {
-        notes = rawTask;
-      } else if (rawNotes) {
-        notes = rawNotes;
+      if (type === 'float') {
+        const parts = [];
+        if (rawPhase) parts.push(`[${rawPhase}]`);
+        if (rawTask) parts.push(rawTask);
+        let prefix = parts.join(" ");
+        if (prefix && rawNotes) {
+          notes = `${prefix}: ${rawNotes}`;
+        } else if (prefix) {
+          notes = prefix;
+        } else {
+          notes = rawNotes;
+        }
       } else {
-        notes = "";
+        if (rawTask && rawNotes) {
+          notes = `${rawTask}: ${rawNotes}`;
+        } else if (rawTask) {
+          notes = rawTask;
+        } else if (rawNotes) {
+          notes = rawNotes;
+        }
       }
 
       if (notes && (notes.toLowerCase().includes("leave") || notes.toLowerCase().includes("holiday") || notes.toLowerCase().includes("closed"))) {
@@ -506,57 +723,16 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
     
     // Use the exact date range found in the file as the overwrite window
     updateGlobalImportState(true, { current: 0, total: entries.length });
-    importEntries.mutate({ entries, fromDate: earliestDate, toDate: latestDate });
+    importEntries.mutate({ entries, fromDate: earliestDate, toDate: latestDate, importType: type });
   };
-
-  const handleFileUpload = (file: File) => {
-    if (!file.name.endsWith('.csv')) {
-      toast.error("Please upload a valid CSV file");
-      return;
-    }
-
-    setParsing(true);
-    Papa.parse<string[]>(file, {
-      header: false,
-      skipEmptyLines: true,
-      complete: (results) => {
-        processCsvData(results.data).finally(() => setParsing(false));
-      },
-      error: (error) => {
-        console.error("CSV Parse Error:", error);
-        toast.error(`Error reading CSV: ${error.message}`);
-        setParsing(false);
-      }
-    });
-  };
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      handleFileUpload(files[0]);
-    }
-  }, []);
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className="text-lg font-display">Harvest Timesheet Import</CardTitle>
-            <CardDescription>Drag and drop a Harvest CSV export to synchronize timesheets.</CardDescription>
+            <CardTitle className="text-lg font-display">Timesheets Import</CardTitle>
+            <CardDescription>Drag and drop a Harvest or Float CSV export to synchronize timesheets.</CardDescription>
           </div>
           {lastImported && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2.5 py-1.5 rounded-md shrink-0">
@@ -629,50 +805,25 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
           </span>
         </div>
 
-        {/* Drag and Drop Zone */}
-        <div 
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`
-            relative border-2 border-dashed rounded-xl p-10 transition-colors flex flex-col items-center justify-center gap-4 text-center cursor-pointer
-            ${isDragging ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-muted/50'}
-            ${(parsing || isPending) ? 'opacity-50 pointer-events-none' : ''}
-          `}
-          onClick={() => {
-            const el = document.getElementById("csv-upload-input");
-            if (el) el.click();
-          }}
-        >
-          <input 
-            type="file" 
-            id="csv-upload-input" 
-            accept=".csv" 
-            className="hidden" 
-            onChange={(e) => {
-              if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
-              e.target.value = ''; // Reset input
-            }}
+        <div className="space-y-4">
+          <ImportDropzone
+            type="harvest"
+            title="Harvest Import"
+            description="Supports standard Harvest detailed time reports"
+            acceptText="Click or drag Harvest CSV here"
+            isPending={isPending}
+            importProgress={importProgress}
+            onProcess={(lines) => processCsvData(lines, 'harvest')}
           />
-          
-          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-            {parsing || isPending ? (
-              <Loader2 className="h-6 w-6 text-primary animate-spin" />
-            ) : (
-              <FileSpreadsheet className="h-6 w-6 text-primary" />
-            )}
-          </div>
-          
-          <div>
-            <p className="text-sm font-medium">
-              {parsing ? "Parsing CSV..." : 
-               importProgress ? `Importing Timesheets (${importProgress.current.toLocaleString()} / ${importProgress.total.toLocaleString()})...` : 
-               isPending ? "Importing Timesheets..." : "Click or drag Harvest CSV here"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Supports standard Harvest detailed time reports
-            </p>
-          </div>
+          <ImportDropzone
+            type="float"
+            title="Float Import"
+            description="Supports Float time tracking CSV exports"
+            acceptText="Click or drag Float CSV here"
+            isPending={isPending}
+            importProgress={importProgress}
+            onProcess={(lines) => processCsvData(lines, 'float')}
+          />
         </div>
       </CardContent>
     </Card>
