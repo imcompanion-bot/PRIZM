@@ -1139,6 +1139,13 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
         if (!clientMap[matchedClient]) {
           clientMap[matchedClient] = [];
         }
+
+        // Core check: restrict TEs strictly to allocated clients
+        if (isCore) {
+          if (!allocatedClients.some(ac => ac.toLowerCase() === matchedClient.toLowerCase())) {
+            continue;
+          }
+        }
         
         if (existingProjRow) {
           existingProjRow.revenue += data.amount;
@@ -2217,6 +2224,31 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  if (isCore && (!allocatedClients || allocatedClients.length === 0)) {
+    return (
+      <div className="p-6 pt-6 max-w-[1600px] mx-auto border-[#eeeae7] bg-[#faf8f5] space-y-6">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-[#1a1a1a]">Profitability</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Client profitability and margin performance
+          </p>
+        </div>
+        <Card className="p-12 text-center max-w-xl mx-auto my-12 border-dashed bg-white shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
+            <TrendingUp className="h-6 w-6" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Client Allocations</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            You currently have Core access without any assigned clients. You will need to be allocated clients to view profitability and campaign performance data.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Please speak to your manager to be assigned to your client accounts.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 pt-6 max-w-[1600px] mx-auto border-[#eeeae7] bg-[#faf8f5]">

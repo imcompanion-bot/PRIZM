@@ -475,7 +475,27 @@ export default function SettingsPage() {
     return DEFAULT_ROLE_PERMISSIONS;
   });
 
-  const handleToggleMatrix = (role: string, feature: keyof FeaturePermissions) => {
+  useEffect(() => {
+    const fetchMatrix = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("pharaoh_data")
+          .select("payload")
+          .eq("id", "role_permissions")
+          .maybeSingle();
+
+        if (!error && data?.payload) {
+          setMatrix(data.payload);
+          localStorage.setItem("prism_role_permissions", JSON.stringify(data.payload));
+        }
+      } catch (e) {
+        console.error("Failed to fetch permissions matrix from Supabase", e);
+      }
+    };
+    fetchMatrix();
+  }, []);
+
+  const handleToggleMatrix = async (role: string, feature: keyof FeaturePermissions) => {
     const updated = {
       ...matrix,
       [role]: {
@@ -485,7 +505,37 @@ export default function SettingsPage() {
     };
     setMatrix(updated);
     localStorage.setItem("prism_role_permissions", JSON.stringify(updated));
-    toast.success(`Updated ${feature} access for ${role}`);
+
+    try {
+      const { error } = await supabase.from("pharaoh_data").upsert({
+        id: "role_permissions",
+        payload: updated
+      });
+      if (error) throw error;
+      toast.success(`Updated ${feature} access for ${role}`);
+    } catch (e: any) {
+      console.error("Failed to save matrix to Supabase", e);
+      toast.error("Failed to save permission changes to database.");
+    }
+  };
+
+  const handleUpdateUserRole = async (userId: string, targetEmail: string, newRole: string) => {
+    if (!isAdmin) {
+      toast.error("Only Master users can modify user roles.");
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from("app_users")
+        .update({ role: newRole })
+        .eq("id", userId);
+      if (error) throw error;
+      toast.success(`Updated role for ${targetEmail} to ${newRole}`);
+      fetchUsers();
+    } catch (err: any) {
+      console.error("Failed to update user role", err);
+      toast.error("Failed to update role: " + err.message);
+    }
   };
 
   const { data: allClients = [] } = useQuery({
@@ -614,7 +664,7 @@ export default function SettingsPage() {
           <ClientArchiveTab />
         </TabsContent>
 
-        {appUser?.role === "admin" && (
+        {isAdmin && (
           <TabsContent value="access">
             <div className="bg-card border rounded-xl overflow-hidden">
               <div className="p-6 border-b">
@@ -656,7 +706,7 @@ export default function SettingsPage() {
                   <TableHeader className="bg-muted/50">
                     <TableRow>
                       <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
+                      <TableHead className="w-[180px]">Role</TableHead>
                       <TableHead>Added By</TableHead>
                       <TableHead>Clients</TableHead>
                       <TableHead>Date Added</TableHead>
@@ -666,31 +716,58 @@ export default function SettingsPage() {
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                           <Loader2 className="w-6 h-6 animate-spin mx-auto" />
                         </TableCell>
                       </TableRow>
                     ) : users.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                           No users found.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.email}</TableCell>
-                           <TableCell>
-                            <span className={cn(
-                              "px-2.5 py-1 rounded-full text-xs font-semibold border",
-                              (user.role === 'admin' || user.role === 'Master') && "bg-[#fe4f2a]/10 text-[#fe4f2a] border-[#fe4f2a]/30",
-                              user.role === 'Ambassador' && "bg-[#4b70d8]/10 text-[#4b70d8] border-[#4b70d8]/30",
-                              user.role === 'Champion' && "bg-[#ff7daa]/10 text-[#ff7daa] border-[#ff7daa]/30",
-                              (user.role === 'user' || user.role === 'Core') && "bg-[#ffc300]/10 text-[#b28400] border-[#ffc300]/40"
-                            )}>
-                              {user.role === 'admin' ? 'Master' : user.role === 'user' ? 'Core' : user.role}
-                            </span>
-                          </TableCell>
+                      users.map((user) => {
+                        const normalizedRole = user.role === 'admin' ? 'Master' : user.role === 'user' ? 'Core' : user.role;
+                        return (
+                          <TableRow key={user.id}>
+                            <TableCell className="font-medium">{user.email}</TableCell>
+                            <TableCell>
+                              {isAdmin ? (
+                                <Select
+                                  value={normalizedRole}
+                                  onValueChange={(val) => handleUpdateUserRole(user.id, user.email, val)}
+                                >
+                                  <SelectTrigger className="h-8 w-[140px] text-xs font-semibold">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Master">
+                                      <span className="font-semibold text-[#fe4f2a]">Master</span>
+                                    </SelectItem>
+                                    <SelectItem value="Ambassador">
+                                      <span className="font-semibold text-[#4b70d8]">Ambassador</span>
+                                    </SelectItem>
+                                    <SelectItem value="Champion">
+                                      <span className="font-semibold text-[#ff7daa]">Champion</span>
+                                    </SelectItem>
+                                    <SelectItem value="Core">
+                                      <span className="font-semibold text-[#b28400]">Core</span>
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <span className={cn(
+                                  "px-2.5 py-1 rounded-full text-xs font-semibold border",
+                                  normalizedRole === 'Master' && "bg-[#fe4f2a]/10 text-[#fe4f2a] border-[#fe4f2a]/30",
+                                  normalizedRole === 'Ambassador' && "bg-[#4b70d8]/10 text-[#4b70d8] border-[#4b70d8]/30",
+                                  normalizedRole === 'Champion' && "bg-[#ff7daa]/10 text-[#ff7daa] border-[#ff7daa]/30",
+                                  normalizedRole === 'Core' && "bg-[#ffc300]/10 text-[#b28400] border-[#ffc300]/40"
+                                )}>
+                                  {normalizedRole}
+                                </span>
+                              )}
+                            </TableCell>
                           <TableCell className="text-muted-foreground">{user.addedBy || '-'}</TableCell>
                           <TableCell>
                             <Button
@@ -717,8 +794,9 @@ export default function SettingsPage() {
                             </Button>
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
+                      );
+                    })
+                  )}
                   </TableBody>
                 </Table>
               </div>
