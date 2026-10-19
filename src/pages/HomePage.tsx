@@ -97,14 +97,40 @@ export default function HomePage() {
   const m = useMemo(() => {
     if (!data) return null;
     const { metrics: mx, us, uk } = data;
-    const NEAR = mx.NEAR_MO || []; 
-    
-    const mnth = new Date().getMonth() + 1;
-    let qMonths = NEAR.slice(0, 3);
+
+    const now = new Date();
+    const calYear = now.getFullYear();
+    const mnth = now.getMonth() + 1; // 1 (Jan) - 12 (Dec)
+    const fyStartYear = mnth >= 5 ? calYear : calYear - 1;
+    const fyEndYear = fyStartYear + 1;
+
+    let fyMonths = [
+      `${fyStartYear}-05`, `${fyStartYear}-06`, `${fyStartYear}-07`,
+      `${fyStartYear}-08`, `${fyStartYear}-09`, `${fyStartYear}-10`,
+      `${fyStartYear}-11`, `${fyStartYear}-12`, `${fyEndYear}-01`,
+      `${fyEndYear}-02`, `${fyEndYear}-03`, `${fyEndYear}-04`,
+    ];
+    const availablePredMonths = Object.keys(uk?.pred_rows || us?.pred_rows || {}).sort();
+    if (availablePredMonths.length === 12 && !availablePredMonths.includes(fyMonths[0])) {
+      fyMonths = availablePredMonths;
+    }
+
+    let qMonths = fyMonths.slice(0, 3);
     let qLabel = "Q1";
-    if (mnth >= 8 && mnth <= 10) { qMonths = NEAR.slice(3, 6); qLabel = "Q2"; }
-    else if (mnth >= 11 || mnth === 1) { qMonths = NEAR.slice(6, 9); qLabel = "Q3"; }
-    else if (mnth >= 2 && mnth <= 4) { qMonths = NEAR.slice(9, 12); qLabel = "Q4"; }
+    if (mnth >= 8 && mnth <= 10) {
+      qMonths = fyMonths.slice(3, 6);
+      qLabel = "Q2";
+    } else if (mnth >= 11 || mnth === 1) {
+      qMonths = fyMonths.slice(6, 9);
+      qLabel = "Q3";
+    } else if (mnth >= 2 && mnth <= 4) {
+      qMonths = fyMonths.slice(9, 12);
+      qLabel = "Q4";
+    }
+
+    const isH2 = mnth >= 11 || mnth <= 4;
+    const hLabel = isH2 ? "H2" : "H1";
+    const halfMonths = isH2 ? fyMonths.slice(6, 12) : fyMonths.slice(0, 6);
 
     const isMyClients = viewMode === "my_clients";
     const allocatedClients = appUser?.allocatedClients || [];
@@ -121,32 +147,38 @@ export default function HomePage() {
       const fx = isUS ? mx.FX : 1;
       
       let h1Target = 0, h1Pipe = 0, h1Pred = 0;
-      let qTarget = 0, qPipe = 0, qPred = 0, lyQ = 0;
+      let qTarget = 0, qPipe = 0, qPred = 0, lyQ = 0, lyHalf = 0;
       
-      const lyQMonths = qMonths.map(mo => `${parseInt(mo.slice(0, 4)) - 1}-${mo.slice(5, 7)}`);
+      const lyQMonths = qMonths.map((mo: string) => `${parseInt(mo.slice(0, 4), 10) - 1}-${mo.slice(5, 7)}`);
+      const lyHalfMonths = halfMonths.map((mo: string) => `${parseInt(mo.slice(0, 4), 10) - 1}-${mo.slice(5, 7)}`);
       
       const monthlyData: Record<string, any> = {};
-      NEAR.forEach((mo: string) => { monthlyData[mo] = { t: 0, p: 0, pr: 0 }; });
+      halfMonths.forEach((mo: string) => { monthlyData[mo] = { t: 0, p: 0, pr: 0 }; });
       
       const hubData: Record<string, { t: number, p: number }> = {};
       const hubs = Object.keys(md.owner_clients || {});
       hubs.forEach(hub => { hubData[hub] = { t: 0, p: 0 }; });
 
       if (!isMyClients) {
-        NEAR.forEach((mo: string) => {
+        halfMonths.forEach((mo: string) => {
           const r = md.pred_rows?.[mo] || {};
           h1Target += (r.tv || 0); h1Pipe += (r.pv || 0); h1Pred += (r.pred || 0);
           monthlyData[mo].t += (r.tv || 0); monthlyData[mo].p += (r.pv || 0); monthlyData[mo].pr += (r.pred || 0);
-          if (qMonths.includes(mo)) {
-            qTarget += (r.tv || 0); qPipe += (r.pv || 0); qPred += (r.pred || 0);
-          }
         });
-        lyQMonths.forEach(mo => { lyQ += (md.monthly?.[mo]?.w || 0) * 1000; });
+        qMonths.forEach((mo: string) => {
+          const r = md.pred_rows?.[mo] || {};
+          qTarget += (r.tv || 0); qPipe += (r.pv || 0); qPred += (r.pred || 0);
+        });
+        lyQMonths.forEach((mo: string) => { lyQ += (md.monthly?.[mo]?.w || 0) * 1000; });
+        lyHalfMonths.forEach((mo: string) => { lyHalf += (md.monthly?.[mo]?.w || 0) * 1000; });
+        if (lyHalf === 0) {
+          lyHalf = ((isH2 ? md.ly_h2 : md.ly_h1) || 0) * 1000;
+        }
         
         hubs.forEach(hub => {
           const clients = md.owner_clients[hub] || [];
           clients.forEach((cl: string) => {
-            NEAR.forEach((mo: string) => {
+            halfMonths.forEach((mo: string) => {
               const t = ((md.targets_full?.[hub]?.[cl]?.[mo]?.t || 0) * 1000);
               const p = ((md.targets_full?.[hub]?.[cl]?.[mo]?.p || 0) * 1000);
               hubData[hub].t += t; hubData[hub].p += p;
@@ -158,7 +190,7 @@ export default function HomePage() {
           const clients = md.owner_clients[hub] || [];
           clients.forEach((cl: string) => {
             if (targetClients.includes(cl)) {
-              NEAR.forEach((mo: string) => {
+              halfMonths.forEach((mo: string) => {
                 const t = ((md.targets_full?.[hub]?.[cl]?.[mo]?.t || 0) * 1000);
                 const p = ((md.targets_full?.[hub]?.[cl]?.[mo]?.p || 0) * 1000);
                 const pr = (md.client_pred?.[cl]?.[mo] || 0);
@@ -178,8 +210,8 @@ export default function HomePage() {
         qTargetGBP: qTarget / fx, qPipeGBP: qPipe / fx, qPredGBP: qPred / fx,
         lyQ, lyQGBP: lyQ / fx,
         monthlyData, hubData,
-        lyH1: (md.ly_h1 || 0) * 1000,
-        lyH1GBP: ((md.ly_h1 || 0) * 1000) / fx,
+        lyH1: lyHalf,
+        lyH1GBP: lyHalf / fx,
         stats: md.stats || {}
       };
     };
@@ -204,7 +236,7 @@ export default function HomePage() {
     };
     
     // Monthly tracking rows
-    const groupMonthly = NEAR.map((mo: string) => {
+    const groupMonthly = halfMonths.map((mo: string) => {
       const usMth = usM.monthlyData[mo];
       const ukMth = ukM.monthlyData[mo];
       return {
@@ -217,7 +249,7 @@ export default function HomePage() {
       };
     });
 
-    const getMarketMonthly = (md: any) => NEAR.map((mo: string) => ({
+    const getMarketMonthly = (md: any) => halfMonths.map((mo: string) => ({
       mo, name: monthName(mo), isActual: AS_OF ? mo < AS_OF : false,
       target: md.monthlyData[mo].t, pipe: md.monthlyData[mo].p, pred: md.monthlyData[mo].pr,
     }));
@@ -240,7 +272,7 @@ export default function HomePage() {
        Object.entries(usM.hubData).forEach(([h, v]: any) => { hubData[h] = { t: v.t / mx.FX, p: v.p / mx.FX }; });
        Object.entries(ukM.hubData).forEach(([h, v]: any) => { hubData[h] = { t: v.t, p: v.p }; });
        
-       const monthly = NEAR.map((mo: string) => {
+       const monthly = halfMonths.map((mo: string) => {
           const uM = usM.monthlyData[mo];
           const kM = ukM.monthlyData[mo];
           return {
@@ -260,9 +292,11 @@ export default function HomePage() {
          
          const opps = md.opps?.[c] || [];
          opps.forEach((o: any) => {
-           if (!o.stage.includes('Closed') && !o.stage.includes('Lost')) {
+           const stg = String(o.stage ?? o.s ?? "");
+           const gpVal = o.gp !== undefined ? o.gp : (o.g || 0) * 1000;
+           if (!stg.includes('Closed') && !stg.includes('Lost')) {
              open_n++;
-             open_gp += (o.gp || 0) / fx;
+             open_gp += gpVal / fx;
            }
          });
        });
@@ -279,7 +313,7 @@ export default function HomePage() {
        };
     }
 
-    return { us: usM, uk: ukM, group, qLabel, qMonths, NEAR, groupMonthly, AS_OF, myClientsMetrics, targetClients };
+    return { us: usM, uk: ukM, group, qLabel, qMonths, hLabel, halfMonths, NEAR: halfMonths, groupMonthly, AS_OF, myClientsMetrics, targetClients };
   }, [data, viewMode, clientTab, appUser]);
 
   if (loading) {
@@ -404,7 +438,7 @@ export default function HomePage() {
 
             <section className="space-y-4">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <BarChart className="w-4 h-4 text-brand-pink" /> Current Half (H1)
+                <BarChart className="w-4 h-4 text-brand-pink" /> Current Half ({m.hLabel})
               </h2>
               <div className={cn("grid gap-4", !isMyClients ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 xl:grid-cols-3")}>
                 <Card className="shadow-sm border-0 ring-1 ring-black/5 bg-white relative">
@@ -434,7 +468,7 @@ export default function HomePage() {
                 {!isMyClients && (
                   <Card className="shadow-sm border-0 ring-1 ring-black/5 bg-white opacity-80">
                     <CardHeader className="pb-2 p-4">
-                      <CardDescription className="font-medium text-xs uppercase tracking-wider">LY H1 Actuals</CardDescription>
+                      <CardDescription className="font-medium text-xs uppercase tracking-wider">LY {m.hLabel} Actuals</CardDescription>
                       <CardTitle className="text-2xl font-display">{disp.fmt(disp.lyH1)}</CardTitle>
                     </CardHeader>
                   </Card>
@@ -519,7 +553,7 @@ export default function HomePage() {
                 </div>
                 
                 <div className="bg-white p-3 rounded-lg shadow-sm ring-1 ring-black/5 text-xs text-muted-foreground flex flex-col gap-2">
-                  <div className="flex justify-between w-full"><span>H1 Pipeline Split</span><span>{Math.round(usPct)}% US · {Math.round(ukPct)}% UK</span></div>
+                  <div className="flex justify-between w-full"><span>{m.hLabel} Pipeline Split</span><span>{Math.round(usPct)}% US · {Math.round(ukPct)}% UK</span></div>
                   <div className="flex w-full h-2 rounded-full overflow-hidden bg-muted">
                     <div style={{ width: `${usPct}%`, backgroundColor: '#2563eb' }} />
                     <div style={{ width: `${ukPct}%`, backgroundColor: '#16a34a' }} />
@@ -563,7 +597,7 @@ export default function HomePage() {
                         )
                       })}
                       <TableRow className="bg-muted/30 font-semibold border-t-2">
-                        <TableCell>H1 Total</TableCell>
+                        <TableCell>{m.hLabel} Total</TableCell>
                         <TableCell className="text-right">{fL(m.group.h1Target)}</TableCell>
                         <TableCell className="text-right text-blue-600">{fL(m.us.h1PipeGBP)}</TableCell>
                         <TableCell className="text-right text-green-600">{fL(m.uk.h1PipeGBP)}</TableCell>
@@ -615,7 +649,7 @@ export default function HomePage() {
                         )
                       })}
                       <TableRow className="bg-muted/30 font-semibold border-t-2">
-                        <TableCell>H1 Total</TableCell>
+                        <TableCell>{m.hLabel} Total</TableCell>
                         <TableCell className="text-right">{disp.fmt(disp.h1Target)}</TableCell>
                         <TableCell className="text-right text-muted-foreground">{disp.fmt(disp.h1Pipe)}</TableCell>
                         <TableCell className="text-right">{disp.fmt(disp.h1Pred)}</TableCell>
@@ -644,8 +678,8 @@ export default function HomePage() {
                   <TableHeader className="bg-muted/30">
                     <TableRow>
                       <TableHead>Hub</TableHead>
-                      <TableHead className="text-right">H1 Target</TableHead>
-                      <TableHead className="text-right">H1 Pipeline</TableHead>
+                      <TableHead className="text-right">{m.hLabel} Target</TableHead>
+                      <TableHead className="text-right">{m.hLabel} Pipeline</TableHead>
                       <TableHead className="text-right">Coverage</TableHead>
                     </TableRow>
                   </TableHeader>

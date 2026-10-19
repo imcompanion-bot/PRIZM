@@ -266,10 +266,6 @@ async function syncPharaohCopilotData(sheets: any, supabase: any) {
     if (r?.id) existingMap[r.id] = r.payload || {};
   }
 
-  const FY_MONTHS = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04"];
-  const H1_MONTHS = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"];
-  const LY_H1_MONTHS = ["2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10"];
-
   // 1. Parse Targets 26/27
   const tHdrIdx = targetRows.findIndex((r) => r.some((c) => String(c).trim() === "Client") && r.some((c) => String(c).trim() === "Hub"));
   if (tHdrIdx < 0) throw new Error("Could not find header row in Targets 26/27");
@@ -282,6 +278,15 @@ async function syncPharaohCopilotData(sheets: any, supabase: any) {
     const mk = parseMonthKey(cell);
     if (mk) tMonthCols[mk] = c;
   });
+
+  const detectedFyMonths = Object.keys(tMonthCols).sort();
+  const FY_MONTHS = detectedFyMonths.length === 12
+    ? detectedFyMonths
+    : ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04"];
+  const H1_MONTHS = FY_MONTHS.slice(0, 6);
+  const H2_MONTHS = FY_MONTHS.slice(6, 12);
+  const LY_H1_MONTHS = H1_MONTHS.map((mo) => `${parseInt(mo.slice(0, 4), 10) - 1}-${mo.slice(5, 7)}`);
+  const LY_H2_MONTHS = H2_MONTHS.map((mo) => `${parseInt(mo.slice(0, 4), 10) - 1}-${mo.slice(5, 7)}`);
 
   // 2. Parse BDB header (stop after GP De-Risked TOTAL block at col 120)
   const bdbHdrIdx = bdbRows.findIndex((r) => r.some((c) => String(c).trim() === "Account Name") && r.some((c) => String(c).includes("GP De-Risked TOTAL")));
@@ -448,6 +453,9 @@ async function syncPharaohCopilotData(sheets: any, supabase: any) {
           d: dealName,
           s: stage,
           g: Math.round((totalGpDerisked / 1000) * 10) / 10,
+          deal: dealName,
+          stage,
+          gp: Math.round(totalGpDerisked),
         });
       }
 
@@ -561,6 +569,7 @@ async function syncPharaohCopilotData(sheets: any, supabase: any) {
     });
 
     const lyH1 = Math.round(LY_H1_MONTHS.reduce((s, mo) => s + (monthlyRaw[mo]?.w || 0), 0) / 1000);
+    const lyH2 = Math.round(LY_H2_MONTHS.reduce((s, mo) => s + (monthlyRaw[mo]?.w || 0), 0) / 1000);
     wonDealGps.sort((a, b) => a - b);
     const medianGp = wonDealGps.length ? Math.round(wonDealGps[Math.floor(wonDealGps.length / 2)]) : 0;
     const totalPitched = totalWonCount + totalLostCount;
@@ -569,6 +578,7 @@ async function syncPharaohCopilotData(sheets: any, supabase: any) {
     return {
       ...existingMarket,
       ly_h1: lyH1,
+      ly_h2: lyH2,
       pred_rows: predRows,
       targets_full: targetsFull,
       owner_clients: ownerClients,
@@ -594,6 +604,8 @@ async function syncPharaohCopilotData(sheets: any, supabase: any) {
   const updatedUs = buildMarketData("US", existingMap.us || {});
 
   const now = new Date();
+  const curMonth = now.getMonth() + 1;
+  const activeHalfMonths = (curMonth >= 11 || curMonth <= 4) ? H2_MONTHS : H1_MONTHS;
   const snapshotDate = now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) + ", " + now.toTimeString().slice(0, 5);
   // First FY month where P&L Summary has open Negotiation or Forecast > 0 is the active forecast boundary
   const firstForecastMonth = FY_MONTHS.find((mo) => (pnlByMarket.UK[mo]?.negotiation || 0) > 0 || (pnlByMarket.UK[mo]?.forecast || 0) > 0);
@@ -637,11 +649,14 @@ async function syncPharaohCopilotData(sheets: any, supabase: any) {
   const updatedMetrics = {
     ...(existingMap.metrics || {}),
     AS_OF: asOfMonth,
+    NEAR_MO: activeHalfMonths,
+    FY_MONTHS,
     snapshot_date: snapshotDate,
     group: {
       ...(existingMap.metrics?.group || {}),
       fx,
       ly_h1: Math.round(updatedUk.ly_h1 + updatedUs.ly_h1 / fx),
+      ly_h2: Math.round(updatedUk.ly_h2 + updatedUs.ly_h2 / fx),
       pred_rows: groupPredRows,
       targets: groupTargets,
       uk_target: ukFyTargetK,
