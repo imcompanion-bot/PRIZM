@@ -412,9 +412,10 @@ export function ClientFinancialsWidget({
             {/* Chart side */}
             <div className="flex-1 min-w-[300px] flex items-center justify-center relative">
               <ChartContainer config={{}} className="w-full h-full min-h-[300px]">
-                <RechartsPrimitive.ResponsiveContainer width="100%" height="100%">
-                  <RechartsPrimitive.PieChart>
+                <RechartsPrimitive.ResponsiveContainer width="100%" height="100%" style={{ overflow: "visible" }}>
+                  <RechartsPrimitive.PieChart style={{ overflow: "visible" }}>
                     <RechartsPrimitive.Pie
+                      isAnimationActive={false}
                       data={pieData}
                       cx="50%"
                       cy="50%"
@@ -422,27 +423,56 @@ export function ClientFinancialsWidget({
                       outerRadius="65%"
                       paddingAngle={2}
                       dataKey="value"
-                      label={({ cx, cy, midAngle, innerRadius, outerRadius, value, name, index, fill, x, y, textAnchor }) => {
+                      label={(props) => {
+                        let { cx, cy, midAngle, innerRadius, outerRadius, value, payload, fill } = props;
+                        
+                        // Recharts sometimes passes these as strings if they were provided as strings, or they might be numbers.
+                        // We must ensure they are numbers for the math to work.
+                        cx = Number(cx) || 150;
+                        cy = Number(cy) || 150;
+                        innerRadius = Number(innerRadius) || 60;
+                        outerRadius = Number(outerRadius) || 100;
+
                         const RADIAN = Math.PI / 180;
                         const radius = innerRadius + (outerRadius - innerRadius) * 0.7;
                         const xInside = cx + radius * Math.cos(-midAngle * RADIAN);
                         const yInside = cy + radius * Math.sin(-midAngle * RADIAN);
                         const isLargeEnough = (value / displayData.totalValue) >= 0.02;
                         
+                        // Calculate outer label position
+                        const oRadius = outerRadius + 20;
+                        const ox = cx + oRadius * Math.cos(-midAngle * RADIAN);
+                        const oy = cy + oRadius * Math.sin(-midAngle * RADIAN);
+                        const textAnchor = ox > cx ? "start" : "end";
+                        
+                        // Line points
+                        const sin = Math.sin(-midAngle * RADIAN);
+                        const cos = Math.cos(-midAngle * RADIAN);
+                        const sx = cx + outerRadius * cos;
+                        const sy = cy + outerRadius * sin;
+                        const mx = cx + (outerRadius + 15) * cos;
+                        const my = cy + (outerRadius + 15) * sin;
+                        const ex = mx + (cos >= 0 ? 1 : -1) * 10;
+                        const ey = my;
+
+                        const nameStr = payload?.name || "Unknown";
+                        const shortName = nameStr.length > 20 ? nameStr.substring(0, 20) + '...' : nameStr;
+
                         return (
                           <g>
+                            <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke="#e5e7eb" fill="none" />
                             {isLargeEnough && (
                               <text x={xInside} y={yInside} fill="white" textAnchor="middle" dominantBaseline="central" className="text-[10px] font-bold pointer-events-none">
                                 {formatCurrencyCompact(value, effectiveCurrency).replace(/[^\d.kM]+/, '')}
                               </text>
                             )}
-                            <text x={x} y={y} fill="#6b7280" textAnchor={textAnchor} dominantBaseline="central" className="text-[10px] pointer-events-none">
-                              {name.length > 20 ? name.substring(0, 20) + '...' : name}
+                            <text x={ex + (cos >= 0 ? 1 : -1) * 5} y={ey} fill="#6b7280" textAnchor={textAnchor} dominantBaseline="central" className="text-[10px] pointer-events-none">
+                              {shortName}
                             </text>
                           </g>
                         );
                       }}
-                      labelLine={{ stroke: '#e5e7eb', strokeWidth: 1 }}
+                      labelLine={false}
                     >
                       {pieData.map((entry, index) => (
                         <RechartsPrimitive.Cell key={`cell-${index}`} fill={entry.fill} />
