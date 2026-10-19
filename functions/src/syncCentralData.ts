@@ -821,29 +821,61 @@ export async function runSync() {
     }
 
     // Identify month columns
-    const monthCols: { colIdx: number, monthDate: string }[] = [];
+    const rawMonthCols: { colIdx: number, monthDate: string }[] = [];
     const headers = rows[headerRowIdx];
+    const parentHeaders = headerRowIdx > 0 ? rows[headerRowIdx - 1] : [];
+    
     for (let j = 0; j < headers.length; j++) {
        const val = headers[j];
        if (!val) continue;
        const parsedDate = parseDate(val);
        if (parsedDate) {
            const d = new Date(parsedDate);
-           monthCols.push({ colIdx: j, monthDate: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`});
-       } else {
-           const strVal = String(val).trim();
-           const match = strVal.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[- ](\d{2}|\d{4})$/i);
-           if (match) {
-               const monthStr = match[1];
-               let yearStr = match[2];
-               if (yearStr.length === 2) yearStr = `20${yearStr}`;
-               const d = new Date(`${monthStr} 1, ${yearStr}`);
+           rawMonthCols.push({ colIdx: j, monthDate: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`});
+           continue;
+       }
+       
+       const strVal = String(val).trim();
+       const match = strVal.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[- ](\d{2}|\d{4})$/i);
+       if (match) {
+           const monthStr = match[1];
+           let yearStr = match[2];
+           if (yearStr.length === 2) yearStr = `20${yearStr}`;
+           const d = new Date(`${monthStr} 1, ${yearStr}`);
+           if (!isNaN(d.getTime())) {
+               rawMonthCols.push({ colIdx: j, monthDate: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`});
+               continue;
+           }
+       }
+       
+       // Handle headers like "Feb 1" or "Feb" by looking at the parent header (e.g., "Q4 25/26")
+       const shortMatch = strVal.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*(?:\s+1)?$/i);
+       if (shortMatch) {
+           const monthStr = shortMatch[1];
+           const parentVal = parentHeaders[j] ? String(parentHeaders[j]).trim() : "";
+           const fyMatch = parentVal.match(/(\d{2})\/(\d{2})/);
+           if (fyMatch) {
+               const startYear = 2000 + parseInt(fyMatch[1]);
+               const endYear = 2000 + parseInt(fyMatch[2]);
+               // FY runs May to April
+               const m = new Date(`${monthStr} 1, 2000`).getMonth();
+               const year = (m >= 4) ? startYear : endYear;
+               const d = new Date(`${monthStr} 1, ${year}`);
                if (!isNaN(d.getTime())) {
-                   monthCols.push({ colIdx: j, monthDate: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`});
+                   rawMonthCols.push({ colIdx: j, monthDate: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`});
+                   continue;
                }
            }
        }
     }
+
+    // Deduplicate month columns: if there are multiple columns for the same month (e.g. Gross vs De-risked),
+    // prioritize the one on the right (higher colIdx).
+    const uniqueMonths = new Map<string, { colIdx: number, monthDate: string }>();
+    for (const mc of rawMonthCols) {
+        uniqueMonths.set(mc.monthDate, mc);
+    }
+    const monthCols = Array.from(uniqueMonths.values());
 
     const results: any[] = [];
     for (let i = headerRowIdx + 1; i < rows.length; i++) {
@@ -1058,7 +1090,7 @@ export const syncCentralDataHttp = onRequest(
     region: "us-east4",
     serviceAccount: "pharaoh-54a0e@appspot.gserviceaccount.com",
     timeoutSeconds: 500,
-    memory: "512MiB",
+    memory: "1GiB",
     secrets: [SUPABASE_SERVICE_ROLE_SECRET, gmailEmail, gmailAppPassword, NOTIFICATION_RECIPIENTS]
   },
   async (req, res) => {

@@ -1,0 +1,84 @@
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+dotenv.config();
+const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+
+function getFYForDate(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  const m = d.getMonth() + 1;
+  const y = d.getFullYear();
+  if (m >= 5) {
+    return `fy${y.toString().slice(-2)}_${(y + 1).toString().slice(-2)}`;
+  } else {
+    return `fy${(y - 1).toString().slice(-2)}_${y.toString().slice(-2)}`;
+  }
+}
+
+async function run() {
+  const projects = [];
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await supabase.from('projects').select('*').range(from, from + pageSize - 1);
+    if (error) throw error;
+    projects.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+  
+  const tes = [];
+  let tFrom = 0;
+  while (true) {
+    const { data, error } = await supabase.from('talent_efficiencies').select('*').range(tFrom, tFrom + pageSize - 1);
+    if (error) throw error;
+    tes.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+    tFrom += pageSize;
+  }
+  
+  const projectOfficeMap = new Map();
+  projects.forEach(p => {
+    if (p.title) {
+       const client = p.ultimate_parent || p.sf_account || "Unknown Client";
+       const cleanName = p.title.replace(/\s*[-–:]?\s*Talent\s+(Efficiencies|Savings)$/i, "").trim().toLowerCase();
+       projectOfficeMap.set(cleanName, { office: p.office, client });
+    }
+  });
+  
+  const activeFy = "fy25_26";
+  let teRows = [];
+
+  tes.forEach(eff => {
+    const oppName = eff.opportunity_name || "Unknown Opportunity";
+    const cleanName = oppName.replace(/\s*[-–:]?\s*Talent\s+(Efficiencies|Savings)$/i, "").trim().toLowerCase();
+    
+    const mapInfo = projectOfficeMap.get(cleanName);
+    let effOffice = eff.office;
+    let client = "Unknown Client";
+    if (mapInfo) {
+      if (!effOffice || effOffice === "Unknown") effOffice = mapInfo.office;
+      client = mapInfo.client;
+    }
+    
+    const o = effOffice?.toUpperCase() || "";
+    let matchesOffice = (o === "UK" || o === "UNITED KINGDOM" || o === "COMPANION");
+    if (!matchesOffice) return;
+
+    const fy = getFYForDate(eff.month_date);
+    if (fy !== activeFy) return;
+
+    if (client === "Unilever") {
+        teRows.push(eff);
+    }
+  });
+  
+  let sum = 0;
+  console.log("Unilever UK FY25/26 TE Rows:");
+  teRows.forEach(r => {
+      console.log(r.month_date, r.opportunity_name, r.amount);
+      sum += Number(r.amount);
+  });
+  console.log("Total:", sum);
+}
+run();

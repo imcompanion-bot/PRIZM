@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as RechartsPrimitive from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
+import { ClientFinancialsWidget } from "@/components/analytics/ClientFinancialsWidget";
 
 type OfficeFilter = "Global" | "UK" | "US";
 type PeriodType = "Years" | "Quarters";
@@ -813,6 +814,8 @@ const DashboardPage = () => {
       )}
 
       <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-1">
+        <ClientFinancialsWidget officeFilter={officeFilter} displayCurrency={displayCurrency} />
+
         <Card className="col-span-1 border-0 shadow-sm bg-white/50">
           <CardHeader className="pb-3 border-b border-stone-100 flex flex-row items-center justify-between space-y-0">
             <CardTitle>Gross Profit by Client</CardTitle>
