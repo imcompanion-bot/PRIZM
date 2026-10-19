@@ -73,8 +73,9 @@ export const clearImportQueue = async () => {
 
 let globalProgress: ImportProgress | null = null;
 let globalIsImporting = false;
+let globalActiveType: 'harvest' | 'float' | null = null;
 let globalError: string | null = null;
-const progressListeners = new Set<(state: { progress: ImportProgress | null; isImporting: boolean; error: string | null }) => void>();
+const progressListeners = new Set<(state: { progress: ImportProgress | null; isImporting: boolean; error: string | null; activeType: 'harvest' | 'float' | null }) => void>();
 
 const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
   e.preventDefault();
@@ -82,10 +83,12 @@ const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
   return e.returnValue;
 };
 
-const updateGlobalImportState = (isImporting: boolean, progress: ImportProgress | null, error: string | null = null) => {
+const updateGlobalImportState = (isImporting: boolean, progress: ImportProgress | null, error: string | null = null, activeType: 'harvest' | 'float' | null = null) => {
   globalIsImporting = isImporting;
   globalProgress = progress;
   globalError = error;
+  if (activeType !== null) globalActiveType = activeType;
+  if (!isImporting) globalActiveType = null;
   
   if (isImporting && progress) {
     const percent = Math.round((progress.current / progress.total) * 100);
@@ -96,7 +99,7 @@ const updateGlobalImportState = (isImporting: boolean, progress: ImportProgress 
     window.removeEventListener("beforeunload", beforeUnloadHandler);
   }
 
-  progressListeners.forEach(listener => listener({ progress: globalProgress, isImporting: globalIsImporting, error: globalError }));
+  progressListeners.forEach(listener => listener({ progress: globalProgress, isImporting: globalIsImporting, error: globalError, activeType: globalActiveType }));
 };
 
 export const resumeGlobalImportIfNeeded = async (queryClient: any) => {
@@ -329,11 +332,13 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
 
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(globalProgress);
   const [isPending, setIsPending] = useState(globalIsImporting);
+  const [activeType, setActiveType] = useState(globalActiveType);
 
   useEffect(() => {
-    const listener = (state: { progress: ImportProgress | null; isImporting: boolean; error: string | null }) => {
+    const listener = (state: { progress: ImportProgress | null; isImporting: boolean; error: string | null; activeType: 'harvest' | 'float' | null }) => {
       setImportProgress(state.progress);
       setIsPending(state.isImporting);
+      setActiveType(state.activeType);
       if (state.error) {
         toast.error(state.error);
       }
@@ -341,6 +346,7 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
     progressListeners.add(listener);
     setImportProgress(globalProgress);
     setIsPending(globalIsImporting);
+    setActiveType(globalActiveType);
     return () => {
       progressListeners.delete(listener);
     };
@@ -348,7 +354,7 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
 
   const importEntries = useMutation({
     mutationFn: async ({ entries, fromDate, toDate, importType }: { entries: any[]; fromDate: string | null; toDate: string | null; importType: 'harvest' | 'float' }) => {
-      updateGlobalImportState(true, { current: 0, total: entries.length });
+      updateGlobalImportState(true, { current: 0, total: entries.length }, null, importType);
       await saveImportQueue(entries, fromDate, toDate, 0);
 
       try {
@@ -395,8 +401,16 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
               if (error) throw error;
             }
           } else {
-            const { data: allPeopleInOffices } = await supabase.from('people').select('id').in('office', uniqueOffices);
-            const allPeopleIdsToDelete = (allPeopleInOffices || []).map((p: any) => p.id);
+            let allPeopleInOffices: any[] = [];
+            let fromIdx = 0;
+            const step = 1000;
+            while(true) {
+              const { data } = await supabase.from('people').select('id').in('office', uniqueOffices).range(fromIdx, fromIdx + step - 1);
+              if (data) allPeopleInOffices.push(...data);
+              if (!data || data.length < step) break;
+              fromIdx += step;
+            }
+            const allPeopleIdsToDelete = allPeopleInOffices.map((p: any) => p.id);
 
             const baseQuery = () => {
               let q = supabase.from('time_entries').delete();
@@ -481,6 +495,7 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
   });
 
   const processCsvData = async (lines: string[][], type: 'harvest' | 'float') => {
+    try { // Wrap processCsvData
     if (lines.length < 2) { toast.error("No valid data found in CSV"); return; }
     
     const headers = lines[0].map((h) => (h || "").trim().toLowerCase());
@@ -724,6 +739,11 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
     // Use the exact date range found in the file as the overwrite window
     updateGlobalImportState(true, { current: 0, total: entries.length });
     importEntries.mutate({ entries, fromDate: earliestDate, toDate: latestDate, importType: type });
+    } catch (e: any) {
+      console.error("processCsvData Error:", e);
+      toast.error(`Error processing CSV: ${e.message}`);
+      updateGlobalImportState(false, null);
+    }
   };
 
   return (
@@ -811,8 +831,8 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
             title="Harvest Import"
             description="Supports standard Harvest detailed time reports"
             acceptText="Click or drag Harvest CSV here"
-            isPending={isPending}
-            importProgress={importProgress}
+            isPending={isPending && activeType === 'harvest'}
+            importProgress={activeType === 'harvest' ? importProgress : null}
             onProcess={(lines) => processCsvData(lines, 'harvest')}
           />
           <ImportDropzone
@@ -820,8 +840,8 @@ export const TimesheetsImport = ({ lastImported }: { lastImported?: any }) => {
             title="Float Import"
             description="Supports Float time tracking CSV exports"
             acceptText="Click or drag Float CSV here"
-            isPending={isPending}
-            importProgress={importProgress}
+            isPending={isPending && activeType === 'float'}
+            importProgress={activeType === 'float' ? importProgress : null}
             onProcess={(lines) => processCsvData(lines, 'float')}
           />
         </div>
