@@ -222,6 +222,469 @@ function parseNumber(value) {
     const parsed = parseFloat(String(value).replace(/,/g, "").replace(/£|\$|€|%/g, ""));
     return isNaN(parsed) ? null : parsed;
 }
+// Live Co-Pilot Master Hub Sheet ID (for Pharaoh / Homepage stats)
+const COPILOT_SHEET_ID = "1cRwTH4PqpZD92GvjEI0dKpmDcVGymtW8laSHqWNWUOU";
+const MONTH_MAP = {
+    Jan: "01", Feb: "02", Mar: "03", Apr: "04", May: "05", Jun: "06",
+    Jul: "07", Aug: "08", Sep: "09", Oct: "10", Nov: "11", Dec: "12"
+};
+function parseMonthKey(s) {
+    if (!s)
+        return null;
+    const str = String(s).trim();
+    const m = str.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s-]+(\d{2}|\d{4})$/i);
+    if (m) {
+        const monKey = m[1].slice(0, 1).toUpperCase() + m[1].slice(1, 3).toLowerCase();
+        const mon = MONTH_MAP[monKey];
+        const yr = m[2].length === 2 ? `20${m[2]}` : m[2];
+        return mon ? `${yr}-${mon}` : null;
+    }
+    return null;
+}
+function parseMoneyOrK(s) {
+    if (typeof s === "number")
+        return s;
+    if (!s)
+        return 0;
+    const str = String(s).trim();
+    const isK = /k$/i.test(str);
+    const v = parseFloat(str.replace(/[£$€,\s%kK]/g, ""));
+    if (isNaN(v))
+        return 0;
+    return isK ? v * 1000 : v;
+}
+function matchesOffice(cellVal, officeKey) {
+    const v = String(cellVal || "").trim().toLowerCase();
+    if (officeKey === "UK")
+        return v === "uk" || v === "united kingdom";
+    if (officeKey === "US")
+        return v === "us" || v === "usa" || v === "united states";
+    return false;
+}
+async function syncPharaohCopilotData(sheets, supabase) {
+    const [targetsRes, ukPnlRes, usPnlRes, bdbRes, existingRes] = await Promise.all([
+        sheets.spreadsheets.values.get({
+            spreadsheetId: COPILOT_SHEET_ID,
+            range: "Targets 26/27!A1:P100",
+        }),
+        sheets.spreadsheets.values.get({
+            spreadsheetId: COPILOT_SHEET_ID,
+            range: "P&L Summary - UK 🇬🇧!A1:DZ60",
+        }),
+        sheets.spreadsheets.values.get({
+            spreadsheetId: COPILOT_SHEET_ID,
+            range: "P&L Summary - US 🇺🇸 !A1:DZ60",
+        }),
+        sheets.spreadsheets.values.get({
+            spreadsheetId: COPILOT_SHEET_ID,
+            range: "CoPilot - BDB briefs per month!A1:DQ4500",
+        }),
+        supabase.from("pharaoh_data").select("id, payload"),
+    ]);
+    const targetRows = targetsRes.data.values || [];
+    const ukPnlRows = ukPnlRes.data.values || [];
+    const usPnlRows = usPnlRes.data.values || [];
+    const bdbRows = bdbRes.data.values || [];
+    const existingRows = existingRes.data || [];
+    const existingMap = {};
+    for (const r of existingRows) {
+        if (r?.id)
+            existingMap[r.id] = r.payload || {};
+    }
+    const FY_MONTHS = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04"];
+    const H1_MONTHS = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"];
+    const LY_H1_MONTHS = ["2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10"];
+    // 1. Parse Targets 26/27
+    const tHdrIdx = targetRows.findIndex((r) => r.some((c) => String(c).trim() === "Client") && r.some((c) => String(c).trim() === "Hub"));
+    if (tHdrIdx < 0)
+        throw new Error("Could not find header row in Targets 26/27");
+    const tHdr = targetRows[tHdrIdx];
+    const tClientCol = tHdr.findIndex((c) => String(c).trim() === "Client");
+    const tHubCol = tHdr.findIndex((c) => String(c).trim() === "Hub");
+    const tOfficeCol = tHdr.findIndex((c) => String(c).trim() === "Office");
+    const tMonthCols = {};
+    tHdr.forEach((cell, c) => {
+        const mk = parseMonthKey(cell);
+        if (mk)
+            tMonthCols[mk] = c;
+    });
+    // 2. Parse BDB header (stop after GP De-Risked TOTAL block at col 120)
+    const bdbHdrIdx = bdbRows.findIndex((r) => r.some((c) => String(c).trim() === "Account Name") && r.some((c) => String(c).includes("GP De-Risked TOTAL")));
+    if (bdbHdrIdx < 0)
+        throw new Error("Could not find header row in CoPilot - BDB briefs per month");
+    const bdbHdr = bdbRows[bdbHdrIdx];
+    const cOppName = bdbHdr.findIndex((c) => String(c).trim() === "Opportunity Name");
+    const cAccName = bdbHdr.findIndex((c) => String(c).trim() === "Account Name");
+    const cParentAcc = bdbHdr.findIndex((c) => String(c).trim() === "Parent Account");
+    const cUltParent = bdbHdr.findIndex((c) => String(c).trim() === "Ultimate Parent Account");
+    const cStage = bdbHdr.findIndex((c) => String(c).trim() === "Stage");
+    const cOffice = bdbHdr.findIndex((c) => String(c).trim() === "Office");
+    const cFullGp = bdbHdr.findIndex((c) => String(c).trim() === "P&L GP Full Value");
+    const cDeriskGp = bdbHdr.findIndex((c) => String(c).trim() === "P&L GP De-Risked");
+    const startTotalCol = bdbHdr.findIndex((c) => String(c).includes("GP De-Risked TOTAL"));
+    const endTotalCol = bdbHdr.findIndex((c, idx) => idx > startTotalCol && String(c).includes("GP De-Risked"));
+    const maxCol = endTotalCol > startTotalCol ? endTotalCol - 1 : Math.min(bdbHdr.length - 1, 120);
+    const bdbMonthCols = {};
+    for (let c = startTotalCol >= 0 ? startTotalCol + 1 : 25; c <= maxCol; c++) {
+        const mk = parseMonthKey(bdbHdr[c]);
+        if (mk && bdbMonthCols[mk] === undefined)
+            bdbMonthCols[mk] = c;
+    }
+    // 3. Parse P&L Summary helper
+    const parsePnlSummary = (pnlRows) => {
+        const hdr = pnlRows.find((r) => r.some((c) => parseMonthKey(c) === "2026-05") && r.some((c) => parseMonthKey(c) === "2026-10"));
+        const mCols = {};
+        if (hdr) {
+            hdr.forEach((cell, c) => {
+                const mk = parseMonthKey(cell);
+                if (mk && mCols[mk] === undefined)
+                    mCols[mk] = c;
+            });
+        }
+        const rowByLabel = {};
+        for (const r of pnlRows) {
+            const label = String(r[3] || "").trim();
+            if (label && !rowByLabel[label])
+                rowByLabel[label] = r;
+        }
+        const out = {};
+        for (const mo of FY_MONTHS) {
+            const c = mCols[mo];
+            const pipe = c !== undefined && rowByLabel["TOTAL PIPELINE"] ? parseMoneyOrK(rowByLabel["TOTAL PIPELINE"][c]) : 0;
+            const totalGp = c !== undefined && rowByLabel["TOTAL GP"] ? parseMoneyOrK(rowByLabel["TOTAL GP"][c]) : 0;
+            const budgetGp = c !== undefined && rowByLabel["Budget GP"] ? parseMoneyOrK(rowByLabel["Budget GP"][c]) : 0;
+            const forecast = c !== undefined && rowByLabel["Forecast"] ? parseMoneyOrK(rowByLabel["Forecast"][c]) : 0;
+            const negotiation = c !== undefined && rowByLabel["Negotiation"] ? parseMoneyOrK(rowByLabel["Negotiation"][c]) : 0;
+            out[mo] = { pipe, totalGp, budgetGp, forecast, negotiation };
+        }
+        return out;
+    };
+    const pnlByMarket = {
+        UK: parsePnlSummary(ukPnlRows),
+        US: parsePnlSummary(usPnlRows),
+    };
+    const buildMarketData = (officeKey, existingMarket) => {
+        const pnl = pnlByMarket[officeKey];
+        const targetsFull = {};
+        const ownerClients = {};
+        const clientLookup = {};
+        const ensureHubClient = (hub, cl) => {
+            if (!targetsFull[hub])
+                targetsFull[hub] = {};
+            if (!targetsFull[hub][cl]) {
+                targetsFull[hub][cl] = {};
+                for (const mo of FY_MONTHS)
+                    targetsFull[hub][cl][mo] = { t: 0, p: 0, w: 0 };
+            }
+            if (!ownerClients[hub])
+                ownerClients[hub] = [];
+            if (!ownerClients[hub].includes(cl))
+                ownerClients[hub].push(cl);
+        };
+        for (let i = tHdrIdx + 1; i < targetRows.length; i++) {
+            const r = targetRows[i];
+            const cl = String(r[tClientCol] || "").trim();
+            let hub = String(r[tHubCol] || "").trim();
+            if (!cl || !matchesOffice(r[tOfficeCol], officeKey))
+                continue;
+            if (!hub || hub === "N/A")
+                hub = "New Business";
+            ensureHubClient(hub, cl);
+            clientLookup[cl.toLowerCase()] = { clientName: cl, hub };
+            for (const mo of FY_MONTHS) {
+                const c = tMonthCols[mo];
+                if (c !== undefined) {
+                    targetsFull[hub][cl][mo].t += (parseNumber(r[c]) || 0) / 1000;
+                }
+            }
+        }
+        const resolveTargetClient = (accName, parentAcc, ultParent) => {
+            const candidates = [accName, parentAcc, ultParent].map((s) => s.trim()).filter(Boolean);
+            for (const cand of candidates) {
+                const exact = clientLookup[cand.toLowerCase()];
+                if (exact)
+                    return exact;
+            }
+            for (const cand of candidates) {
+                const lower = cand.toLowerCase();
+                for (const [tKey, tVal] of Object.entries(clientLookup)) {
+                    if (lower.startsWith(tKey + " ") || tKey.startsWith(lower + " ")) {
+                        return tVal;
+                    }
+                }
+            }
+            return null;
+        };
+        const monthlyRaw = {};
+        for (const mo of Object.keys(bdbMonthCols)) {
+            monthlyRaw[mo] = { w: 0, p: 0, we: 0, pe: 0, t: 0 };
+        }
+        for (const mo of FY_MONTHS) {
+            if (!monthlyRaw[mo])
+                monthlyRaw[mo] = { w: 0, p: 0, we: 0, pe: 0, t: 0 };
+            let tSumK = 0;
+            for (const hub of Object.values(targetsFull)) {
+                for (const clObj of Object.values(hub)) {
+                    tSumK += clObj[mo]?.t || 0;
+                }
+            }
+            const pnlBudgetK = (pnl[mo]?.budgetGp || 0) / 1000;
+            monthlyRaw[mo].t = Math.round((pnlBudgetK > 0 ? pnlBudgetK : tSumK) * 10) / 10;
+        }
+        let openN = 0;
+        let openGpSum = 0;
+        let totalWonCount = 0;
+        let totalLostCount = 0;
+        const wonDealGps = [];
+        const activeClientsSet = new Set();
+        const newBizDeals = [];
+        const oppsByClient = { ...(existingMarket?.opps || {}) };
+        for (const k of Object.keys(oppsByClient))
+            oppsByClient[k] = [];
+        for (let i = bdbHdrIdx + 1; i < bdbRows.length; i++) {
+            const r = bdbRows[i];
+            if (!r || !r[cOppName])
+                continue;
+            if (!matchesOffice(r[cOffice], officeKey))
+                continue;
+            const stage = String(r[cStage] || "").trim();
+            const stageLower = stage.toLowerCase();
+            const isWon = stage === "Closed Won";
+            const isLost = stageLower.includes("lost") || stageLower.includes("churn") || stageLower.includes("cancel");
+            if (isWon)
+                totalWonCount++;
+            else if (isLost)
+                totalLostCount++;
+            if (isLost)
+                continue;
+            const accName = String(r[cAccName] || "").trim() || "Unknown";
+            const parentAcc = cParentAcc >= 0 ? String(r[cParentAcc] || "").trim() : "";
+            const ultParent = cUltParent >= 0 ? String(r[cUltParent] || "").trim() : "";
+            const dealName = String(r[cOppName] || "").trim() || accName;
+            const totalGpDerisked = parseNumber(r[cDeriskGp]) || 0;
+            const dealValFull = parseNumber(r[cFullGp]) || 0;
+            const match = resolveTargetClient(accName, parentAcc, ultParent);
+            const hub = match ? match.hub : "New Business";
+            const clKey = match ? match.clientName : accName;
+            if (isWon && dealValFull > 0)
+                wonDealGps.push(dealValFull);
+            if (!isWon && totalGpDerisked > 0) {
+                openN++;
+                openGpSum += totalGpDerisked;
+                if (!oppsByClient[clKey])
+                    oppsByClient[clKey] = [];
+                oppsByClient[clKey].push({
+                    d: dealName,
+                    s: stage,
+                    g: Math.round((totalGpDerisked / 1000) * 10) / 10,
+                });
+            }
+            let fyTotalP = 0;
+            let h1TotalP = 0;
+            for (const [mo, c] of Object.entries(bdbMonthCols)) {
+                const val = parseNumber(r[c]) || 0;
+                if (!val)
+                    continue;
+                monthlyRaw[mo].p += val;
+                if (isWon)
+                    monthlyRaw[mo].w += val;
+                if (FY_MONTHS.includes(mo)) {
+                    fyTotalP += val;
+                    if (H1_MONTHS.includes(mo))
+                        h1TotalP += val;
+                    ensureHubClient(hub, clKey);
+                    targetsFull[hub][clKey][mo].p += val / 1000;
+                    if (isWon)
+                        targetsFull[hub][clKey][mo].w += val / 1000;
+                }
+            }
+            if (fyTotalP > 0) {
+                activeClientsSet.add(clKey);
+                if (!match) {
+                    newBizDeals.push({
+                        client: accName,
+                        deal: dealName,
+                        am: "",
+                        stage,
+                        gp: Math.round(fyTotalP / 1000),
+                        h1: Math.round(h1TotalP / 1000),
+                    });
+                }
+            }
+        }
+        const clientPred = { ...(existingMarket?.client_pred || {}) };
+        for (const hub of Object.keys(targetsFull)) {
+            for (const cl of Object.keys(targetsFull[hub])) {
+                if (!clientPred[cl])
+                    clientPred[cl] = {};
+                for (const mo of FY_MONTHS) {
+                    const cell = targetsFull[hub][cl][mo];
+                    cell.t = Math.round(cell.t * 100) / 100;
+                    cell.p = Math.round(cell.p * 100) / 100;
+                    cell.w = Math.round(cell.w * 100) / 100;
+                    clientPred[cl][mo] = Math.max(Math.round(cell.p * 1000), clientPred[cl][mo] || 0);
+                }
+            }
+        }
+        const predRows = {};
+        for (const mo of FY_MONTHS) {
+            const pnlMo = pnl[mo] || { pipe: 0, totalGp: 0, budgetGp: 0, forecast: 0, actual: 0 };
+            const tv = pnlMo.budgetGp > 0 ? Math.round(pnlMo.budgetGp) : Math.round((monthlyRaw[mo]?.t || 0) * 1000);
+            const pv = pnlMo.pipe > 0 ? Math.round(pnlMo.pipe) : Math.round(monthlyRaw[mo]?.p || 0);
+            const pred = pnlMo.totalGp > 0 ? Math.round(pnlMo.totalGp) : pv;
+            predRows[mo] = {
+                tv,
+                pv,
+                pred,
+                gap_v: pred - tv,
+                cov: tv > 0 ? Math.round((pv / tv) * 100) : 0,
+                pred_cov: tv > 0 ? Math.round((pred / tv) * 100) : 0,
+            };
+        }
+        const monthlyFormatted = {};
+        for (const [mo, mObj] of Object.entries(monthlyRaw)) {
+            monthlyFormatted[mo] = {
+                w: Math.round((mObj.w / 1000) * 10) / 10,
+                p: Math.round(((mObj.p - mObj.w) / 1000) * 10) / 10,
+                we: Math.round((mObj.w / 1000) * 10) / 10,
+                pe: Math.round(((mObj.p - mObj.w) / 1000) * 10) / 10,
+                t: mObj.t || 0,
+            };
+        }
+        const hubsArr = Object.keys(targetsFull).map((hubName) => {
+            let target = 0, h1t = 0, won = 0, pipe = 0, h1w = 0, h1p = 0;
+            const clMap = targetsFull[hubName];
+            const clientsList = Object.keys(clMap);
+            for (const cl of clientsList) {
+                for (const mo of FY_MONTHS) {
+                    const c = clMap[cl][mo];
+                    target += c.t;
+                    won += c.w;
+                    pipe += c.p - c.w;
+                    if (H1_MONTHS.includes(mo)) {
+                        h1t += c.t;
+                        h1w += c.w;
+                        h1p += c.p - c.w;
+                    }
+                }
+            }
+            const total = won + pipe;
+            const h1tot = h1w + h1p;
+            return {
+                hub: hubName,
+                target: Math.round(target),
+                h1t: Math.round(h1t),
+                won: Math.round(won),
+                pipe: Math.round(pipe),
+                total: Math.round(total),
+                cov: target > 0 ? Math.round((total / target) * 100) : 0,
+                gap: Math.round(total - target),
+                h1w: Math.round(h1w),
+                h1p: Math.round(h1p),
+                h1tot: Math.round(h1tot),
+                h1cov: h1t > 0 ? Math.round((h1tot / h1t) * 100) : 0,
+                clients: clientsList.length,
+            };
+        });
+        const lyH1 = Math.round(LY_H1_MONTHS.reduce((s, mo) => s + (monthlyRaw[mo]?.w || 0), 0) / 1000);
+        wonDealGps.sort((a, b) => a - b);
+        const medianGp = wonDealGps.length ? Math.round(wonDealGps[Math.floor(wonDealGps.length / 2)]) : 0;
+        const totalPitched = totalWonCount + totalLostCount;
+        const winRate = totalPitched > 0 ? Math.round((totalWonCount / totalPitched) * 100) : 0;
+        return {
+            ...existingMarket,
+            ly_h1: lyH1,
+            pred_rows: predRows,
+            targets_full: targetsFull,
+            owner_clients: ownerClients,
+            client_pred: clientPred,
+            opps: oppsByClient,
+            monthly: monthlyFormatted,
+            hubs: hubsArr,
+            new_biz: newBizDeals.sort((a, b) => b.gp - a.gp),
+            stats: {
+                ...(existingMarket?.stats || {}),
+                open_n: openN,
+                open_gp: Math.round(openGpSum / 1000),
+                win_rate: winRate,
+                median_gp: medianGp,
+                total_won: totalWonCount,
+                total_clients: activeClientsSet.size,
+                total_pitched: totalPitched,
+            },
+        };
+    };
+    const updatedUk = buildMarketData("UK", existingMap.uk || {});
+    const updatedUs = buildMarketData("US", existingMap.us || {});
+    const now = new Date();
+    const snapshotDate = now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) + ", " + now.toTimeString().slice(0, 5);
+    // First FY month where P&L Summary has open Negotiation or Forecast > 0 is the active forecast boundary
+    const firstForecastMonth = FY_MONTHS.find((mo) => (pnlByMarket.UK[mo]?.negotiation || 0) > 0 || (pnlByMarket.UK[mo]?.forecast || 0) > 0);
+    const asOfMonth = firstForecastMonth || now.toISOString().slice(0, 7);
+    const fx = existingMap.metrics?.FX || 1.3438;
+    const ukFyTargetK = Math.round(FY_MONTHS.reduce((s, m) => s + updatedUk.pred_rows[m].tv, 0) / 1000);
+    const ukFyWonK = Math.round(FY_MONTHS.reduce((s, m) => s + updatedUk.monthly[m].w, 0));
+    const ukFyPipeK = Math.round(FY_MONTHS.reduce((s, m) => s + updatedUk.monthly[m].p, 0));
+    const usFyTargetK = Math.round(FY_MONTHS.reduce((s, m) => s + updatedUs.pred_rows[m].tv, 0) / 1000);
+    const usFyWonK = Math.round(FY_MONTHS.reduce((s, m) => s + updatedUs.monthly[m].w, 0));
+    const usFyPipeK = Math.round(FY_MONTHS.reduce((s, m) => s + updatedUs.monthly[m].p, 0));
+    const groupPredRows = { ...(existingMap.metrics?.group?.pred_rows || {}) };
+    const groupTargets = { ...(existingMap.metrics?.group?.targets || {}) };
+    for (const mo of FY_MONTHS) {
+        const ukPr = updatedUk.pred_rows[mo];
+        const usPr = updatedUs.pred_rows[mo];
+        const tv = Math.round(ukPr.tv + usPr.tv / fx);
+        const pv = Math.round(ukPr.pv + usPr.pv / fx);
+        const pred = Math.round(ukPr.pred + usPr.pred / fx);
+        groupPredRows[mo] = {
+            ...(groupPredRows[mo] || {}),
+            tv,
+            pv,
+            pred,
+            is_prev: false,
+            pred_hi: pred,
+            pred_lo: pred,
+        };
+        groupTargets[mo] = {
+            p: Math.round(pv / 1000),
+            t: Math.round(tv / 1000),
+            uk_p: Math.round(ukPr.pv / 1000),
+            uk_t: Math.round(ukPr.tv / 1000),
+            us_p_gbp: Math.round(usPr.pv / fx / 100) / 10,
+            us_t_gbp: Math.round(usPr.tv / fx / 1000),
+        };
+    }
+    const updatedMetrics = {
+        ...(existingMap.metrics || {}),
+        AS_OF: asOfMonth,
+        snapshot_date: snapshotDate,
+        group: {
+            ...(existingMap.metrics?.group || {}),
+            fx,
+            ly_h1: Math.round(updatedUk.ly_h1 + updatedUs.ly_h1 / fx),
+            pred_rows: groupPredRows,
+            targets: groupTargets,
+            uk_target: ukFyTargetK,
+            uk_won: ukFyWonK,
+            uk_pipe: ukFyPipeK,
+            us_target_usd: usFyTargetK,
+            us_won_usd: usFyWonK,
+            us_pipe_usd: usFyPipeK,
+            us_target_gbp: Math.round(usFyTargetK / fx),
+            us_won_gbp: Math.round(usFyWonK / fx),
+            us_pipe_gbp: Math.round(usFyPipeK / fx),
+            total_target: ukFyTargetK + Math.round(usFyTargetK / fx),
+            total_won: ukFyWonK + Math.round(usFyWonK / fx),
+            total_pipe: ukFyPipeK + Math.round(usFyPipeK / fx),
+            total: ukFyWonK + ukFyPipeK + Math.round((usFyWonK + usFyPipeK) / fx),
+        },
+    };
+    for (const [id, payload] of [["metrics", updatedMetrics], ["uk", updatedUk], ["us", updatedUs]]) {
+        const { error } = await supabase.from("pharaoh_data").upsert({ id, payload, updated_at: new Date().toISOString() }, { onConflict: "id" });
+        if (error)
+            throw new Error(`Failed to upsert pharaoh_data.${id}: ${error.message}`);
+    }
+}
 async function runSync() {
     logger.info("Starting centralized sheet sync");
     const supabase = getSupabase();
@@ -907,6 +1370,15 @@ async function runSync() {
     }
     catch (e) {
         logger.error(`Error syncing talent efficiencies: ${e.message}`);
+    }
+    // 7. PHARAOH HOMEPAGE & CO-PILOT DATA (from [LIVE] Co-Pilot Master Hub)
+    try {
+        logger.info("Syncing Pharaoh Homepage stats from Co-Pilot Master Hub...");
+        await syncPharaohCopilotData(sheets, supabase);
+        logger.info("Successfully synced Pharaoh Homepage stats!");
+    }
+    catch (e) {
+        logger.error(`Error syncing Pharaoh Co-Pilot data: ${e.message}`);
     }
     // Update data_imports timestamp from server-side (bypasses any client-side RLS limits!)
     await updateProgress(100);

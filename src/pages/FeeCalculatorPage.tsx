@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -831,11 +832,15 @@ function FeeCalculatorPageInner() {
     try { const s = sessionStorage.getItem("fee-calc-step"); return s ? parseInt(s, 10) : 0; } catch { return 0; }
   });
 
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try { const t = sessionStorage.getItem("fee-calc-tab"); return t || "services"; } catch { return "services"; }
+  });
+
   const [currentMargin, setCurrentMargin] = useState<number>(0);
   const [justificationNotes, setJustificationNotes] = useState<string>("");
   const isException = currentMargin > 0 && currentMargin < 20;
 
-  // Persist state and step to sessionStorage
+  // Persist state, step and tab to sessionStorage
   useEffect(() => {
     try { sessionStorage.setItem("fee-calc-state", JSON.stringify(state)); } catch { /* ignore */ }
   }, [state]);
@@ -843,6 +848,10 @@ function FeeCalculatorPageInner() {
   useEffect(() => {
     try { sessionStorage.setItem("fee-calc-step", String(currentStep)); } catch { /* ignore */ }
   }, [currentStep]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("fee-calc-tab", activeTab); } catch { /* ignore */ }
+  }, [activeTab]);
 
   const canProceed = currentStep === 0
     ? !!(state.client && state.projectName)
@@ -852,10 +861,10 @@ function FeeCalculatorPageInner() {
     <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden bg-background">
       {/* Left Panel: Inputs (65%) */}
       <div className="flex-1 overflow-y-auto p-6 border-r border-border space-y-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground mb-1">Fee Calculator</h1>
-            <p className="text-sm text-muted-foreground">Configure project scope and calculate fees</p>
+            <p className="text-sm text-muted-foreground">Configure project scope, calculate fees and model talent budgeting</p>
           </div>
           <Button 
             variant="outline" 
@@ -864,9 +873,11 @@ function FeeCalculatorPageInner() {
               if (window.confirm("Are you sure you want to start a new scope? This will clear all current inputs.")) {
                 setState(defaultState);
                 setCurrentStep(0);
+                setActiveTab("services");
                 setAppliedRecs([]);
                 sessionStorage.removeItem("fee-calc-state");
                 sessionStorage.removeItem("fee-calc-step");
+                sessionStorage.removeItem("fee-calc-tab");
               }
             }}
           >
@@ -875,8 +886,29 @@ function FeeCalculatorPageInner() {
           </Button>
         </div>
 
-        {/* Step 1: Project Setup */}
-          <Section icon={Settings2} title="Overview" enabled={true} onToggle={() => {}} alwaysOn uncollapsible>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
+          <TabsList className="grid grid-cols-4 w-full h-11 p-1 bg-muted/60 border border-border rounded-lg">
+            <TabsTrigger value="services" className="text-xs font-semibold gap-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs rounded-md">
+              <Layers className="h-3.5 w-3.5" />
+              Services & Scope
+            </TabsTrigger>
+            <TabsTrigger value="talent" className="text-xs font-semibold gap-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs rounded-md">
+              <Users className="h-3.5 w-3.5" />
+              Talent Budget
+            </TabsTrigger>
+            <TabsTrigger value="optimiser" className="text-xs font-semibold gap-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs rounded-md">
+              <Sparkles className="h-3.5 w-3.5" />
+              Scope Optimiser
+            </TabsTrigger>
+            <TabsTrigger value="phasing" className="text-xs font-semibold gap-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs rounded-md">
+              <BarChart3 className="h-3.5 w-3.5" />
+              Phasing
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="services" className="space-y-4 m-0">
+            {/* Step 1: Project Setup */}
+            <Section icon={Settings2} title="Overview" enabled={true} onToggle={() => {}} alwaysOn uncollapsible>
             <FieldRow label="Office">
               <Select value={state.office} onValueChange={(v: "UK" | "US") => setState((s) => ({ ...s, office: v, currency: v === "US" ? "USD" : "GBP", talentBudget: { ...s.talentBudget, talentContingencyPct: v === "US" ? 25 : 10 } }))}>
                 <SelectTrigger className="h-9">
@@ -1493,28 +1525,28 @@ function FeeCalculatorPageInner() {
                 </div>
               )}
             </Section>
-        {/* Step 3: Talent Budget */}
-        <div className="mt-8 border-t border-border pt-6">
-          <h2 className="text-lg font-semibold mb-4">Talent Budget</h2>
-          <TalentBudgetTab
-            state={state.talentBudget}
-            onChange={(tb) => setState((s) => ({ ...s, talentBudget: tb }))}
-            office={state.office}
-            currencySymbol={currencySymbol}
-          />
-        </div>
+          </TabsContent>
 
-        {/* Step 4: Scope Optimiser */}
-        <div className="mt-8 border-t border-border pt-6">
-          <h2 className="text-lg font-semibold mb-4">Scope Optimiser</h2>
-          <ScopeOptimiserTab state={state} currencySymbol={currencySymbol} appliedRecs={appliedRecs} onAppliedRecsChange={setAppliedRecs} />
-        </div>
+          {/* Step 3: Talent Budget */}
+          <TabsContent value="talent" className="space-y-4 m-0">
+            <TalentBudgetTab
+              state={state.talentBudget}
+              onChange={(tb) => setState((s) => ({ ...s, talentBudget: tb }))}
+              office={state.office}
+              currencySymbol={currencySymbol}
+            />
+          </TabsContent>
 
-        {/* Step 6: Phasing */}
-        <div className="mt-8 border-t border-border pt-6">
-          <h2 className="text-lg font-semibold mb-4">Phasing</h2>
-          <PhasingTab state={state} currencySymbol={currencySymbol} appliedRecs={appliedRecs} />
-        </div>
+          {/* Step 4: Scope Optimiser */}
+          <TabsContent value="optimiser" className="space-y-4 m-0">
+            <ScopeOptimiserTab state={state} currencySymbol={currencySymbol} appliedRecs={appliedRecs} onAppliedRecsChange={setAppliedRecs} />
+          </TabsContent>
+
+          {/* Step 6: Phasing */}
+          <TabsContent value="phasing" className="space-y-4 m-0">
+            <PhasingTab state={state} currencySymbol={currencySymbol} appliedRecs={appliedRecs} />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Right Panel: Summary & Shield (35%) */}

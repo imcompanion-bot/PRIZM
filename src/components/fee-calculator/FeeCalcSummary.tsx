@@ -474,18 +474,25 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
     return groups;
   }, [sectionOrder, serviceHours.lines]);
 
-  const handleExportJSON = () => {
+  const handleExportAnalysis = () => {
     const exportData = {
       "1_RawInputs": {
         project: {
           client: state.client,
           projectName: state.projectName,
+          oppNumber: state.oppNumber,
           office: state.office,
+          rateCard: state.rateCard,
+          currency: state.currency,
+          fxRate,
           durationMonths: state.durationMonths,
         },
         talentBrief: {
           groups: state.talentBudget.groups,
           gifting: state.talentBudget.giftingTiers,
+          talentContingencyPct: state.talentBudget.talentContingencyPct,
+          fxExposure: state.talentBudget.fxExposure,
+          fxPremiumPct: state.talentBudget.fxPremiumPct,
           multipliers: {
             organicUsageWeeks: state.talentBudget.organicUsageWeeks,
             paidUsageWeeks: state.talentBudget.paidUsageWeeks,
@@ -498,31 +505,52 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
         scopingRules: state.sections
       },
       "2_IntermediateTalentCalculations": {
-        groups: talentCalc.groups.map(g => ({
-          groupName: g.groupName,
-          baseFee: g.baseFee,
-          impressionEstimate: g.impressions,
-          appliedMultipliers: {
-            usage: g.appliedUsageMultiplier,
-            territory: g.appliedTerritoryMultiplier,
-            followerTier: g.followerTierMultiplier
-          },
-          finalGroupFee: g.finalFee
+        groups: talentCalc.groups.map((g, idx) => ({
+          groupIndex: idx + 1,
+          groupId: g.groupId,
+          platform: g.platform,
+          influencers: g.influencers,
+          followers: g.followers,
+          contentFeePerInfl: g.contentFeePerInfl,
+          repostingPerInfl: g.repostingPerInfl,
+          boosterFeePerInfl: g.boosterFeePerInfl,
+          multiplierFeePerInfl: g.multiplierFeePerInfl,
+          totalFeePerInfl: g.totalFeePerInfl,
+          impressionsPerInfl: g.impressionsPerInfl,
+          totalImpressions: g.totalImpressions,
+          totalContentFee: g.totalContentFee,
+          finalGroupFee: g.totalFee,
+          paidMediaFee: g.paidMediaFee,
+          companionCreatorCost: g.companionCreatorCost,
         })),
-        totalCreatorCost: talentCalc.totalFee
+        platformBreakdown: talentCalc.platformBreakdown,
+        totalInfluencers: talentCalc.totalInfluencers,
+        totalDeliverables: talentCalc.totalDeliverables,
+        totalImpressions: talentCalc.totalImpressions,
+        totalCreatorCost: talentCalc.totalFee,
+        companionCreatorCosts: talentCalc.companionCreatorCosts,
+        talentContingency: talentCalc.talentContingency,
+        fxPremium: talentCalc.fxPremium,
+        internalBudget: talentCalc.internalBudget,
+        externalBudget: talentCalc.externalBudget,
       },
       "3_IntermediateStaffingCalculations": {
+        totalHours: serviceHours.totalHours,
+        totalFee: serviceHours.totalFee,
         sections: serviceHours.lines.reduce((acc, line) => {
           if (!acc[line.section]) {
-            acc[line.section] = { totalHours: 0, roles: [] };
+            acc[line.section] = { phase: line.phase, totalHours: 0, totalFee: 0, roles: [] };
           }
-          acc[line.section].totalHours += line.hours;
           const rate = rateLookup.get(line.role.toLowerCase()) || 0;
+          const cost = line.hours * rate;
+          acc[line.section].totalHours += line.hours;
+          acc[line.section].totalFee += cost;
           acc[line.section].roles.push({
+            task: line.task,
             role: line.role,
             hours: line.hours,
             hourlyRate: rate,
-            cost: line.hours * rate
+            cost,
           });
           return acc;
         }, {} as Record<string, any>)
@@ -531,18 +559,65 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
         totalServiceFee: serviceHours.totalFee,
         totalCreatorCosts: talentCalc.externalBudget,
         totalThirdPartyCosts: totalThirdParty,
+        thirdPartyBreakdown: {
+          paidMediaSpend,
+          productionTotal,
+          procurementTotal,
+          otherCosts,
+        },
         agencyMargin: optimisedMarginCalc.fee - optimisedMarginCalc.cost,
+        agencyMarginPct: optimisedMarginCalc.fee > 0
+          ? ((optimisedMarginCalc.fee - optimisedMarginCalc.cost) / optimisedMarginCalc.fee) * 100
+          : 0,
         fxExposureFee: talentCalc.fxPremium,
         contingency: talentCalc.talentContingency,
         grandTotal: grandTotal
       }
     };
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const mdLines: string[] = [
+      `# Fee Calculator Export — ${state.projectName || "Untitled Project"}`,
+      ``,
+      `## 1. Project Overview`,
+      `- **Client:** ${state.client === "__new__" ? state.projectName : state.client || "—"}`,
+      `- **Project:** ${state.projectName || "—"}`,
+      `- **Opp Number:** ${state.oppNumber || "—"}`,
+      `- **Office:** ${state.office}`,
+      `- **Rate Card:** ${state.rateCard || "—"}`,
+      `- **Currency:** ${state.currency} (${sym})`,
+      `- **Duration:** ${state.durationMonths || 0} months`,
+      ``,
+      `## 2. BDB Internal Summary`,
+      `| Category | Value (${sym}) |`,
+      `| :--- | ---: |`,
+      `| Service Fees (Agency) | ${fmt(serviceHours.totalFee, sym)} |`,
+      `| Talent Budget (Creator Payments) | ${fmt(talentCalc.totalFee, sym)} |`,
+      `| Companion Creator Costs (3%) | ${fmt(talentCalc.companionCreatorCosts, sym)} |`,
+      `| Contingency — Talent (${state.talentBudget.talentContingencyPct}%) | ${fmt(talentCalc.talentContingency, sym)} |`,
+      ...(talentCalc.fxPremium > 0 ? [`| FX Premium (${state.talentBudget.fxPremiumPct}%) | ${fmt(talentCalc.fxPremium, sym)} |`] : []),
+      `| Other Third Party Costs | ${fmt(totalThirdParty, sym)} |`,
+      `| **Grand Total** | **${fmt(grandTotal, sym)}** |`,
+      ``,
+      `## 3. Agency Fee Breakdown (${serviceHours.totalHours.toFixed(1)}h · ${fmt(serviceHours.totalFee, sym)})`,
+      `| Phase | Section | Task | Role | Hours | Rate (${sym}/h) | Fee (${sym}) |`,
+      `| :--- | :--- | :--- | :--- | ---: | ---: | ---: |`,
+      ...serviceHours.lines.map((line) => {
+        const rate = rateLookup.get(line.role.toLowerCase()) || 0;
+        return `| ${line.phase ?? "Overhead"} | ${line.section} | ${line.task} | ${line.role} | ${line.hours.toFixed(2)} | ${rate.toFixed(2)} | ${(line.hours * rate).toFixed(2)} |`;
+      }),
+      ``,
+      `## 4. Structured Data Payload (JSON)`,
+      "```json",
+      JSON.stringify(exportData, null, 2),
+      "```",
+      ``
+    ];
+
+    const blob = new Blob([mdLines.join("\n")], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `prism-export-${(state.projectName || 'calc').replace(/\\s+/g, '-').toLowerCase()}.json`;
+    a.download = `prism-export-${(state.projectName || "calc").replace(/\s+/g, "-").toLowerCase()}.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -552,154 +627,179 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
   return (
     <div className="space-y-6">
       {/* Project Overview */}
-      <Card>
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Project Overview</CardTitle>
-          <Button variant="outline" size="sm" onClick={handleExportJSON}>
-            <Download className="w-4 h-4 mr-2" />
-            Output Export (JSON)
+      <Card className="border-border shadow-sm overflow-hidden">
+        <CardHeader className="py-3 px-4 flex flex-row items-center justify-between border-b bg-muted/20">
+          <CardTitle className="text-sm font-semibold tracking-tight">Project Overview</CardTitle>
+          <Button variant="outline" size="sm" className="h-7 text-xs font-medium" onClick={handleExportAnalysis}>
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            Export (.md)
           </Button>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-2 text-sm">
-            <div><span className="text-muted-foreground">Client</span><p className="font-medium">{state.client === "__new__" ? state.projectName : state.client || "—"}</p></div>
-            <div><span className="text-muted-foreground">Project</span><p className="font-medium">{state.projectName || "—"}</p></div>
-            <div><span className="text-muted-foreground">Opp Number</span><p className="font-medium">{state.oppNumber || "—"}</p></div>
-            <div><span className="text-muted-foreground">Rate Card</span><p className="font-medium">{state.rateCard || "—"}</p></div>
-            <div><span className="text-muted-foreground">Currency</span><p className="font-medium">{state.currency}</p></div>
-            <div><span className="text-muted-foreground">Duration</span><p className="font-medium">{state.durationMonths ? `${state.durationMonths} months` : "—"}</p></div>
-            <div><span className="text-muted-foreground font-semibold">Third Party Costs</span><p className="font-semibold text-foreground tabular-nums">{fmt(totalThirdParty, sym)}</p></div>
-            <div><span className="text-muted-foreground font-semibold">Grand Total</span><p className="font-bold text-primary tabular-nums">{fmt(grandTotal, sym)}</p></div>
+        <CardContent className="p-4 space-y-3">
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <div className="rounded-md bg-muted/30 p-2 border border-border/40">
+              <span className="text-[11px] font-medium text-muted-foreground block mb-0.5">Client</span>
+              <p className="font-semibold text-xs text-foreground truncate" title={state.client === "__new__" ? state.projectName : state.client || "—"}>
+                {state.client === "__new__" ? state.projectName : state.client || "—"}
+              </p>
+            </div>
+            <div className="rounded-md bg-muted/30 p-2 border border-border/40">
+              <span className="text-[11px] font-medium text-muted-foreground block mb-0.5">Project</span>
+              <p className="font-semibold text-xs text-foreground truncate" title={state.projectName || "—"}>
+                {state.projectName || "—"}
+              </p>
+            </div>
+            <div className="rounded-md bg-muted/30 p-2 border border-border/40">
+              <span className="text-[11px] font-medium text-muted-foreground block mb-0.5">Opp Number</span>
+              <p className="font-semibold text-xs text-foreground truncate" title={state.oppNumber || "—"}>
+                {state.oppNumber || "—"}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-sm pt-1">
+            <div className="p-2.5 rounded-lg border bg-card/60 shadow-xs">
+              <span className="text-[11px] font-medium text-muted-foreground block mb-1">Talent Budget (Ext)</span>
+              <p className="text-sm font-bold text-foreground tabular-nums">{fmt(talentCalc.externalBudget, sym)}</p>
+            </div>
+            <div className="p-2.5 rounded-lg border bg-card/60 shadow-xs">
+              <span className="text-[11px] font-medium text-muted-foreground block mb-1">Agency Fees</span>
+              <p className="text-sm font-bold text-foreground tabular-nums">{fmt(serviceHours.totalFee, sym)}</p>
+            </div>
+            <div className="p-2.5 rounded-lg border border-primary/40 bg-primary/10 shadow-xs">
+              <span className="text-[11px] font-semibold text-primary block mb-1">Budget Total</span>
+              <p className="text-sm font-black text-primary tabular-nums">{fmt(grandTotal, sym)}</p>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* BDB Internal Summary */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">BDB Internal Summary</CardTitle>
+      {/* Commercial Summary */}
+      <Card className="border-border shadow-sm">
+        <CardHeader className="py-3 px-4 border-b bg-muted/10">
+          <CardTitle className="text-sm font-semibold tracking-tight">Commercial Summary</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/30">
               <TableRow>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Value ({sym})</TableHead>
+                <TableHead className="h-8 text-xs font-semibold">Category</TableHead>
+                <TableHead className="h-8 text-right text-xs font-semibold">Value ({sym})</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell>Service Fees (Agency)</TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(serviceHours.totalFee, sym)}</TableCell>
+              <TableRow className="hover:bg-muted/20">
+                <TableCell className="py-2 text-xs font-medium">Service Fees (Agency)</TableCell>
+                <TableCell className="py-2 text-right tabular-nums text-xs">{fmt(serviceHours.totalFee, sym)}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell>Talent Budget (Creator Payments)</TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(talentCalc.totalFee, sym)}</TableCell>
+              <TableRow className="hover:bg-muted/20">
+                <TableCell className="py-2 text-xs font-medium">Talent Budget (Creator Payments)</TableCell>
+                <TableCell className="py-2 text-right tabular-nums text-xs">{fmt(talentCalc.totalFee, sym)}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell>Companion Creator Costs (3%)</TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(talentCalc.companionCreatorCosts, sym)}</TableCell>
+              <TableRow className="hover:bg-muted/20">
+                <TableCell className="py-2 text-xs font-medium">Companion Creator Costs (3%)</TableCell>
+                <TableCell className="py-2 text-right tabular-nums text-xs">{fmt(talentCalc.companionCreatorCosts, sym)}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell>Contingency — Talent ({state.talentBudget.talentContingencyPct}%)</TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(talentCalc.talentContingency, sym)}</TableCell>
+              <TableRow className="hover:bg-muted/20">
+                <TableCell className="py-2 text-xs font-medium">Contingency — Talent ({state.talentBudget.talentContingencyPct}%)</TableCell>
+                <TableCell className="py-2 text-right tabular-nums text-xs">{fmt(talentCalc.talentContingency, sym)}</TableCell>
               </TableRow>
               {talentCalc.fxPremium > 0 && (
-                <TableRow>
-                  <TableCell>FX Premium ({state.talentBudget.fxPremiumPct}%)</TableCell>
-                  <TableCell className="text-right tabular-nums">{fmt(talentCalc.fxPremium, sym)}</TableCell>
+                <TableRow className="hover:bg-muted/20">
+                  <TableCell className="py-2 text-xs font-medium">FX Premium ({state.talentBudget.fxPremiumPct}%)</TableCell>
+                  <TableCell className="py-2 text-right tabular-nums text-xs">{fmt(talentCalc.fxPremium, sym)}</TableCell>
                 </TableRow>
               )}
-              <TableRow>
-                <TableCell>Other Third Party Costs</TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(totalThirdParty, sym)}</TableCell>
+              <TableRow className="hover:bg-muted/20">
+                <TableCell className="py-2 text-xs font-medium">Pass-Through Costs</TableCell>
+                <TableCell className="py-2 text-right tabular-nums text-xs">{fmt(totalThirdParty, sym)}</TableCell>
               </TableRow>
             </TableBody>
-            <TableFooter>
+            <TableFooter className="bg-muted/40 font-semibold border-t">
               <TableRow>
-                <TableCell className="font-semibold">Grand Total</TableCell>
-                <TableCell className="text-right tabular-nums font-semibold">{fmt(grandTotal, sym)}</TableCell>
+                <TableCell className="py-2.5 text-xs font-bold text-foreground">Grand Total</TableCell>
+                <TableCell className="py-2.5 text-right tabular-nums text-xs font-bold text-primary">{fmt(grandTotal, sym)}</TableCell>
               </TableRow>
             </TableFooter>
           </Table>
         </CardContent>
       </Card>
 
-      {/* ═══ Talent Summary (collapsible) ═══ */}
+      {/* ═══ Talent & Creator Budget (collapsible) ═══ */}
       {talentCalc.totalInfluencers > 0 && (
-        <CollapsibleCard title="Talent Summary" subtitle={fmt(talentCalc.externalBudget, sym)}>
-            <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-               <div className="rounded-md border p-3 text-center">
-                <p className="text-muted-foreground text-xs">Internal Budget</p>
-                <p className="text-lg font-bold tabular-nums">{fmt(talentCalc.internalBudget, sym)}</p>
+        <CollapsibleCard title="Talent & Creator Budget" subtitle={fmt(talentCalc.externalBudget, sym)}>
+            <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+               <div className="rounded-md border p-2.5 text-center bg-card">
+                <p className="text-muted-foreground text-[11px] font-medium">Internal Budget</p>
+                <p className="text-base font-bold tabular-nums mt-0.5">{fmt(talentCalc.internalBudget, sym)}</p>
                 <p className="text-[10px] text-muted-foreground">Available to pay Creators</p>
               </div>
-              <div className="rounded-md border p-3 text-center">
-                <p className="text-muted-foreground text-xs">External Budget</p>
-                <p className="text-lg font-bold tabular-nums">{fmt(talentCalc.externalBudget, sym)}</p>
+              <div className="rounded-md border p-2.5 text-center bg-card">
+                <p className="text-muted-foreground text-[11px] font-medium">External Budget</p>
+                <p className="text-base font-bold tabular-nums mt-0.5">{fmt(talentCalc.externalBudget, sym)}</p>
                 <p className="text-[10px] text-muted-foreground">Total incl. fees & contingency</p>
               </div>
             </div>
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableHead>Platform</TableHead>
-                  <TableHead className="text-right">Creators</TableHead>
-                  <TableHead className="text-right">Deliverables</TableHead>
-                  <TableHead className="text-right">Est. Impressions</TableHead>
-                  <TableHead className="text-right">Creator Cost ({sym})</TableHead>
+                  <TableHead className="h-8 text-xs font-semibold">Platform</TableHead>
+                  <TableHead className="h-8 text-right text-xs font-semibold">Creators</TableHead>
+                  <TableHead className="h-8 text-right text-xs font-semibold">Deliverables</TableHead>
+                  <TableHead className="h-8 text-right text-xs font-semibold">Est. Impr.</TableHead>
+                  <TableHead className="h-8 text-right text-xs font-semibold">Creator Cost ({sym})</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {Object.entries(talentCalc.platformBreakdown).map(([platform, data]) => (
-                  <TableRow key={platform}>
-                    <TableCell>{platform}</TableCell>
-                    <TableCell className="text-right tabular-nums">{data.creators.toLocaleString()}</TableCell>
-                    <TableCell className="text-right tabular-nums">{data.deliverables.toLocaleString()}</TableCell>
-                    <TableCell className="text-right tabular-nums">{Math.round(data.impressions).toLocaleString()}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(data.creatorCost, sym)}</TableCell>
+                  <TableRow key={platform} className="hover:bg-muted/20">
+                    <TableCell className="py-1.5 text-xs">{platform}</TableCell>
+                    <TableCell className="py-1.5 text-right tabular-nums text-xs">{data.creators.toLocaleString()}</TableCell>
+                    <TableCell className="py-1.5 text-right tabular-nums text-xs">{data.deliverables.toLocaleString()}</TableCell>
+                    <TableCell className="py-1.5 text-right tabular-nums text-xs">{Math.round(data.impressions).toLocaleString()}</TableCell>
+                    <TableCell className="py-1.5 text-right tabular-nums text-xs font-medium">{fmt(data.creatorCost, sym)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
-              <TableFooter>
+              <TableFooter className="bg-muted/40 font-semibold border-t">
                 <TableRow>
-                  <TableCell className="font-semibold">Total</TableCell>
-                  <TableCell className="text-right tabular-nums font-semibold">{talentCalc.totalInfluencers.toLocaleString()}</TableCell>
-                  <TableCell className="text-right tabular-nums font-semibold">{talentCalc.totalDeliverables.toLocaleString()}</TableCell>
-                  <TableCell className="text-right tabular-nums font-semibold">{Math.round(talentCalc.totalImpressions).toLocaleString()}</TableCell>
-                  <TableCell className="text-right tabular-nums font-semibold">{fmt(talentCalc.totalFee, sym)}</TableCell>
+                  <TableCell className="py-2 text-xs font-bold">Total</TableCell>
+                  <TableCell className="py-2 text-right tabular-nums text-xs font-semibold">{talentCalc.totalInfluencers.toLocaleString()}</TableCell>
+                  <TableCell className="py-2 text-right tabular-nums text-xs font-semibold">{talentCalc.totalDeliverables.toLocaleString()}</TableCell>
+                  <TableCell className="py-2 text-right tabular-nums text-xs font-semibold">{Math.round(talentCalc.totalImpressions).toLocaleString()}</TableCell>
+                  <TableCell className="py-2 text-right tabular-nums text-xs font-bold text-foreground">{fmt(talentCalc.totalFee, sym)}</TableCell>
                 </TableRow>
               </TableFooter>
             </Table>
             {talentCalc.groups.length > 0 && (
               <>
                 <Separator className="my-4" />
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Per-Group Detail</p>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Per-Group Detail</p>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="bg-muted/30">
                     <TableRow>
-                      <TableHead>Group</TableHead>
-                      <TableHead className="text-right">Content Fee/Infl</TableHead>
-                      <TableHead className="text-right">Reposting/Infl</TableHead>
-                      <TableHead className="text-right">Boosters/Infl</TableHead>
-                      <TableHead className="text-right">Multipliers/Infl</TableHead>
-                      <TableHead className="text-right">Total Fee/Infl</TableHead>
-                      <TableHead className="text-right">Group Total</TableHead>
+                      <TableHead className="h-8 text-xs font-semibold">Group</TableHead>
+                      <TableHead className="h-8 text-right text-xs font-semibold">Content</TableHead>
+                      <TableHead className="h-8 text-right text-xs font-semibold">Repost</TableHead>
+                      <TableHead className="h-8 text-right text-xs font-semibold">Boost</TableHead>
+                      <TableHead className="h-8 text-right text-xs font-semibold">Mult</TableHead>
+                      <TableHead className="h-8 text-right text-xs font-semibold">Fee/Infl</TableHead>
+                      <TableHead className="h-8 text-right text-xs font-semibold">Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {talentCalc.groups.map((g, i) => (
-                      <TableRow key={g.groupId}>
-                        <TableCell className="text-xs">
-                          Group {i + 1}
-                          <span className="text-muted-foreground ml-1">({g.platform})</span>
+                      <TableRow key={g.groupId} className="hover:bg-muted/20">
+                        <TableCell className="py-1.5 text-xs font-medium">
+                          G{i + 1}
+                          <span className="text-muted-foreground ml-1 font-normal">({g.platform})</span>
                         </TableCell>
-                        <TableCell className="text-right tabular-nums text-xs">{fmt(g.contentFeePerInfl, sym)}</TableCell>
-                        <TableCell className="text-right tabular-nums text-xs">{fmt(g.repostingPerInfl, sym)}</TableCell>
-                        <TableCell className="text-right tabular-nums text-xs">{fmt(g.boosterFeePerInfl, sym)}</TableCell>
-                        <TableCell className="text-right tabular-nums text-xs">{fmt(g.multiplierFeePerInfl, sym)}</TableCell>
-                        <TableCell className="text-right tabular-nums text-xs">{fmt(g.totalFeePerInfl, sym)}</TableCell>
-                        <TableCell className="text-right tabular-nums text-xs font-medium">{fmt(g.totalFee, sym)}</TableCell>
+                        <TableCell className="py-1.5 text-right tabular-nums text-xs">{fmt(g.contentFeePerInfl, sym)}</TableCell>
+                        <TableCell className="py-1.5 text-right tabular-nums text-xs">{fmt(g.repostingPerInfl, sym)}</TableCell>
+                        <TableCell className="py-1.5 text-right tabular-nums text-xs">{fmt(g.boosterFeePerInfl, sym)}</TableCell>
+                        <TableCell className="py-1.5 text-right tabular-nums text-xs">{fmt(g.multiplierFeePerInfl, sym)}</TableCell>
+                        <TableCell className="py-1.5 text-right tabular-nums text-xs font-medium">{fmt(g.totalFeePerInfl, sym)}</TableCell>
+                        <TableCell className="py-1.5 text-right tabular-nums text-xs font-bold text-foreground">{fmt(g.totalFee, sym)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -709,22 +809,22 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
         </CollapsibleCard>
       )}
 
-      {/* ═══ Agency Fee — Hours × Rate Card (collapsible) ═══ */}
-      <CollapsibleCard title="Agency Fee (Time Management × Rate Card)" subtitle={`${serviceHours.totalHours.toFixed(1)}h · ${fmt(serviceHours.totalFee, sym)}`}>
+      {/* ═══ Agency Fees (collapsible) ═══ */}
+      <CollapsibleCard title="Agency Fees" subtitle={`${serviceHours.totalHours.toFixed(1)}h · ${fmt(serviceHours.totalFee, sym)}`}>
           {!state.rateCard ? (
-            <p className="text-sm text-muted-foreground italic">Select a rate card in Project Setup to calculate agency fees.</p>
+            <p className="text-xs text-muted-foreground italic py-2">Select a rate card in Project Setup to calculate agency fees.</p>
           ) : serviceHours.totalHours === 0 ? (
-            <p className="text-sm text-muted-foreground italic">Enable services and configure parameters to generate hours.</p>
+            <p className="text-xs text-muted-foreground italic py-2">Enable services and configure parameters to generate hours.</p>
           ) : (
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableHead>Task</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead className="text-right">Hours</TableHead>
-                  <TableHead className="text-right">Rate ({sym}/h)</TableHead>
-                  {hasOptimisation && <TableHead className="text-right">Original Fee ({sym})</TableHead>}
-                  <TableHead className="text-right">{hasOptimisation ? `Optimised Fee (${sym})` : `Fee (${sym})`}</TableHead>
+                  <TableHead className="h-8 text-xs font-semibold">Task</TableHead>
+                  <TableHead className="h-8 text-xs font-semibold">Role</TableHead>
+                  <TableHead className="h-8 text-right text-xs font-semibold">Hours</TableHead>
+                  <TableHead className="h-8 text-right text-xs font-semibold">Rate ({sym}/h)</TableHead>
+                  {hasOptimisation && <TableHead className="h-8 text-right text-xs font-semibold">Original ({sym})</TableHead>}
+                  <TableHead className="h-8 text-right text-xs font-semibold">{hasOptimisation ? `Optimised (${sym})` : `Fee (${sym})`}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -737,15 +837,15 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
                   if (phaseHours === 0 && originalPhaseFee === 0) return null;
                   return (
                     <React.Fragment key={phase ?? "n/a"}>
-                      <TableRow className="bg-primary/10 border-t-2 border-primary/20">
-                        <TableCell colSpan={3} className="font-bold text-xs uppercase tracking-wider text-primary">
+                      <TableRow className="bg-primary/10 border-t border-primary/20">
+                        <TableCell colSpan={3} className="py-2 font-bold text-xs uppercase tracking-wider text-primary">
                           {phase ?? "N/A (Overhead)"}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums text-xs font-bold text-primary">{phaseHours.toFixed(1)}h</TableCell>
+                        <TableCell className="py-2 text-right tabular-nums text-xs font-bold text-primary">{phaseHours.toFixed(1)}h</TableCell>
                         {hasOptimisation && (
-                          <TableCell className="text-right tabular-nums text-xs font-bold text-primary">{fmt(originalPhaseFee, sym)}</TableCell>
+                          <TableCell className="py-2 text-right tabular-nums text-xs font-bold text-primary">{fmt(originalPhaseFee, sym)}</TableCell>
                         )}
-                        <TableCell className="text-right tabular-nums text-xs font-bold text-primary">{fmt(phaseFee, sym)}</TableCell>
+                        <TableCell className="py-2 text-right tabular-nums text-xs font-bold text-primary">{fmt(phaseFee, sym)}</TableCell>
                       </TableRow>
                       {sections.map(section => {
                         const sectionData = serviceHours.bySection[section];
@@ -760,43 +860,43 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
                   );
                 })}
               </TableBody>
-              <TableFooter>
+              <TableFooter className="bg-muted/40 font-semibold border-t">
                 <TableRow>
-                  <TableCell colSpan={3} className="font-semibold">Total Agency Fee</TableCell>
-                  <TableCell className="text-right tabular-nums font-semibold">{serviceHours.totalHours.toFixed(1)}h</TableCell>
+                  <TableCell colSpan={3} className="py-2 text-xs font-bold">Total Agency Fee</TableCell>
+                  <TableCell className="py-2 text-right tabular-nums text-xs font-semibold">{serviceHours.totalHours.toFixed(1)}h</TableCell>
                   {hasOptimisation && (
-                    <TableCell className="text-right tabular-nums font-semibold">{fmt(originalServiceHours.totalFee, sym)}</TableCell>
+                    <TableCell className="py-2 text-right tabular-nums text-xs font-semibold">{fmt(originalServiceHours.totalFee, sym)}</TableCell>
                   )}
-                  <TableCell className="text-right tabular-nums font-semibold">{fmt(serviceHours.totalFee, sym)}</TableCell>
+                  <TableCell className="py-2 text-right tabular-nums text-xs font-bold text-primary">{fmt(serviceHours.totalFee, sym)}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell colSpan={4} className="text-muted-foreground text-sm">Agency Fee %</TableCell>
+                  <TableCell colSpan={4} className="py-2 text-muted-foreground text-xs font-medium">Agency Fee % of Total</TableCell>
                   {hasOptimisation && (
-                    <TableCell className="text-right tabular-nums text-sm">
+                    <TableCell className="py-2 text-right tabular-nums text-xs">
                       {originalGrandTotal > 0 ? `${((originalServiceHours.totalFee / originalGrandTotal) * 100).toFixed(1)}%` : "—"}
                     </TableCell>
                   )}
-                  <TableCell className="text-right tabular-nums text-sm">
+                  <TableCell className="py-2 text-right tabular-nums text-xs font-semibold">
                     {grandTotal > 0 ? `${((serviceHours.totalFee / grandTotal) * 100).toFixed(1)}%` : "—"}
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell colSpan={4} className="text-muted-foreground text-sm">
+                  <TableCell colSpan={4} className="py-2 text-muted-foreground text-xs font-medium">
                     Agency Fee Profit Margin
                     {originalMarginCalc.missingRoles.length > 0 && (
-                      <span className="ml-1 text-xs text-muted-foreground/60">
-                        (excl. {originalMarginCalc.missingRoles.length} role{originalMarginCalc.missingRoles.length > 1 ? "s" : ""} without cost data)
+                      <span className="ml-1 text-[11px] text-muted-foreground/60">
+                        (excl. {originalMarginCalc.missingRoles.length} role{originalMarginCalc.missingRoles.length > 1 ? "s" : ""})
                       </span>
                     )}
                   </TableCell>
                   {hasOptimisation && (
-                    <TableCell className="text-right tabular-nums text-sm font-semibold text-primary">
+                    <TableCell className="py-2 text-right tabular-nums text-xs font-semibold text-primary">
                       {originalMarginCalc.fee > 0
                         ? `${(((originalMarginCalc.fee - originalMarginCalc.cost) / originalMarginCalc.fee) * 100).toFixed(1)}%`
                         : "—"}
                     </TableCell>
                   )}
-                  <TableCell className="text-right tabular-nums text-sm">
+                  <TableCell className="py-2 text-right tabular-nums text-xs font-bold text-foreground">
                     {optimisedMarginCalc.fee > 0
                       ? `${(((optimisedMarginCalc.fee - optimisedMarginCalc.cost) / optimisedMarginCalc.fee) * 100).toFixed(1)}%`
                       : "—"}
@@ -808,33 +908,33 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
       </CollapsibleCard>
 
 
-      {/* Third Party Costs */}
+      {/* Pass-Through Costs */}
       {totalThirdParty > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Third Party Costs</CardTitle>
+        <Card className="border-border shadow-sm">
+          <CardHeader className="py-3 px-4 border-b bg-muted/10">
+            <CardTitle className="text-sm font-semibold tracking-tight">Pass-Through Costs</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead className="text-right">Cost ({sym})</TableHead>
+                  <TableHead className="h-8 text-xs font-semibold">Item</TableHead>
+                  <TableHead className="h-8 text-right text-xs font-semibold">Cost ({sym})</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paidMediaSpend > 0 && <TableRow><TableCell>Paid Media Spend</TableCell><TableCell className="text-right tabular-nums">{fmt(paidMediaSpend, sym)}</TableCell></TableRow>}
-                {productionTotal > 0 && <TableRow><TableCell>Production Budget</TableCell><TableCell className="text-right tabular-nums">{fmt(productionTotal, sym)}</TableCell></TableRow>}
-                {procurementTotal > 0 && <TableRow><TableCell>Product Procurement</TableCell><TableCell className="text-right tabular-nums">{fmt(procurementTotal, sym)}</TableCell></TableRow>}
-                {otherCosts.gifting > 0 && <TableRow><TableCell>Gifting Materials</TableCell><TableCell className="text-right tabular-nums">{fmt(otherCosts.gifting, sym)}</TableCell></TableRow>}
-                {otherCosts.audioLicences > 0 && <TableRow><TableCell>Audio Licences</TableCell><TableCell className="text-right tabular-nums">{fmt(otherCosts.audioLicences, sym)}</TableCell></TableRow>}
-                {otherCosts.events > 0 && <TableRow><TableCell>Events</TableCell><TableCell className="text-right tabular-nums">{fmt(otherCosts.events, sym)}</TableCell></TableRow>}
-                {otherCosts.blsReports > 0 && <TableRow><TableCell>BLS / Research Reports</TableCell><TableCell className="text-right tabular-nums">{fmt(otherCosts.blsReports, sym)}</TableCell></TableRow>}
+                {paidMediaSpend > 0 && <TableRow className="hover:bg-muted/20"><TableCell className="py-1.5 text-xs font-medium">Paid Media Spend</TableCell><TableCell className="py-1.5 text-right tabular-nums text-xs">{fmt(paidMediaSpend, sym)}</TableCell></TableRow>}
+                {productionTotal > 0 && <TableRow className="hover:bg-muted/20"><TableCell className="py-1.5 text-xs font-medium">Production Budget</TableCell><TableCell className="py-1.5 text-right tabular-nums text-xs">{fmt(productionTotal, sym)}</TableCell></TableRow>}
+                {procurementTotal > 0 && <TableRow className="hover:bg-muted/20"><TableCell className="py-1.5 text-xs font-medium">Product Procurement</TableCell><TableCell className="py-1.5 text-right tabular-nums text-xs">{fmt(procurementTotal, sym)}</TableCell></TableRow>}
+                {otherCosts.gifting > 0 && <TableRow className="hover:bg-muted/20"><TableCell className="py-1.5 text-xs font-medium">Gifting Materials</TableCell><TableCell className="py-1.5 text-right tabular-nums text-xs">{fmt(otherCosts.gifting, sym)}</TableCell></TableRow>}
+                {otherCosts.audioLicences > 0 && <TableRow className="hover:bg-muted/20"><TableCell className="py-1.5 text-xs font-medium">Audio Licences</TableCell><TableCell className="py-1.5 text-right tabular-nums text-xs">{fmt(otherCosts.audioLicences, sym)}</TableCell></TableRow>}
+                {otherCosts.events > 0 && <TableRow className="hover:bg-muted/20"><TableCell className="py-1.5 text-xs font-medium">Events</TableCell><TableCell className="py-1.5 text-right tabular-nums text-xs">{fmt(otherCosts.events, sym)}</TableCell></TableRow>}
+                {otherCosts.blsReports > 0 && <TableRow className="hover:bg-muted/20"><TableCell className="py-1.5 text-xs font-medium">BLS / Research Reports</TableCell><TableCell className="py-1.5 text-right tabular-nums text-xs">{fmt(otherCosts.blsReports, sym)}</TableCell></TableRow>}
               </TableBody>
-              <TableFooter>
+              <TableFooter className="bg-muted/40 font-semibold border-t">
                 <TableRow>
-                  <TableCell className="font-semibold">Total Third Party</TableCell>
-                  <TableCell className="text-right tabular-nums font-semibold">{fmt(totalThirdParty, sym)}</TableCell>
+                  <TableCell className="py-2 text-xs font-bold text-foreground">Total Pass-Through</TableCell>
+                  <TableCell className="py-2 text-right tabular-nums text-xs font-bold text-primary">{fmt(totalThirdParty, sym)}</TableCell>
                 </TableRow>
               </TableFooter>
             </Table>

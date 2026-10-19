@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { initLegacyModule } from "@/lib/pharaoh/legacyPharaoh";
 import { LegacyViewWrapper } from "@/components/pharaoh/LegacyViewWrapper";
 import { AgentCentreTab } from "@/components/settings/AgentCentreTab";
+import { FeeCalcPresumptionsTab } from "@/components/settings/FeeCalcPresumptionsTab";
 
 const DataSyncTab = () => {
   const queryClient = useQueryClient();
@@ -139,6 +140,8 @@ const DataSyncTab = () => {
       queryClient.invalidateQueries({ queryKey: ["utilisation_summary"] });
       queryClient.invalidateQueries({ queryKey: ["utilisation_summary_monthly"] });
       queryClient.invalidateQueries({ queryKey: ["sync_central_data_status"] });
+      queryClient.invalidateQueries({ queryKey: ["all_pharaoh_clients"] });
+      queryClient.invalidateQueries({ queryKey: ["pharaoh_data"] });
       
       // Instantly update the UI with the timestamp returned from the backend function
       if (result.data && (result.data as any).timestamp) {
@@ -637,9 +640,10 @@ export default function SettingsPage() {
       <Tabs defaultValue="data" className="space-y-6">
         <TabsList className={cn(
           "grid",
-          isAdmin ? "w-[1000px] grid-cols-5" : "w-[800px] grid-cols-4"
+          isAdmin ? "w-[1000px] grid-cols-6" : "w-[850px] grid-cols-5"
         )}>
           <TabsTrigger value="data">Data Sync</TabsTrigger>
+          <TabsTrigger value="presumptions">Fee Calc Presumptions</TabsTrigger>
           <TabsTrigger value="quality">Data Quality</TabsTrigger>
           <TabsTrigger value="agents">Agent Centre</TabsTrigger>
           <TabsTrigger value="archive">Client Archive</TabsTrigger>
@@ -650,6 +654,10 @@ export default function SettingsPage() {
 
         <TabsContent value="data">
           <DataSyncTab />
+        </TabsContent>
+
+        <TabsContent value="presumptions">
+          <FeeCalcPresumptionsTab />
         </TabsContent>
 
         <TabsContent value="quality">
