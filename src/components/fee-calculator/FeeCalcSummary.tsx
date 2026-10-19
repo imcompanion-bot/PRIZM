@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { ChevronRight, ChevronDown, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TalentBudgetState } from "./TalentBudgetTab";
 import { calculateCreatorCosts, type TalentCalcResult } from "./creatorCostEngine";
 import { calculateServiceHours, computeAgencyFee, type ServiceHoursResult, type EngineInput } from "./serviceHoursEngine";
@@ -657,20 +658,48 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 text-sm pt-1">
-            <div className="p-2.5 rounded-lg border bg-card/60 shadow-xs">
-              <span className="text-[11px] font-medium text-muted-foreground block mb-1">Talent Budget (Ext)</span>
-              <p className="text-sm font-bold text-foreground tabular-nums">{fmt(talentCalc.externalBudget, sym)}</p>
+          <TooltipProvider delayDuration={150}>
+            <div className="grid grid-cols-3 gap-2 text-sm pt-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="p-2.5 rounded-lg border bg-card/60 shadow-xs cursor-default">
+                    <span className="text-[11px] font-medium text-muted-foreground block mb-1 whitespace-nowrap truncate">Talent Budget</span>
+                    <p className="text-sm font-bold text-foreground tabular-nums">{fmt(talentCalc.externalBudget, sym)}</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[220px]">
+                  External Talent Budget (creator payments, companion creator costs, contingency &amp; FX premium)
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="p-2.5 rounded-lg border bg-card/60 shadow-xs cursor-default">
+                    <span className="text-[11px] font-medium text-muted-foreground block mb-1 whitespace-nowrap truncate">Agency Fees</span>
+                    <p className="text-sm font-bold text-foreground tabular-nums">{fmt(serviceHours.totalFee, sym)}</p>
+                    <p className="text-[10px] text-muted-foreground/80 mt-0.5 tabular-nums whitespace-nowrap">
+                      {grandTotal > 0 ? `${((serviceHours.totalFee / grandTotal) * 100).toFixed(1)}% of budget` : "0.0% of budget"}
+                    </p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[220px]">
+                  Total BDB Agency Service Fees across all scoped hours ({serviceHours.totalHours.toFixed(1)}h)
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="p-2.5 rounded-lg border border-primary/40 bg-primary/10 shadow-xs cursor-default">
+                    <span className="text-[11px] font-semibold text-primary block mb-1 whitespace-nowrap truncate">Budget Total</span>
+                    <p className="text-sm font-black text-primary tabular-nums">{fmt(grandTotal, sym)}</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[220px]">
+                  Grand Total Project Budget (Agency Fees + External Talent Budget + Pass-Through Costs)
+                </TooltipContent>
+              </Tooltip>
             </div>
-            <div className="p-2.5 rounded-lg border bg-card/60 shadow-xs">
-              <span className="text-[11px] font-medium text-muted-foreground block mb-1">Agency Fees</span>
-              <p className="text-sm font-bold text-foreground tabular-nums">{fmt(serviceHours.totalFee, sym)}</p>
-            </div>
-            <div className="p-2.5 rounded-lg border border-primary/40 bg-primary/10 shadow-xs">
-              <span className="text-[11px] font-semibold text-primary block mb-1">Budget Total</span>
-              <p className="text-sm font-black text-primary tabular-nums">{fmt(grandTotal, sym)}</p>
-            </div>
-          </div>
+          </TooltipProvider>
         </CardContent>
       </Card>
 
