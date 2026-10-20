@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { addWeeks, format, startOfWeek } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { calculateServiceHours, type TaskLine, type EngineInput } from "./serviceHoursEngine";
+import { calculateServiceHours, syncPresumptionsFromDatabase, PRESUMPTIONS_UPDATED_EVENT, type TaskLine, type EngineInput } from "./serviceHoursEngine";
 import { type TalentBudgetState } from "./TalentBudgetTab";
 import { type Recommendation } from "./ScopeRecommendations";
 import { applyOverridesToLines } from "./scopeOverrides";
@@ -176,6 +176,14 @@ export function PhasingTab({ state, currencySymbol, appliedRecs = [] }: PhasingT
     };
   }, [state.talentBudget.groups]);
 
+  const [presumptionsRevision, setPresumptionsRevision] = useState(0);
+  useEffect(() => {
+    syncPresumptionsFromDatabase().then(() => setPresumptionsRevision(r => r + 1));
+    const handler = () => setPresumptionsRevision(r => r + 1);
+    window.addEventListener(PRESUMPTIONS_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(PRESUMPTIONS_UPDATED_EVENT, handler);
+  }, []);
+
   // Compute task lines
   const taskLines = useMemo(() => {
     const totalInfluencers = state.talentBudget.groups.reduce((sum, g) => sum + (g.influencers || 0), 0);
@@ -250,7 +258,7 @@ export function PhasingTab({ state, currencySymbol, appliedRecs = [] }: PhasingT
 
     const lines = calculateServiceHours(engineInput);
     return appliedRecs.length > 0 ? applyOverridesToLines(lines, appliedRecs) : lines;
-  }, [s, state.durationMonths, state.talentBudget, platformStats, appliedRecs]);
+  }, [s, state.durationMonths, state.talentBudget, platformStats, appliedRecs, presumptionsRevision]);
 
   // Aggregate hours by role and phase
   const rolePhaseData = useMemo(() => {

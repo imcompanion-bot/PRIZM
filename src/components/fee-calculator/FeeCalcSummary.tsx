@@ -13,7 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TalentBudgetState } from "./TalentBudgetTab";
 import { calculateCreatorCosts, type TalentCalcResult } from "./creatorCostEngine";
-import { calculateServiceHours, computeAgencyFee, type ServiceHoursResult, type EngineInput } from "./serviceHoursEngine";
+import { calculateServiceHours, computeAgencyFee, syncPresumptionsFromDatabase, PRESUMPTIONS_UPDATED_EVENT, type ServiceHoursResult, type EngineInput } from "./serviceHoursEngine";
 import { type Recommendation } from "./ScopeRecommendations";
 import { applyOverridesToLines } from "./scopeOverrides";
 
@@ -267,6 +267,14 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
     };
   }, [state.talentBudget.groups]);
 
+  const [presumptionsRevision, setPresumptionsRevision] = useState(0);
+  useEffect(() => {
+    syncPresumptionsFromDatabase();
+    const handler = () => setPresumptionsRevision((v) => v + 1);
+    window.addEventListener(PRESUMPTIONS_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(PRESUMPTIONS_UPDATED_EVENT, handler);
+  }, []);
+
   // ═══ Service hours engine ═══
   const serviceHoursResult = useMemo(() => {
     const totalInfluencers = state.talentBudget.groups.reduce((sum, g) => sum + (g.influencers || 0), 0);
@@ -352,7 +360,7 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
     const optimised = computeAgencyFee(adjustedLines, rateCardRoles);
     const original = appliedRecs.length > 0 ? computeAgencyFee(lines, rateCardRoles) : optimised;
     return { current: optimised, original };
-  }, [s, state.durationMonths, state.talentBudget, rateCardRoles, platformStats, appliedRecs]);
+  }, [s, state.durationMonths, state.talentBudget, rateCardRoles, platformStats, appliedRecs, presumptionsRevision]);
 
   const serviceHours = serviceHoursResult.current;
   const originalServiceHours = serviceHoursResult.original;

@@ -643,7 +643,7 @@ export default function SettingsPage() {
           isAdmin ? "w-[1000px] grid-cols-6" : "w-[850px] grid-cols-5"
         )}>
           <TabsTrigger value="data">Data Sync</TabsTrigger>
-          <TabsTrigger value="presumptions">Fee Calc Presumptions</TabsTrigger>
+          <TabsTrigger value="presumptions">Fee Calc</TabsTrigger>
           <TabsTrigger value="quality">Data Quality</TabsTrigger>
           <TabsTrigger value="agents">Agent Centre</TabsTrigger>
           <TabsTrigger value="archive">Client Archive</TabsTrigger>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { calculateInternalCostPerHour, WORKING_HOURS_PER_YEAR, getDailyCapacity } from "@/lib/calculations";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,7 @@ import { ChevronRight, ChevronDown, Undo2, Trash2, AlertTriangle } from "lucide-
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { ScopeRecommendations, type Recommendation } from "./ScopeRecommendations";
-import { calculateServiceHours, computeAgencyFee, type ServiceHoursResult, type EngineInput } from "./serviceHoursEngine";
+import { calculateServiceHours, computeAgencyFee, syncPresumptionsFromDatabase, PRESUMPTIONS_UPDATED_EVENT, type ServiceHoursResult, type EngineInput } from "./serviceHoursEngine";
 import { calculateCreatorCosts } from "./creatorCostEngine";
 import { type TalentBudgetState } from "./TalentBudgetTab";
 import { buildOverrideMap, buildLineHoursMap, type OverrideMap } from "./scopeOverrides";
@@ -333,10 +333,18 @@ export function ScopeOptimiserTab({ state, currencySymbol: sym, appliedRecs, onA
   }, [s, state.durationMonths, state.talentBudget, platformStats]);
 
   // Service hours result (original)
+  const [presumptionsRevision, setPresumptionsRevision] = useState(0);
+  useEffect(() => {
+    syncPresumptionsFromDatabase().then(() => setPresumptionsRevision(r => r + 1));
+    const handler = () => setPresumptionsRevision(r => r + 1);
+    window.addEventListener(PRESUMPTIONS_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(PRESUMPTIONS_UPDATED_EVENT, handler);
+  }, []);
+
   const serviceHours: ServiceHoursResult = useMemo(() => {
     const lines = calculateServiceHours(engineInput);
     return computeAgencyFee(lines, rateCardRoles);
-  }, [engineInput, rateCardRoles]);
+  }, [engineInput, rateCardRoles, presumptionsRevision]);
 
   // Build override map from applied recommendations
   const overrides = useMemo(() => buildOverrideMap(appliedRecs), [appliedRecs]);
