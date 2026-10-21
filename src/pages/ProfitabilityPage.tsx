@@ -1119,12 +1119,14 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
         const cleanName = oppName.replace(/\s*[-–:]?\s*Talent\s+(Efficiencies|Savings)$/i, "").trim().toLowerCase();
         let matchedClient = "Unassigned / Other";
         let matchedSfAccount = null;
+        let matchedParentAccount = null;
         let existingProjRow = null;
         
         const matchedProject = projects.find((p: any) => p.title && p.title.toLowerCase() === cleanName);
         if (matchedProject) {
            matchedClient = matchedProject.ultimate_parent || matchedProject.title || matchedClient;
-           matchedSfAccount = matchedProject.parent_account || matchedProject.sf_account || null;
+           matchedSfAccount = matchedProject.sf_account || null;
+           matchedParentAccount = matchedProject.parent_account || null;
            existingProjRow = clientMap[matchedClient]?.find(p => p.id === matchedProject.id);
         } else {
            const possibleClients = Object.keys(clientMap).sort((a,b) => b.length - a.length);
@@ -1166,6 +1168,7 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
             title: oppName,
             office: data.office,
             sfAccount: matchedSfAccount,
+            parentAccount: matchedParentAccount,
             scopedHours: 0,
             actualHours: 0,
             revenue: data.amount,
@@ -2952,10 +2955,15 @@ if (includeEfficiencies && talentEfficiencies && talentEfficiencies.length > 0) 
                           </TableRow>
                         ))}
                         {isExpanded && detailView === "account" && (() => {
-                          // Group projects by Parent Account
+                          // Group projects by Account intelligently
                           const accountMap: Record<string, ProjectProfit[]> = {};
                           for (const proj of group.projects) {
-                            const acct = proj.parentAccount || proj.sfAccount || "(No Account)";
+                            let acct = proj.parentAccount;
+                            if (!acct || acct.trim().toLowerCase() === group.client.trim().toLowerCase()) {
+                              acct = proj.sfAccount || acct || "(No Account)";
+                            }
+                            if (!acct) acct = "(No Account)";
+                            
                             if (!accountMap[acct]) accountMap[acct] = [];
                             accountMap[acct].push(proj);
                           }
