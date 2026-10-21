@@ -33,6 +33,9 @@ import {
   Pencil,
   Check,
   X,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -59,15 +62,16 @@ interface ServiceTaskConfig {
   role: string;
   params: EditableParamConfig[];
   scalingBadge: string;
-  formulaTemplate: (p: ServiceHourPresumptions) => string;
-  logicDescription: string;
+  multiplierSummary: string;
+  equationDetail: (p: ServiceHourPresumptions) => string;
+  detailedExplanation: string;
+  workedExample: (p: ServiceHourPresumptions) => string;
 }
 
 interface ServiceCategoryConfig {
   category: string;
   icon: React.ElementType;
   phase: string;
-  description: string;
   tasks: ServiceTaskConfig[];
 }
 
@@ -83,6 +87,14 @@ export function FeeCalcPresumptionsTab() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<PresumptionRuleId | null>(null);
   const [editingDraft, setEditingDraft] = useState<string>("");
+  const [expandedInfoRows, setExpandedInfoRows] = useState<Record<string, boolean>>({});
+
+  const toggleInfoRow = (rowKey: string) => {
+    setExpandedInfoRows((prev) => ({
+      ...prev,
+      [rowKey]: !prev[rowKey],
+    }));
+  };
 
   useEffect(() => {
     syncPresumptionsFromDatabase().then(({ overrides: dbOverrides, history: dbHistory }) => {
@@ -272,71 +284,94 @@ export function FeeCalcPresumptionsTab() {
       category: "Set Up & Planning",
       icon: Clock,
       phase: "RTB",
-      description: "Baseline kickoff, commercial terms, and governance allocations applied to every project scope during Return To Brief (RTB).",
       tasks: [
         {
           task: "Kickoff & Strategic Planning",
           role: "Account Director",
           params: [{ ruleId: "setup_ad_planning", unit: " hrs" }],
-          scalingBadge: "Fixed per Project",
-          formulaTemplate: (p) => `${p.setup_ad_planning} hrs × 1 Project`,
-          logicDescription: "Applied once to every campaign for client kickoff and strategic alignment.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "Baseline project allocation",
+          equationDetail: (p) => `Total Hours = ${p.setup_ad_planning} hrs (Flat project baseline)`,
+          detailedExplanation:
+            "Every project scope automatically includes this fixed baseline allocation for the Account Director to lead client kickoff, align on campaign objectives, and establish the strategic roadmap during Return To Brief (RTB). It does not scale with creator count or project duration.",
+          workedExample: (p) => `Any active project scope → ${p.setup_ad_planning} hrs allocated to Account Director.`,
         },
         {
           task: "Execution Setup & Account Planning",
           role: "Account Manager",
           params: [{ ruleId: "setup_am_planning", unit: " hrs" }],
-          scalingBadge: "Fixed per Project",
-          formulaTemplate: (p) => `${p.setup_am_planning} hrs × 1 Project`,
-          logicDescription: "Applied once to every campaign for operational onboarding and project setup.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "Baseline project allocation",
+          equationDetail: (p) => `Total Hours = ${p.setup_am_planning} hrs (Flat project baseline)`,
+          detailedExplanation:
+            "A one-off allocation applied to every project scope for the Account Manager to set up operational trackers, internal workspace templates, timeline milestones, and client communication channels.",
+          workedExample: (p) => `Any active project scope → ${p.setup_am_planning} hrs allocated to Account Manager.`,
         },
         {
           task: "Creative Strategy Oversight",
           role: "Creative Director",
           params: [{ ruleId: "setup_cd_planning", unit: " hrs" }],
-          scalingBadge: "Conditional Fixed",
-          formulaTemplate: (p) => `${p.setup_cd_planning} hrs × (1 if Creative Active, else 0)`,
-          logicDescription: "Included only when the Creative & Strategy service module is enabled on the scope.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "When Creative service is enabled",
+          equationDetail: (p) => `Total Hours = ${p.setup_cd_planning} hrs × (1 if Creative Active, else 0)`,
+          detailedExplanation:
+            "Applies a fixed allocation for the Creative Director during initial setup only when the Creative & Strategy module is toggled on in the Fee Calculator. If Creative is disabled, 0 hours are allocated.",
+          workedExample: (p) => `Creative enabled → ${p.setup_cd_planning} hrs | Creative disabled → 0 hrs.`,
         },
         {
           task: "Content Strategy Framing",
           role: "Content Strategy Director",
           params: [{ ruleId: "setup_csd_planning", unit: " hrs" }],
-          scalingBadge: "Fixed per Project",
-          formulaTemplate: (p) => `${p.setup_csd_planning} hrs × 1 Project`,
-          logicDescription: "Applied once per project to establish the initial content strategy framework.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "Baseline project allocation",
+          equationDetail: (p) => `Total Hours = ${p.setup_csd_planning} hrs (Flat project baseline)`,
+          detailedExplanation:
+            "Included once on every project scope for the Content Strategy Director to frame audience insights, platform architecture, and strategic pillars at project kickoff.",
+          workedExample: (p) => `Any active project scope → ${p.setup_csd_planning} hrs allocated to Content Strategy Director.`,
         },
         {
           task: "Financial Scope & Budgeting",
           role: "Project Manager",
           params: [{ ruleId: "setup_pm_budgeting", unit: " hrs" }],
-          scalingBadge: "Fixed per Project",
-          formulaTemplate: (p) => `${p.setup_pm_budgeting} hrs × 1 Project`,
-          logicDescription: "Applied once per project for commercial scope modelling and resource planning.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "Baseline project allocation",
+          equationDetail: (p) => `Total Hours = ${p.setup_pm_budgeting} hrs (Flat project baseline)`,
+          detailedExplanation:
+            "Fixed allocation on every project for the Project Manager to build the commercial scope, resource plan, and internal fee reconciliation.",
+          workedExample: (p) => `Any active project scope → ${p.setup_pm_budgeting} hrs allocated to Project Manager.`,
         },
         {
           task: "Executive Review",
           role: "Senior Account Director",
           params: [{ ruleId: "setup_sad_review", unit: " hrs" }],
-          scalingBadge: "Fixed per Project",
-          formulaTemplate: (p) => `${p.setup_sad_review} hr × 1 Project`,
-          logicDescription: "Applied once per project for senior executive sign-off on Return To Brief.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "Baseline project allocation",
+          equationDetail: (p) => `Total Hours = ${p.setup_sad_review} hrs (Flat project baseline)`,
+          detailedExplanation:
+            "Fixed allocation for senior executive sign-off on commercial deliverables, client expectations, and Return To Brief alignment.",
+          workedExample: (p) => `Any active project scope → ${p.setup_sad_review} hrs allocated to Senior Account Director.`,
         },
         {
           task: "Client Term Sheet Preparation",
           role: "Global Senior Business Affairs Manager",
           params: [{ ruleId: "setup_sba_terms", unit: " hrs" }],
-          scalingBadge: "Fixed per Project",
-          formulaTemplate: (p) => `${p.setup_sba_terms} hr × 1 Project`,
-          logicDescription: "Applied once per project for legal and commercial term sheet preparation.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "Baseline project allocation",
+          equationDetail: (p) => `Total Hours = ${p.setup_sba_terms} hrs (Flat project baseline)`,
+          detailedExplanation:
+            "Fixed legal preparation time for drafting the client term sheet and commercial schedule at the start of the engagement.",
+          workedExample: (p) => `Any active project scope → ${p.setup_sba_terms} hrs allocated to Global Senior Business Affairs Manager.`,
         },
         {
           task: "Client Deal Governance",
           role: "Global Director of Business Affairs",
           params: [{ ruleId: "setup_dba_review", unit: " hrs" }],
-          scalingBadge: "Fixed per Project",
-          formulaTemplate: (p) => `${p.setup_dba_review} hrs × 1 Project`,
-          logicDescription: "Applied once per project for master client contract review and risk governance.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "Baseline project allocation",
+          equationDetail: (p) => `Total Hours = ${p.setup_dba_review} hrs (Flat project baseline)`,
+          detailedExplanation:
+            "Fixed allocation for master client MSA/SOW contract review, liability checks, and commercial deal governance.",
+          workedExample: (p) => `Any active project scope → ${p.setup_dba_review} hrs allocated to Global Director of Business Affairs.`,
         },
       ],
     },
@@ -344,15 +379,17 @@ export function FeeCalcPresumptionsTab() {
       category: "Creative & Strategy Development",
       icon: Sparkles,
       phase: "RTB",
-      description: "Generates creative concepting, route design, pitch decks, and feasibility hours dynamically scaled by Return To Brief (RTB) rounds.",
       tasks: [
         {
           task: "Strategy Development",
           role: "Senior Content Strategist",
           params: [{ ruleId: "creative_strat_dev", unit: " hrs" }],
-          scalingBadge: "Fixed When Active",
-          formulaTemplate: (p) => `${p.creative_strat_dev} hrs × 1 Creative Campaign`,
-          logicDescription: "Base strategic research and platform narrative when Creative & Strategy is enabled.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "When Creative & Strategy is active",
+          equationDetail: (p) => `Total Hours = ${p.creative_strat_dev} hrs (When Creative Jobs > 0)`,
+          detailedExplanation:
+            "Allocated whenever the Creative & Strategy module is enabled and at least one creative concept or executional idea is scoped. Covers audience research, cultural truths, and strategic platform territories.",
+          workedExample: (p) => `Creative active with ≥1 concept/idea → ${p.creative_strat_dev} hrs.`,
         },
         {
           task: "Creative Ideation & Execution",
@@ -361,65 +398,112 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "creative_ideation_base", label: "Base", unit: "h" },
             { ruleId: "creative_ideation_per_job", label: "Per Job", unit: "h" },
           ],
-          scalingBadge: "Scales by Creative Jobs",
-          formulaTemplate: (p) => `${p.creative_ideation_base} hrs + (${p.creative_ideation_per_job} hrs × Creative Jobs)`,
-          logicDescription: "Base ideation hours plus per-job execution (where Creative Jobs = Total RTB Creative Days ÷ 4).",
+          scalingBadge: "Base + × Creative Jobs",
+          multiplierSummary: "Scales by RTB concepts, ideas & feedback rounds",
+          equationDetail: (p) =>
+            `Total Hours = ${p.creative_ideation_base}h Base + (${p.creative_ideation_per_job}h × Creative Jobs)`,
+          detailedExplanation:
+            "Combines a fixed base ideation allocation with a per-job multiplier. 'Creative Jobs' is derived from the Return To Brief (RTB) formula: for each round (1 + Feedback Rounds), Creative Days = (Concepts × 5) + (Ideas × 2.5) + (Ideas × (Concepts − 1)), with Concepts capped at 1 from Round 3 onwards. Total Creative Jobs = Total Creative Days ÷ 4.",
+          workedExample: (p) =>
+            `If Creative Jobs = 3 → ${p.creative_ideation_base} + (3 × ${p.creative_ideation_per_job}) = ${
+              Math.round((p.creative_ideation_base + 3 * p.creative_ideation_per_job) * 10) / 10
+            } hrs.`,
         },
         {
           task: "Visual Route & Art Direction",
           role: "Senior Designer",
           params: [{ ruleId: "creative_designer_per_job", label: "Per Job", unit: " hrs" }],
-          scalingBadge: "Scales by Creative Jobs",
-          formulaTemplate: (p) => `${p.creative_designer_per_job} hrs × Creative Jobs`,
-          logicDescription: "Multiplies allocated hours by the number of Creative Jobs generated from concepts and ideas.",
+          scalingBadge: "× Creative Jobs",
+          multiplierSummary: "Per derived Creative Job",
+          equationDetail: (p) => `Total Hours = ${p.creative_designer_per_job} hrs × Creative Jobs`,
+          detailedExplanation:
+            "Multiplies the allocated hours by the number of Creative Jobs (Total RTB Creative Days ÷ 4) to cover moodboards, visual mockups, and art direction routes.",
+          workedExample: (p) =>
+            `If Creative Jobs = 3 → 3 × ${p.creative_designer_per_job} = ${
+              Math.round(3 * p.creative_designer_per_job * 10) / 10
+            } hrs.`,
         },
         {
           task: "Deck Presentation Strategy",
           role: "Senior Content Strategist",
           params: [{ ruleId: "creative_pres_strat", unit: " hrs" }],
-          scalingBadge: "Capped Allocation",
-          formulaTemplate: (p) => `${p.creative_pres_strat} hrs (Default: Min(Strategy Hrs ÷ 4, 4h))`,
-          logicDescription: "Allocated to building the strategic narrative section of the Return To Brief presentation deck.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "Capped strategy deck allocation",
+          equationDetail: (p) => `Total Hours = ${p.creative_pres_strat} hrs (Default: Min(25% × Strategy Dev, 4h))`,
+          detailedExplanation:
+            "Time allocated to the Senior Content Strategist to author and structure the strategy narrative within the client Return To Brief presentation deck.",
+          workedExample: (p) => `Active Creative scope → ${p.creative_pres_strat} hrs.`,
         },
         {
           task: "Deck Presentation Creative",
           role: "Senior Creative",
           params: [{ ruleId: "creative_pres_creative_cap", label: "Cap", unit: " hrs" }],
-          scalingBadge: "25% Up to Cap",
-          formulaTemplate: (p) => `Min(25% × Creative Ideation Hrs, ${p.creative_pres_creative_cap} hrs max)`,
-          logicDescription: "Calculates 25% of Creative Ideation hours for copywriting the deck, capped at the allocated maximum.",
+          scalingBadge: "25% up to Cap",
+          multiplierSummary: "Quarter of Creative Ideation hours (capped)",
+          equationDetail: (p) => `Total Hours = Min(25% × Creative Ideation Hrs, ${p.creative_pres_creative_cap} hrs)`,
+          detailedExplanation:
+            "Allocates 25% of total Creative Ideation & Execution hours to write up creative territories and scripts into the presentation deck, up to the maximum cap.",
+          workedExample: (p) =>
+            `If Creative Ideation = 28h → 25% is 7h (below ${p.creative_pres_creative_cap}h cap) → 7.0 hrs.`,
         },
         {
           task: "Deck Presentation Design",
           role: "Senior Designer",
           params: [{ ruleId: "creative_pres_design_pct", unit: "%" }],
-          scalingBadge: "% of Creative & Deck Hrs",
-          formulaTemplate: (p) => `${p.creative_pres_design_pct}% × (Creative Ideation + Strategy Deck + Creative Deck Hrs)`,
-          logicDescription: "Calculates visual deck layout time as a percentage of combined creative and deck writing hours.",
+          scalingBadge: "% of Creative & Deck",
+          multiplierSummary: "Applied to Ideation + Strategy Deck + Creative Deck",
+          equationDetail: (p) =>
+            `Total Hours = ${p.creative_pres_design_pct}% × (Creative Ideation + Strategy Deck + Creative Deck Hrs)`,
+          detailedExplanation:
+            "Calculates Senior Designer presentation layout and formatting hours as a percentage of the combined creative ideation and deck writing hours.",
+          workedExample: (p) =>
+            `If combined Ideation & Deck writing = 40h → ${p.creative_pres_design_pct}% × 40h = ${
+              Math.round(40 * (p.creative_pres_design_pct / 100) * 10) / 10
+            } hrs.`,
         },
         {
           task: "Production Feasibility & Costs",
           role: "Senior Producer",
           params: [{ ruleId: "creative_producer_pct", unit: "%" }],
           scalingBadge: "% of Design & Strategy",
-          formulaTemplate: (p) => `${p.creative_producer_pct}% × (Visual Route Design Hrs + Strategy Dev Hrs)`,
-          logicDescription: "Allocates producer time for scoping shoot feasibility and budgets as a percentage of design and strategy hours.",
+          multiplierSummary: "Applied to Visual Route Design + Strategy Dev",
+          equationDetail: (p) =>
+            `Total Hours = ${p.creative_producer_pct}% × (Visual Route Design Hrs + Strategy Dev Hrs)`,
+          detailedExplanation:
+            "Allocates Senior Producer time to scope shoot feasibility, production schedules, and preliminary budgets during Return To Brief, scaled as a percentage of design and strategy development hours.",
+          workedExample: (p) =>
+            `If Visual Route (6h) + Strategy Dev (15h) = 21h → ${p.creative_producer_pct}% × 21h = ${
+              Math.round(21 * (p.creative_producer_pct / 100) * 10) / 10
+            } hrs.`,
         },
         {
           task: "Creative Direction Oversight",
           role: "Creative Director",
           params: [{ ruleId: "creative_cd_pct", unit: "%" }],
-          scalingBadge: "% of Creative Execution",
-          formulaTemplate: (p) => `${p.creative_cd_pct}% × (Creative Ideation + Visual Route + Deck Hrs)`,
-          logicDescription: "Senior creative leadership review scaled as a percentage of total creative and design hours.",
+          scalingBadge: "% of Creative Hrs",
+          multiplierSummary: "Applied to Ideation + Visual Route + Deck hours",
+          equationDetail: (p) =>
+            `Total Hours = ${p.creative_cd_pct}% × (Creative Ideation + Visual Route + Creative Deck + Design Deck Hrs)`,
+          detailedExplanation:
+            "Calculates Creative Director supervision, concept reviews, and pitch attendance as a percentage of all creative and design execution hours in the module.",
+          workedExample: (p) =>
+            `If total creative & design execution = 40h → ${p.creative_cd_pct}% × 40h = ${
+              Math.round(40 * (p.creative_cd_pct / 100) * 10) / 10
+            } hrs.`,
         },
         {
           task: "Strategy Direction Oversight",
           role: "Content Strategy Director",
           params: [{ ruleId: "creative_csd_pct", unit: "%" }],
           scalingBadge: "% of Strategy Hrs",
-          formulaTemplate: (p) => `${p.creative_csd_pct}% × (Strategy Dev Hrs + Strategy Deck Hrs)`,
-          logicDescription: "Executive strategy sign-off scaled as a percentage of total strategy development and presentation hours.",
+          multiplierSummary: "Applied to Strategy Dev + Strategy Deck hours",
+          equationDetail: (p) => `Total Hours = ${p.creative_csd_pct}% × (Strategy Dev Hrs + Strategy Deck Hrs)`,
+          detailedExplanation:
+            "Calculates Content Strategy Director direction and sign-off as a percentage of total strategy development and presentation hours.",
+          workedExample: (p) =>
+            `If Strategy Dev (15h) + Strategy Deck (3.75h) = 18.75h → ${p.creative_csd_pct}% × 18.75h = ${
+              Math.round(18.75 * (p.creative_csd_pct / 100) * 10) / 10
+            } hrs.`,
         },
       ],
     },
@@ -427,23 +511,28 @@ export function FeeCalcPresumptionsTab() {
       category: "Talent Brief & Creator Contracting",
       icon: Users,
       phase: "Creators & Contracting",
-      description: "Calculates casting, longlist curation, creator fee negotiations, and Business Affairs contract drafting scaled by creator count.",
       tasks: [
         {
           task: "Influencer Brief Draft",
           role: "Account Manager",
           params: [{ ruleId: "talent_brief_am", unit: " hrs" }],
-          scalingBadge: "Fixed per Campaign",
-          formulaTemplate: (p) => `${p.talent_brief_am} hrs × 1 Active Talent Scope`,
-          logicDescription: "Fixed allocation for drafting the master creator brief when Talent is enabled.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "When Talent campaign is active",
+          equationDetail: (p) => `Total Hours = ${p.talent_brief_am} hrs (When Talent Active & Creators > 0)`,
+          detailedExplanation:
+            "One-off allocation for the Account Manager to write the master influencer brief (deliverable specs, mandatories, do's & don'ts, timeline) whenever Talent is enabled on the campaign.",
+          workedExample: (p) => `Talent enabled with ≥1 creator → ${p.talent_brief_am} hrs.`,
         },
         {
           task: "Influencer Brief Creative Input",
           role: "Senior Creative",
           params: [{ ruleId: "talent_brief_sc", unit: " hrs" }],
-          scalingBadge: "Fixed per Campaign",
-          formulaTemplate: (p) => `${p.talent_brief_sc} hrs × 1 Active Talent Scope`,
-          logicDescription: "Fixed creative oversight to align the creator brief with the approved campaign territories.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "When Talent campaign is active",
+          equationDetail: (p) => `Total Hours = ${p.talent_brief_sc} hrs (When Talent Active & Creators > 0)`,
+          detailedExplanation:
+            "Fixed allocation for a Senior Creative to inject creative thought-starters, visual references, and tonal guidance into the master influencer brief.",
+          workedExample: (p) => `Talent enabled with ≥1 creator → ${p.talent_brief_sc} hrs.`,
         },
         {
           task: "Influencer Brief Revisions",
@@ -452,33 +541,51 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "talent_brief_rev_am", label: "AM", unit: "h" },
             { ruleId: "talent_brief_rev_sc", label: "SC", unit: "h" },
           ],
-          scalingBadge: "Per Revision Round",
-          formulaTemplate: (p) => `(${p.talent_brief_rev_am}h AM + ${p.talent_brief_rev_sc}h SC) × Brief Revisions`,
-          logicDescription: "Multiplies allocated hours by the number of client brief revision rounds selected in the scope.",
+          scalingBadge: "× Brief Revisions",
+          multiplierSummary: "Per client brief revision round",
+          equationDetail: (p) =>
+            `Total Hours = (${p.talent_brief_rev_am}h AM + ${p.talent_brief_rev_sc}h SC) × Brief Revision Rounds`,
+          detailedExplanation:
+            "Multiplies the Account Manager and Senior Creative revision allocations by the number of Influencer Brief Revision rounds specified in the Fee Calculator.",
+          workedExample: (p) =>
+            `2 revision rounds → AM: ${2 * p.talent_brief_rev_am}h, Senior Creative: ${2 * p.talent_brief_rev_sc}h.`,
         },
         {
           task: "Creator Search & Longlist",
           role: "Account Executive",
           params: [{ ruleId: "talent_search_ae", unit: " hrs" }],
-          scalingBadge: "Per Creator",
-          formulaTemplate: (p) => `${p.talent_search_ae} hrs × Total Creators`,
-          logicDescription: "Discovery, audience vetting, and longlist compilation per contracted creator.",
+          scalingBadge: "× Creators",
+          multiplierSummary: "Per contracted creator",
+          equationDetail: (p) => `Total Hours = ${p.talent_search_ae} hrs × Total Creators`,
+          detailedExplanation:
+            "Scales linearly with the total number of contracted creators across all talent groups. Covers discovery, audience credibility checks, engagement rate verification, and longlist build.",
+          workedExample: (p) => `10 creators → 10 × ${p.talent_search_ae} = ${10 * p.talent_search_ae} hrs.`,
         },
         {
           task: "Creator Search Oversight",
           role: "Account Manager",
           params: [{ ruleId: "talent_search_am", unit: " hrs" }],
-          scalingBadge: "Per Creator",
-          formulaTemplate: (p) => `${p.talent_search_am} hr × Total Creators`,
-          logicDescription: "Account Manager quality check, brand-safety audit, and shortlist selection per creator.",
+          scalingBadge: "× Creators",
+          multiplierSummary: "Per contracted creator",
+          equationDetail: (p) => `Total Hours = ${p.talent_search_am} hrs × Total Creators`,
+          detailedExplanation:
+            "Scales linearly with total contracted creators for the Account Manager to audit brand fit, review historical partnerships, and curate the client-ready shortlist.",
+          workedExample: (p) => `10 creators → 10 × ${p.talent_search_am} = ${10 * p.talent_search_am} hrs.`,
         },
         {
           task: "Longlist Client Revisions",
           role: "AE & AM",
           params: [{ ruleId: "talent_longlist_rev_pct", unit: "%" }],
-          scalingBadge: "% per Revision Round",
-          formulaTemplate: (p) => `${p.talent_longlist_rev_pct}% × Initial Search Hrs × Longlist Revisions`,
-          logicDescription: "Each client longlist feedback round adds this percentage of the initial AE and AM search hours.",
+          scalingBadge: "% × Revisions",
+          multiplierSummary: "Of initial Search hours per revision round",
+          equationDetail: (p) =>
+            `Total Hours = (${p.talent_longlist_rev_pct}% × Initial Search Hrs) × Longlist Revision Rounds`,
+          detailedExplanation:
+            "Each round of client feedback on the creator longlist adds this percentage of the baseline AE and AM Creator Search hours to source replacement talent.",
+          workedExample: (p) =>
+            `If initial Search = 30h and 1 revision round → ${p.talent_longlist_rev_pct}% × 30h = ${
+              Math.round(30 * (p.talent_longlist_rev_pct / 100) * 10) / 10
+            } hrs.`,
         },
         {
           task: "Outreach & Fee Negotiations",
@@ -487,41 +594,59 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "talent_engage_ae", label: "AE", unit: "h" },
             { ruleId: "talent_negotiate_am", label: "AM", unit: "h" },
           ],
-          scalingBadge: "Per Creator",
-          formulaTemplate: (p) => `(${p.talent_engage_ae}h AE + ${p.talent_negotiate_am}h AM) × Total Creators`,
-          logicDescription: "Agent outreach, availability checks, and commercial fee negotiation per contracted creator.",
+          scalingBadge: "× Creators",
+          multiplierSummary: "Per contracted creator",
+          equationDetail: (p) => `Total Hours = (${p.talent_engage_ae}h AE + ${p.talent_negotiate_am}h AM) × Total Creators`,
+          detailedExplanation:
+            "Covers talent agent outreach, availability checks, exclusivity vetting (AE) and commercial fee & usage rights negotiation (AM) for every contracted creator.",
+          workedExample: (p) =>
+            `10 creators → AE: ${10 * p.talent_engage_ae}h, AM: ${10 * p.talent_negotiate_am}h (Total ${
+              10 * (p.talent_engage_ae + p.talent_negotiate_am)
+            } hrs).`,
         },
         {
           task: "Contract Drafting & Execution",
           role: "Account Manager",
           params: [{ ruleId: "talent_contract_am", unit: " hrs" }],
-          scalingBadge: "Per Creator",
-          formulaTemplate: (p) => `${p.talent_contract_am} hr × Total Creators`,
-          logicDescription: "Statement of work alignment, deliverable scheduling, and commercial checks per creator.",
+          scalingBadge: "× Creators",
+          multiplierSummary: "Per contracted creator",
+          equationDetail: (p) => `Total Hours = ${p.talent_contract_am} hrs × Total Creators`,
+          detailedExplanation:
+            "Allocates Account Manager time per creator to populate commercial schedules, deliverable dates, and payment terms in each creator agreement.",
+          workedExample: (p) => `10 creators → 10 × ${p.talent_contract_am} = ${10 * p.talent_contract_am} hrs.`,
         },
         {
           task: "Master Term Sheet Negotiation",
           role: "Global Senior Business Affairs Manager",
           params: [{ ruleId: "talent_terms_sba", unit: " hrs" }],
-          scalingBadge: "Fixed per Campaign",
-          formulaTemplate: (p) => `${p.talent_terms_sba} hrs × 1 Active Talent Scope`,
-          logicDescription: "Legal template customisation, usage rights clauses, and exclusivity terms per talent campaign.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "When Talent campaign is active",
+          equationDetail: (p) => `Total Hours = ${p.talent_terms_sba} hrs (Flat campaign allocation)`,
+          detailedExplanation:
+            "Fixed legal allocation per campaign to customise the master influencer contract template with client-specific usage rights, morality clauses, and territory rules.",
+          workedExample: (p) => `Active Talent scope → ${p.talent_terms_sba} hrs.`,
         },
         {
           task: "Deal Risk Review",
           role: "Global Director of Business Affairs",
           params: [{ ruleId: "talent_terms_dba", unit: " hrs" }],
-          scalingBadge: "Fixed per Campaign",
-          formulaTemplate: (p) => `${p.talent_terms_dba} hr × 1 Active Talent Scope`,
-          logicDescription: "Senior legal risk assessment across the campaign's creator contracting framework.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "When Talent campaign is active",
+          equationDetail: (p) => `Total Hours = ${p.talent_terms_dba} hrs (Flat campaign allocation)`,
+          detailedExplanation:
+            "Fixed senior legal sign-off on master talent contracting terms and regulatory compliance.",
+          workedExample: (p) => `Active Talent scope → ${p.talent_terms_dba} hrs.`,
         },
         {
           task: "Contract Execution & Compliance",
           role: "Global Business Affairs Executive",
           params: [{ ruleId: "talent_contract_bae", unit: " hrs" }],
-          scalingBadge: "Per Creator",
-          formulaTemplate: (p) => `${p.talent_contract_bae} hrs × Total Creators`,
-          logicDescription: "Individual talent contract redlining, legal review, and countersignature tracking per creator.",
+          scalingBadge: "× Creators",
+          multiplierSummary: "Per contracted creator",
+          equationDetail: (p) => `Total Hours = ${p.talent_contract_bae} hrs × Total Creators`,
+          detailedExplanation:
+            "Covers legal redlines with talent agents, markup approvals, and final signature execution per contracted creator.",
+          workedExample: (p) => `10 creators → 10 × ${p.talent_contract_bae} = ${10 * p.talent_contract_bae} hrs.`,
         },
       ],
     },
@@ -529,7 +654,6 @@ export function FeeCalcPresumptionsTab() {
       category: "Live Campaign Management",
       icon: Video,
       phase: "Content Creation & Go Live",
-      description: "Operational management for creator briefing, product deliveries, draft review stages, and go-live coordination.",
       tasks: [
         {
           task: "Instagram Briefing",
@@ -538,9 +662,16 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "camp_ig_brief_ae", label: "AE", unit: "h" },
             { ruleId: "camp_ig_brief_am", label: "AM", unit: "h" },
           ],
-          scalingBadge: "Per IG Creator",
-          formulaTemplate: (p) => `(${p.camp_ig_brief_ae}h AE + ${p.camp_ig_brief_am}h AM) × Instagram Creators`,
-          logicDescription: "Onboarding call, creative walkthrough, and deliverable schedule alignment per Instagram creator.",
+          scalingBadge: "× IG Creators",
+          multiplierSummary: "Per Instagram creator",
+          equationDetail: (p) =>
+            `Total Hours = (${p.camp_ig_brief_ae}h AE + ${p.camp_ig_brief_am}h AM) × Instagram Creators`,
+          detailedExplanation:
+            "Multiplies AE and AM briefing hours by the number of creators assigned to Instagram talent groups. Covers briefing calls, creative alignment, and shipping/timeline confirmation.",
+          workedExample: (p) =>
+            `5 Instagram creators → AE: ${Math.round(5 * p.camp_ig_brief_ae * 10) / 10}h, AM: ${
+              Math.round(5 * p.camp_ig_brief_am * 10) / 10
+            }h.`,
         },
         {
           task: "Instagram Image/Story Management",
@@ -549,9 +680,16 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "camp_ig_img_ae", label: "AE", unit: "h" },
             { ruleId: "camp_ig_img_am", label: "AM", unit: "h" },
           ],
-          scalingBadge: "Per IG Static/Story Asset",
-          formulaTemplate: (p) => `(${p.camp_ig_img_ae}h AE + ${p.camp_ig_img_am}h AM) × (IG Images + IG Stories)`,
-          logicDescription: "Concept check, draft feedback, caption compliance, and live link verification per static/story deliverable.",
+          scalingBadge: "× IG Static/Story",
+          multiplierSummary: "Per Instagram image, carousel, or story set",
+          equationDetail: (p) =>
+            `Total Hours = (${p.camp_ig_img_ae}h AE + ${p.camp_ig_img_am}h AM) × (IG Images + IG Stories)`,
+          detailedExplanation:
+            "Applies when Content Ideation and Content Production are active. Multiplies AE and AM management hours by total Instagram static posts, carousels, and story frame sets.",
+          workedExample: (p) =>
+            `10 IG image/story deliverables → AE: ${Math.round(10 * p.camp_ig_img_ae * 10) / 10}h, AM: ${
+              Math.round(10 * p.camp_ig_img_am * 10) / 10
+            }h.`,
         },
         {
           task: "Instagram Video / Reel Management",
@@ -560,9 +698,15 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "camp_ig_vid_ae", label: "AE", unit: "h" },
             { ruleId: "camp_ig_vid_am", label: "AM", unit: "h" },
           ],
-          scalingBadge: "Per IG Reel Asset",
-          formulaTemplate: (p) => `(${p.camp_ig_vid_ae}h AE + ${p.camp_ig_vid_am}h AM) × Instagram Reels`,
-          logicDescription: "Storyboard review, rough-cut feedback, audio check, and publication approval per Instagram Reel.",
+          scalingBadge: "× IG Reels",
+          multiplierSummary: "Per Instagram Reel deliverable",
+          equationDetail: (p) => `Total Hours = (${p.camp_ig_vid_ae}h AE + ${p.camp_ig_vid_am}h AM) × Instagram Videos`,
+          detailedExplanation:
+            "Multiplies AE and AM production management hours by the total number of Instagram Reels/short videos across all Instagram creator groups.",
+          workedExample: (p) =>
+            `8 Instagram Reels → AE: ${Math.round(8 * p.camp_ig_vid_ae * 10) / 10}h, AM: ${
+              Math.round(8 * p.camp_ig_vid_am * 10) / 10
+            }h.`,
         },
         {
           task: "TikTok Briefing & Video Management",
@@ -573,9 +717,16 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "camp_tt_vid_ae", label: "Vid AE", unit: "h" },
             { ruleId: "camp_tt_vid_am", label: "Vid AM", unit: "h" },
           ],
-          scalingBadge: "Per TikTok Creator & Video",
-          formulaTemplate: (p) => `(${p.camp_tt_brief_ae + p.camp_tt_brief_am}h × TT Creators) + (${p.camp_tt_vid_ae + p.camp_tt_vid_am}h × TT Videos)`,
-          logicDescription: "Combines per-creator briefing hours with per-video production management across TikTok deliverables.",
+          scalingBadge: "× TT Creators & Videos",
+          multiplierSummary: "Briefing per creator + management per video",
+          equationDetail: (p) =>
+            `Total Hours = ((${p.camp_tt_brief_ae}h + ${p.camp_tt_brief_am}h) × TT Creators) + ((${p.camp_tt_vid_ae}h + ${p.camp_tt_vid_am}h) × TT Videos)`,
+          detailedExplanation:
+            "Splits TikTok campaign management into two components: onboarding/briefing hours multiplied by TikTok creator count, plus draft review and go-live management multiplied by total TikTok video deliverables.",
+          workedExample: (p) =>
+            `4 TT creators producing 8 TT videos → ${
+              4 * (p.camp_tt_brief_ae + p.camp_tt_brief_am) + 8 * (p.camp_tt_vid_ae + p.camp_tt_vid_am)
+            } hrs total.`,
         },
         {
           task: "YouTube Briefing & Video Management",
@@ -586,17 +737,31 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "camp_yt_vid_ae", label: "Vid AE", unit: "h" },
             { ruleId: "camp_yt_vid_am", label: "Vid AM", unit: "h" },
           ],
-          scalingBadge: "Per YouTube Creator & Video",
-          formulaTemplate: (p) => `(${p.camp_yt_brief_ae + p.camp_yt_brief_am}h × YT Creators) + (${p.camp_yt_vid_ae + p.camp_yt_vid_am}h × YT Videos)`,
-          logicDescription: "Combines per-creator briefing hours with talking-point and video integration reviews across YouTube deliverables.",
+          scalingBadge: "× YT Creators & Videos",
+          multiplierSummary: "Briefing per creator + management per video",
+          equationDetail: (p) =>
+            `Total Hours = ((${p.camp_yt_brief_ae}h + ${p.camp_yt_brief_am}h) × YT Creators) + ((${p.camp_yt_vid_ae}h + ${p.camp_yt_vid_am}h) × YT Videos)`,
+          detailedExplanation:
+            "Combines per-creator briefing hours with per-video script, rough-cut, and integration management across all YouTube creators and deliverables.",
+          workedExample: (p) =>
+            `2 YT creators producing 4 YT videos → ${
+              2 * (p.camp_yt_brief_ae + p.camp_yt_brief_am) + 4 * (p.camp_yt_vid_ae + p.camp_yt_vid_am)
+            } hrs total.`,
         },
         {
           task: "Creative Content Reviews",
           role: "Creative",
           params: [{ ruleId: "camp_creative_review", unit: " hrs" }],
-          scalingBadge: "Per Deliverable",
-          formulaTemplate: (p) => `${p.camp_creative_review} hrs × Total Deliverables`,
-          logicDescription: "Creative quality-assurance check on every submitted creator draft across Instagram, TikTok, YouTube, and Gifting.",
+          scalingBadge: "× Deliverables",
+          multiplierSummary: "Per creator deliverable across all platforms",
+          equationDetail: (p) =>
+            `Total Hours = ${p.camp_creative_review} hrs × (IG Assets + TT Videos + YT Videos + Gifting Creators)`,
+          detailedExplanation:
+            "Allocates Creative team QA review time for every single deliverable submitted across Instagram, TikTok, YouTube, and Gifting tracks to ensure creative and brand standards are met.",
+          workedExample: (p) =>
+            `20 total deliverables → 20 × ${p.camp_creative_review} = ${
+              Math.round(20 * p.camp_creative_review * 10) / 10
+            } hrs.`,
         },
         {
           task: "Gifting Creator Briefing & Logistics",
@@ -605,17 +770,28 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "camp_gift_brief_total", label: "Brief", unit: "h" },
             { ruleId: "camp_gift_mgmt_total", label: "Mgmt", unit: "h" },
           ],
-          scalingBadge: "Per Gifting Creator",
-          formulaTemplate: (p) => `(${p.camp_gift_brief_total}h Brief + ${p.camp_gift_mgmt_total}h Mgmt) × Gifting Creators`,
-          logicDescription: "Streamlined outreach, address collection, and organic post tracking split equally between AE and AM.",
+          scalingBadge: "× Gifting Creators",
+          multiplierSummary: "Per organic gifting creator (split 50/50 AE & AM)",
+          equationDetail: (p) =>
+            `Total Hours = (${p.camp_gift_brief_total}h Brief + ${p.camp_gift_mgmt_total}h Mgmt) × Gifting Creators`,
+          detailedExplanation:
+            "Applies a lightweight workflow for organic gifting tiers. Both the Briefing allocation and Content Management allocation are split equally (50% AE / 50% AM) and multiplied by the number of gifting creators.",
+          workedExample: (p) =>
+            `20 gifting creators → 20 × (${p.camp_gift_brief_total} + ${p.camp_gift_mgmt_total}) = ${
+              Math.round(20 * (p.camp_gift_brief_total + p.camp_gift_mgmt_total) * 10) / 10
+            } hrs.`,
         },
         {
           task: "Product Procurement Shipments",
           role: "AE & AM",
           params: [{ ruleId: "camp_proc_total", unit: " hrs" }],
-          scalingBadge: "Per Shipment",
-          formulaTemplate: (p) => `${p.camp_proc_total} hrs × Total Shipments (Split 50/50 AE & AM)`,
-          logicDescription: "Courier coordination, customs documentation, and delivery tracking per product shipment.",
+          scalingBadge: "× Shipments",
+          multiplierSummary: "Per product shipment (split 50/50 AE & AM)",
+          equationDetail: (p) => `Total Hours = ${p.camp_proc_total} hrs × Total Shipments (50% AE / 50% AM)`,
+          detailedExplanation:
+            "When Product Procurement is enabled, multiplies the per-shipment time by total shipments to cover address validation, dispatch coordination, and tracking.",
+          workedExample: (p) =>
+            `15 shipments → 15 × ${p.camp_proc_total} = ${Math.round(15 * p.camp_proc_total * 10) / 10} hrs.`,
         },
       ],
     },
@@ -623,15 +799,19 @@ export function FeeCalcPresumptionsTab() {
       category: "Specialist Production Services",
       icon: Layers,
       phase: "Content Creation & Go Live",
-      description: "Calculations for bespoke production tracks including Content House shoots, AR Filters, Gifting Boxes, and Events.",
       tasks: [
         {
           task: "Content House Shoot Units",
           role: "AE, AM, Designer, Creative",
           params: [{ ruleId: "prod_ch_total", unit: " hrs" }],
-          scalingBadge: "Per Content House Asset",
-          formulaTemplate: (p) => `${p.prod_ch_total} hrs × Content House Assets`,
-          logicDescription: "Distributed across AE (2.75h), AM (2h), Designer (1h), and Creative (0.5h) per studio asset.",
+          scalingBadge: "× Shoot Assets",
+          multiplierSummary: "Per Content House asset unit",
+          equationDetail: (p) =>
+            `Total Hours = ${p.prod_ch_total} hrs × Content House Assets (44% AE, 32% AM, 16% Designer, 8% Creative)`,
+          detailedExplanation:
+            "Triggered when Content House deliverables are scoped. Total hours per studio asset are distributed across Account Executive (briefing, prod mgmt, product selection), Account Manager (briefing, prod mgmt), Designer, and Creative.",
+          workedExample: (p) =>
+            `4 Content House assets → 4 × ${p.prod_ch_total} = ${Math.round(4 * p.prod_ch_total * 10) / 10} hrs.`,
         },
         {
           task: "AR Filters Development",
@@ -640,57 +820,87 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "prod_ar_design", label: "Design", unit: "h" },
             { ruleId: "prod_ar_creative", label: "Creative", unit: "h" },
           ],
-          scalingBadge: "Per AR Filter",
-          formulaTemplate: (p) => `(${p.prod_ar_design}h Designer + ${p.prod_ar_creative}h Snr Creative) × AR Filters`,
-          logicDescription: "3D asset modelling, interactive logic, and platform submission per AR effect.",
+          scalingBadge: "× AR Filters",
+          multiplierSummary: "Per AR filter built",
+          equationDetail: (p) =>
+            `Total Hours = (${p.prod_ar_design}h Designer + ${p.prod_ar_creative}h Snr Creative) × AR Filters`,
+          detailedExplanation:
+            "Multiplies Designer 3D/effect build hours and Senior Creative concepting hours by the number of AR Filters entered in Other Services.",
+          workedExample: (p) =>
+            `1 AR Filter → ${p.prod_ar_design}h Designer + ${p.prod_ar_creative}h Senior Creative = ${
+              p.prod_ar_design + p.prod_ar_creative
+            } hrs.`,
         },
         {
           task: "AR Filter Influencer Promotion",
           role: "Account Manager",
           params: [{ ruleId: "prod_ar_am", unit: " hrs" }],
-          scalingBadge: "Per AR Filter",
-          formulaTemplate: (p) => `${p.prod_ar_am} hrs × AR Filters`,
-          logicDescription: "Covers creator seeding search (3h), outreach (2h), and contracting (4h) per filter launch.",
+          scalingBadge: "× AR Filters",
+          multiplierSummary: "Per AR filter seeded",
+          equationDetail: (p) => `Total Hours = ${p.prod_ar_am} hrs × AR Filters (Search + Engage + Contract)`,
+          detailedExplanation:
+            "Allocates Account Manager time per AR filter to source, engage, and contract seeding creators to promote the filter at launch.",
+          workedExample: (p) => `1 AR Filter → ${p.prod_ar_am} hrs allocated to Account Manager.`,
         },
         {
           task: "Custom GIFs / Stickers",
           role: "Designer",
           params: [{ ruleId: "prod_gifs_design", unit: " hrs" }],
-          scalingBadge: "Per GIF / Sticker",
-          formulaTemplate: (p) => `${p.prod_gifs_design} hrs × GIF Count`,
-          logicDescription: "Illustration, frame-by-frame animation, and GIPHY brand channel upload per sticker.",
+          scalingBadge: "× GIFs",
+          multiplierSummary: "Per custom GIF / sticker",
+          equationDetail: (p) => `Total Hours = ${p.prod_gifs_design} hrs × GIF Count`,
+          detailedExplanation:
+            "Multiplies Designer illustration and animation hours by the number of custom GIPHY stickers scoped.",
+          workedExample: (p) => `3 GIFs → 3 × ${p.prod_gifs_design} = ${3 * p.prod_gifs_design} hrs.`,
         },
         {
           task: "Gifting Box Concept & Design",
           role: "Designer & Senior Designer",
           params: [{ ruleId: "prod_gift_concept_total", unit: " hrs" }],
-          scalingBadge: "Per Box Design",
-          formulaTemplate: (p) => `${p.prod_gift_concept_total} hrs × Gifting Designs (83% Design / 17% Snr Design)`,
-          logicDescription: "Initial packaging concepts, structural mockups, and visual direction per unique box design.",
+          scalingBadge: "× Box Designs",
+          multiplierSummary: "Per unique gifting box design",
+          equationDetail: (p) =>
+            `Total Hours = ${p.prod_gift_concept_total} hrs × Gifting Designs (83.3% Designer / 16.7% Snr Designer)`,
+          detailedExplanation:
+            "Covers initial structural packaging concepts and visual mockups per unique gifting box design, split 5:1 between Designer and Senior Designer.",
+          workedExample: (p) =>
+            `1 box design → ${p.prod_gift_concept_total} hrs total (Designer + Senior Designer).`,
         },
         {
           task: "Gifting Box Route & Production",
           role: "Designer & Senior Designer",
           params: [{ ruleId: "prod_gift_route_prod_total", unit: " hrs" }],
-          scalingBadge: "Per Box Design",
-          formulaTemplate: (p) => `${p.prod_gift_route_prod_total} hrs × Gifting Designs (Route Dev + Print Production)`,
-          logicDescription: "Print-ready artwork, die-line engineering, and proofing per unique gifting box design.",
+          scalingBadge: "× Box Designs",
+          multiplierSummary: "Per unique gifting box design",
+          equationDetail: (p) =>
+            `Total Hours = ${p.prod_gift_route_prod_total} hrs × Gifting Designs (Route Dev + Print Production)`,
+          detailedExplanation:
+            "Covers full artwork route development and print-ready die-line production per unique gifting box design, split between Designer and Senior Designer.",
+          workedExample: (p) => `1 box design → ${p.prod_gift_route_prod_total} hrs total.`,
         },
         {
           task: "Gifting Box Sourcing & Suppliers",
           role: "Producer",
           params: [{ ruleId: "prod_gift_producer", unit: " hrs" }],
-          scalingBadge: "Per Box Design",
-          formulaTemplate: (p) => `${p.prod_gift_producer} hrs × Gifting Designs`,
-          logicDescription: "Vendor quotes, manufacturing management (16h), and bespoke item sourcing (12h) per design.",
+          scalingBadge: "× Box Designs",
+          multiplierSummary: "Per unique gifting box design",
+          equationDetail: (p) =>
+            `Total Hours = ${p.prod_gift_producer} hrs × Gifting Designs (57% Supplier Mgmt / 43% Sourcing)`,
+          detailedExplanation:
+            "Allocates Producer time per box design to manage packaging manufacturers, print proofs, and bespoke item sourcing.",
+          workedExample: (p) => `1 box design → ${p.prod_gift_producer} hrs allocated to Producer.`,
         },
         {
           task: "Gifting Box Packing & Dispatch",
           role: "Account Executive",
           params: [{ ruleId: "prod_gift_pack_ae", unit: " hrs" }],
-          scalingBadge: "Per Mailed Box",
-          formulaTemplate: (p) => `${p.prod_gift_pack_ae} hrs × Gifting Boxes Shipped`,
-          logicDescription: "Fulfilment coordination, personalised note insertion, and dispatch per physical box.",
+          scalingBadge: "× Boxes Shipped",
+          multiplierSummary: "Per physical gifting box mailed",
+          equationDetail: (p) => `Total Hours = ${p.prod_gift_pack_ae} hrs × Gifting Boxes`,
+          detailedExplanation:
+            "Multiplies fulfilment and dispatch handling time by the total number of physical gifting boxes shipped to creators.",
+          workedExample: (p) =>
+            `50 gifting boxes → 50 × ${p.prod_gift_pack_ae} = ${Math.round(50 * p.prod_gift_pack_ae * 10) / 10} hrs.`,
         },
         {
           task: "Brand Events Management",
@@ -699,9 +909,16 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "prod_event_creative", label: "Creative", unit: "h" },
             { ruleId: "prod_event_am", label: "AM/Event", unit: "h" },
           ],
-          scalingBadge: "Fixed Concept + Per Event",
-          formulaTemplate: (p) => `${p.prod_event_creative}h Concept + (${p.prod_event_am}h AM × Event Count)`,
-          logicDescription: "Fixed creative concepting plus per-event vendor bookings (12h) and on-site management (6h).",
+          scalingBadge: "Fixed + × Events",
+          multiplierSummary: "Fixed concepting + AM hours per event",
+          equationDetail: (p) =>
+            `Total Hours = ${p.prod_event_creative}h Snr Creative (Fixed) + (${p.prod_event_am}h AM × Event Count)`,
+          detailedExplanation:
+            "When Brand Events are scoped, allocates a fixed Senior Creative block for event concepting plus per-event Account Manager hours covering vendor bookings (2/3) and live event attendance (1/3).",
+          workedExample: (p) =>
+            `2 events → ${p.prod_event_creative}h Creative + (2 × ${p.prod_event_am}h AM) = ${
+              p.prod_event_creative + 2 * p.prod_event_am
+            } hrs.`,
         },
       ],
     },
@@ -709,39 +926,51 @@ export function FeeCalcPresumptionsTab() {
       category: "Paid Media Strategy & Management",
       icon: TrendingUp,
       phase: "Content Creation & Go Live",
-      description: "Calculations for paid social amplify, whitelisting/spark ads, asset adaptations, and media campaign pacing.",
       tasks: [
         {
           task: "Paid Social Strategy & Creative",
           role: "Paid Media Director",
           params: [{ ruleId: "paid_strat_dir", unit: " hrs" }],
-          scalingBadge: "Per Live Month",
-          formulaTemplate: (p) => `${p.paid_strat_dir} hrs × Paid Live Months`,
-          logicDescription: "Combines monthly creative review (1h) and strategic media planning (6h) for each active month.",
+          scalingBadge: "× Live Months",
+          multiplierSummary: "Per active paid media month",
+          equationDetail: (p) => `Total Hours = ${p.paid_strat_dir} hrs × Paid Live Months`,
+          detailedExplanation:
+            "Multiplies Paid Media Director strategic planning and creative review hours by the number of active Paid Media Live Months.",
+          workedExample: (p) => `3 live months → 3 × ${p.paid_strat_dir} = ${3 * p.paid_strat_dir} hrs.`,
         },
         {
           task: "Ad Account Setup & Governance",
           role: "Paid Media Manager",
           params: [{ ruleId: "paid_setup_mgr", unit: " hrs" }],
-          scalingBadge: "Per Live Month",
-          formulaTemplate: (p) => `${p.paid_setup_mgr} hr × Paid Live Months`,
-          logicDescription: "Pixel verification, ad account hygiene, and billing governance per active paid month.",
+          scalingBadge: "× Live Months",
+          multiplierSummary: "Per active paid media month",
+          equationDetail: (p) => `Total Hours = ${p.paid_setup_mgr} hrs × Paid Live Months`,
+          detailedExplanation:
+            "Covers monthly ad account setup, pixel tracking verification, and billing governance across the active paid media flight.",
+          workedExample: (p) => `3 live months → 3 × ${p.paid_setup_mgr} = ${3 * p.paid_setup_mgr} hrs.`,
         },
         {
           task: "Creator Access / Whitelisting Setup",
           role: "Senior Paid Media Executive",
           params: [{ ruleId: "paid_whitelisting_exec", unit: " hrs" }],
-          scalingBadge: "Per Creator",
-          formulaTemplate: (p) => `${p.paid_whitelisting_exec} hrs × Total Creators`,
-          logicDescription: "Spark Ad codes, Meta partnership permissions, and creator handle connections per creator.",
+          scalingBadge: "× Creators",
+          multiplierSummary: "Per contracted creator",
+          equationDetail: (p) => `Total Hours = ${p.paid_whitelisting_exec} hrs × Total Creators`,
+          detailedExplanation:
+            "Allocates technical setup time per creator to establish Meta Branded Content permissions, TikTok Spark Ad codes, and handle connections.",
+          workedExample: (p) =>
+            `10 creators → 10 × ${p.paid_whitelisting_exec} = ${10 * p.paid_whitelisting_exec} hrs.`,
         },
         {
           task: "Audience & Campaign Architecture",
           role: "Senior Paid Media Executive",
           params: [{ ruleId: "paid_build_exec", unit: " hrs" }],
-          scalingBadge: "Per Live Month",
-          formulaTemplate: (p) => `${p.paid_build_exec} hrs × Paid Live Months`,
-          logicDescription: "Custom audience building (1.5h) and initial campaign/ad-set structuring (3.0h) per live month.",
+          scalingBadge: "× Live Months",
+          multiplierSummary: "Per active paid media month",
+          equationDetail: (p) => `Total Hours = ${p.paid_build_exec} hrs × Paid Live Months`,
+          detailedExplanation:
+            "Covers custom audience creation (1/3) and campaign/ad-set structure build (2/3) for each active month of paid amplification.",
+          workedExample: (p) => `3 live months → 3 × ${p.paid_build_exec} = ${3 * p.paid_build_exec} hrs.`,
         },
         {
           task: "Static & Dynamic Asset Adaptations",
@@ -750,25 +979,46 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "paid_adapt_static", label: "Static", unit: "h" },
             { ruleId: "paid_adapt_video", label: "Video", unit: "h" },
           ],
-          scalingBadge: "Per Paid Asset",
-          formulaTemplate: (p) => `(${p.paid_adapt_static}h × Paid Static) + (${p.paid_adapt_video}h × Paid Video)`,
-          logicDescription: "Aspect-ratio resizing (9:16, 4:5, 1:1), end-cards, and safe-zone adjustments per paid asset.",
+          scalingBadge: "× Paid Assets",
+          multiplierSummary: "Per paid static & dynamic asset",
+          equationDetail: (p) =>
+            `Total Hours = (${p.paid_adapt_static}h × Paid Static Assets) + (${p.paid_adapt_video}h × Paid Video Assets)`,
+          detailedExplanation:
+            "Calculates Designer time to resize and adapt organic creator assets into paid placement formats (9:16, 4:5, 1:1) with CTAs and safe zones.",
+          workedExample: (p) =>
+            `8 static + 4 video assets → (8 × ${p.paid_adapt_static}) + (4 × ${p.paid_adapt_video}) = ${
+              8 * p.paid_adapt_static + 4 * p.paid_adapt_video
+            } hrs.`,
         },
         {
           task: "Ongoing Optimization & Bid Pacing",
           role: "Paid Media Team (Exec, Mgr, Dir)",
           params: [{ ruleId: "paid_opt_base_total", unit: " hrs" }],
-          scalingBadge: "Months × Platforms × Spend",
-          formulaTemplate: (p) => `Live Months × (${p.paid_opt_base_total}h Base + 8h × Platforms) × Spend Multiplier`,
-          logicDescription: "Scales by active paid channels and media spend tier (1.0x <$100k, 1.25x $100k–$500k, 1.5x >$500k).",
+          scalingBadge: "× Months, Platforms & Spend",
+          multiplierSummary: "Scales by live months, channel count (+8h/ch) & spend tier",
+          equationDetail: (p) =>
+            `Total Hours = Live Months × (${p.paid_opt_base_total}h Base + 8h × Platforms) × Spend Multiplier`,
+          detailedExplanation:
+            "Combines monthly base optimization hours across Senior Paid Media Exec (9h), Manager (3h), and Director (1h) plus 8h per active paid platform (5h Exec, 2h Mgr, 1h Dir), multiplied by the Media Spend Tier (1.0x under $100k, 1.25x for $100k–$500k, 1.5x for $500k+).",
+          workedExample: (p) =>
+            `2 months, 2 platforms, <$100k spend (1.0x) → 2 × (${p.paid_opt_base_total} + 16) × 1.0 = ${
+              2 * (p.paid_opt_base_total + 16)
+            } hrs.`,
         },
         {
           task: "Weekly Performance Reporting",
           role: "Paid Media Exec, Mgr & Director",
           params: [{ ruleId: "paid_rep_base_total", unit: " hrs" }],
-          scalingBadge: "Months × Platforms × Complexity",
-          formulaTemplate: (p) => `Live Months × (${p.paid_rep_base_total}h Base + 4.5h × Platforms) × Complexity`,
-          logicDescription: "Monthly paid reporting hours scaled by active channels and campaign complexity (1.0x Standard, 1.5x Complex).",
+          scalingBadge: "× Months, Platforms & Complexity",
+          multiplierSummary: "Scales by live months, channel count (+4.5h/ch) & complexity",
+          equationDetail: (p) =>
+            `Total Hours = Live Months × (${p.paid_rep_base_total}h Base + 4.5h × Platforms) × Complexity Multiplier`,
+          detailedExplanation:
+            "Covers paid media reporting across Exec (4h), Director (2h), and Manager (1h) plus 4.5h per active paid channel, scaled by Paid Media Complexity (1.0x Standard, 1.5x Complex).",
+          workedExample: (p) =>
+            `2 months, 1 platform, Standard (1.0x) → 2 × (${p.paid_rep_base_total} + 4.5) = ${
+              2 * (p.paid_rep_base_total + 4.5)
+            } hrs.`,
         },
         {
           task: "Paid Media Strategic Consultancy",
@@ -777,9 +1027,14 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "paid_consult_light", label: "Light", unit: "h" },
             { ruleId: "paid_consult_heavy", label: "Heavy", unit: "h" },
           ],
-          scalingBadge: "Per Live Month by Tier",
-          formulaTemplate: (p) => `(${p.paid_consult_light}h Light or ${p.paid_consult_heavy}h Heavy) × Paid Live Months`,
-          logicDescription: "Executive media advisory scaled by the selected Consultancy Involvement level.",
+          scalingBadge: "× Live Months (By Tier)",
+          multiplierSummary: "Selected consultancy involvement × live months",
+          equationDetail: (p) =>
+            `Total Hours = (${p.paid_consult_light}h if Light, ${p.paid_consult_heavy}h if Heavy) × Paid Live Months`,
+          detailedExplanation:
+            "Applies the selected Consultancy Involvement rate (Light or Heavy) multiplied by the number of Paid Live Months for senior media advisory.",
+          workedExample: (p) =>
+            `3 live months on Light tier → 3 × ${p.paid_consult_light} = ${3 * p.paid_consult_light} hrs.`,
         },
       ],
     },
@@ -787,7 +1042,6 @@ export function FeeCalcPresumptionsTab() {
       category: "Reporting & Analytics Insights",
       icon: BarChart3,
       phase: "Reporting & Wrap Up",
-      description: "Generates data collection, deduplication, dashboard setups, and comprehensive executive reports.",
       tasks: [
         {
           task: "BI Dashboard Setup & Tagging",
@@ -796,9 +1050,16 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "rep_dash_setup", label: "Setup", unit: "h" },
             { ruleId: "rep_dash_maint", label: "Maint/Mo", unit: "h" },
           ],
-          scalingBadge: "Per Dashboard + Monthly",
-          formulaTemplate: (p) => `(${p.rep_dash_setup}h Setup + ${p.rep_dash_maint}h × Project Months) × Dashboards`,
-          logicDescription: "Covers initial dashboard build & tagging setup plus recurring monthly data maintenance per dashboard.",
+          scalingBadge: "× Dashboards & Months",
+          multiplierSummary: "Initial setup per dashboard + monthly maintenance",
+          equationDetail: (p) =>
+            `Total Hours = Dashboards × (${p.rep_dash_setup}h Setup + (${p.rep_dash_maint}h × Project Months))`,
+          detailedExplanation:
+            "For each dashboard scoped, allocates initial setup and post-analytics sheet tagging (60% dashboard build / 40% tagging setup) plus recurring monthly maintenance over the campaign duration.",
+          workedExample: (p) =>
+            `1 dashboard over 3 months → ${p.rep_dash_setup} + (3 × ${p.rep_dash_maint}) = ${
+              p.rep_dash_setup + 3 * p.rep_dash_maint
+            } hrs.`,
         },
         {
           task: "Ongoing Insights Advisory",
@@ -807,33 +1068,50 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "rep_ongoing_light", label: "Light", unit: "h" },
             { ruleId: "rep_ongoing_heavy", label: "Heavy", unit: "h" },
           ],
-          scalingBadge: "Per Project Month",
-          formulaTemplate: (p) => `(${p.rep_ongoing_light}h Light or ${p.rep_ongoing_heavy}h Heavy) × Project Months`,
-          logicDescription: "Recurring mid-flight performance analysis when Reporting Involvement is set to Light or Heavy.",
+          scalingBadge: "× Project Months (By Tier)",
+          multiplierSummary: "Selected reporting involvement × project months",
+          equationDetail: (p) =>
+            `Total Hours = (${p.rep_ongoing_light}h Light | ${p.rep_ongoing_heavy}h Heavy | 0h Reporting Only) × Project Months`,
+          detailedExplanation:
+            "Allocates monthly Analytics & Insights Manager hours when Reporting Involvement is set to Light or Heavy. If set to 'Reporting only', 0 ongoing advisory hours are added.",
+          workedExample: (p) =>
+            `3 project months on Light tier → 3 × ${p.rep_ongoing_light} = ${3 * p.rep_ongoing_light} hrs.`,
         },
         {
           task: "Snapshot Report (Lite Wrap-Up)",
           role: "Analytics, Account Team & Design",
           params: [{ ruleId: "rep_snapshot_total", unit: " hrs" }],
-          scalingBadge: "Per Snapshot Report",
-          formulaTemplate: (p) => `${p.rep_snapshot_total} hrs × Snapshot Reports`,
-          logicDescription: "Fast quantitative wrap-up distributed across Analytics (18h), AE (7h), AM (3h), AD (0.5h), Snr Analytics (2h), and Design (2h).",
+          scalingBadge: "× Snapshot Reports",
+          multiplierSummary: "Per Snapshot Report scoped",
+          equationDetail: (p) =>
+            `Total Hours = ${p.rep_snapshot_total} hrs × Snapshot Reports (Analytics 55%, AE 22%, AM 9%, Snr Analytics 6%, Design 6%, AD 2%)`,
+          detailedExplanation:
+            "Multiplies the total Snapshot Report allocation by the number of Snapshot Reports scoped, distributing hours across Analytics & Insights Manager, Account Executive, Account Manager, Account Director, Senior Analytics Manager, and Designer.",
+          workedExample: (p) => `1 Snapshot Report → ${p.rep_snapshot_total} hrs across the reporting team.`,
         },
         {
           task: "Standard Campaign Report",
           role: "Analytics, Account, Strategy & Design",
           params: [{ ruleId: "rep_standard_total", unit: " hrs" }],
-          scalingBadge: "Per Standard Report",
-          formulaTemplate: (p) => `${p.rep_standard_total} hrs × Standard Reports`,
-          logicDescription: "Full post-campaign analysis across Analytics (27h), AE (11h), AM (8h), AD (3h), Snr Analytics (3h), Strategy (3h), and Design (4h).",
+          scalingBadge: "× Standard Reports",
+          multiplierSummary: "Per Standard Report scoped",
+          equationDetail: (p) =>
+            `Total Hours = ${p.rep_standard_total} hrs × Standard Reports (Analytics 46%, AE 19%, AM 14%, Design 7%, AD 5%, Snr Analytics 5%, Strategy 5%)`,
+          detailedExplanation:
+            "Full post-campaign wrap-up report including qualitative content tagging and strategic learnings, multiplied by the number of Standard Reports scoped.",
+          workedExample: (p) => `1 Standard Report → ${p.rep_standard_total} hrs across the reporting team.`,
         },
         {
           task: "Advanced / Multi-Market Report",
           role: "Snr Analytics, Account, Strategy & Design",
           params: [{ ruleId: "rep_advanced_total", unit: " hrs" }],
-          scalingBadge: "Per Advanced Report",
-          formulaTemplate: (p) => `${p.rep_advanced_total} hrs × Advanced Reports`,
-          logicDescription: "Enterprise multi-market report across Snr Analytics (39h), AE (17h), AM (16h), AD (16h), Head of Analytics (2h), Strategy (4h), and Design (6h).",
+          scalingBadge: "× Advanced Reports",
+          multiplierSummary: "Per Advanced Report scoped",
+          equationDetail: (p) =>
+            `Total Hours = ${p.rep_advanced_total} hrs × Advanced Reports (Snr Analytics 39%, AE 17%, AM 16%, AD 16%, Design 6%, Strategy 4%, Head of Analytics 2%)`,
+          detailedExplanation:
+            "Comprehensive multi-market or executive wrap-up report with senior leadership oversight, multiplied by the number of Advanced Reports scoped.",
+          workedExample: (p) => `1 Advanced Report → ${p.rep_advanced_total} hrs across the senior reporting team.`,
         },
       ],
     },
@@ -841,39 +1119,58 @@ export function FeeCalcPresumptionsTab() {
       category: "Account Governance & Project Management",
       icon: ShieldAlert,
       phase: "Overhead & Governance",
-      description: "End-to-end account direction, weekly client syncs, risk management, and overall project governance.",
       tasks: [
         {
           task: "Weekly Client Status Meetings",
           role: "AE (4h/mo) + AM (2h/mo)",
           params: [{ ruleId: "gov_status_total", unit: " hrs" }],
-          scalingBadge: "Per Project Month",
-          formulaTemplate: (p) => `${p.gov_status_total} hrs × Project Months (67% AE / 33% AM)`,
-          logicDescription: "Weekly client status calls, agendas, status reports, and action tracking for every active month.",
+          scalingBadge: "× Project Months",
+          multiplierSummary: "Per campaign month (67% AE / 33% AM)",
+          equationDetail: (p) => `Total Hours = ${p.gov_status_total} hrs × Project Duration Months`,
+          detailedExplanation:
+            "Applied to every project scope across its full duration in months. Two-thirds of the monthly allocation is assigned to Account Executive and one-third to Account Manager for weekly status calls, agendas, and contact reports.",
+          workedExample: (p) =>
+            `3-month campaign → 3 × ${p.gov_status_total} = ${3 * p.gov_status_total} hrs total.`,
         },
         {
           task: "Commercial & Business Affairs Admin",
           role: "Global Business Affairs Executive",
           params: [{ ruleId: "gov_admin_bae", unit: " hrs" }],
-          scalingBadge: "Fixed per Project",
-          formulaTemplate: (p) => `${p.gov_admin_bae} hrs × 1 Project`,
-          logicDescription: "Fixed allocation for ad-hoc legal queries, PO reconciliation, and compliance paperwork.",
+          scalingBadge: "Fixed",
+          multiplierSummary: "Baseline project allocation",
+          equationDetail: (p) => `Total Hours = ${p.gov_admin_bae} hrs (Flat project baseline)`,
+          detailedExplanation:
+            "Fixed allocation included on every campaign for ongoing administrative compliance, PO tracking, and ad-hoc Business Affairs support.",
+          workedExample: (p) => `Any active project scope → ${p.gov_admin_bae} hrs.`,
         },
         {
           task: "Account Director Supervision",
           role: "Account Director",
           params: [{ ruleId: "gov_mgmt_ad_pct", unit: "%" }],
           scalingBadge: "% of Non-Mgmt Hours",
-          formulaTemplate: (p) => `${p.gov_mgmt_ad_pct}% × Sum(All Non-Management Hours)`,
-          logicDescription: "Senior account leadership scaled automatically as a percentage of all delivery hours on the project.",
+          multiplierSummary: "Calculated on sum of all delivery hours",
+          equationDetail: (p) => `Total Hours = ${p.gov_mgmt_ad_pct}% × Sum(All Non-Management Hours)`,
+          detailedExplanation:
+            "Calculated last after all other service modules are summed. When Project Management is enabled, allocates Account Director supervision as a percentage of all non-management hours across the entire scope.",
+          workedExample: (p) =>
+            `If all other project hours = 200h → ${p.gov_mgmt_ad_pct}% × 200h = ${
+              Math.round(200 * (p.gov_mgmt_ad_pct / 100) * 10) / 10
+            } hrs.`,
         },
         {
           task: "Senior Account Director Governance",
           role: "Senior Account Director",
           params: [{ ruleId: "gov_mgmt_sad_pct", unit: "%" }],
           scalingBadge: "% of Non-Mgmt Hours",
-          formulaTemplate: (p) => `${p.gov_mgmt_sad_pct}% × Sum(All Non-Management Hours) [5% + 4% tiers]`,
-          logicDescription: "Executive client governance and quality oversight scaled as a percentage of total non-management hours.",
+          multiplierSummary: "Calculated on sum of all delivery hours",
+          equationDetail: (p) =>
+            `Total Hours = ${p.gov_mgmt_sad_pct}% × Sum(All Non-Management Hours) [Split 5/9 & 4/9 tiers]`,
+          detailedExplanation:
+            "Calculated last on all non-management hours when Project Management is enabled. Provides executive client sponsorship, escalation management, and commercial quality control.",
+          workedExample: (p) =>
+            `If all other project hours = 200h → ${p.gov_mgmt_sad_pct}% × 200h = ${
+              Math.round(200 * (p.gov_mgmt_sad_pct / 100) * 10) / 10
+            } hrs.`,
         },
         {
           task: "Dedicated Project Management (SPM)",
@@ -883,9 +1180,14 @@ export function FeeCalcPresumptionsTab() {
             { ruleId: "gov_pm_oversight", label: "Oversight", unit: "h/mo" },
             { ruleId: "gov_pm_full", label: "Full", unit: "h/mo" },
           ],
-          scalingBadge: "Per Month by PM Tier",
-          formulaTemplate: (p) => `(${p.gov_pm_light}h Light | ${p.gov_pm_oversight}h Oversight | ${p.gov_pm_full}h Full) × Project Months`,
-          logicDescription: "Multiplies the selected Project Management involvement tier by total campaign duration in months.",
+          scalingBadge: "× Project Months (By Tier)",
+          multiplierSummary: "Selected PM involvement tier × project months",
+          equationDetail: (p) =>
+            `Total Hours = (${p.gov_pm_light}h Light | ${p.gov_pm_oversight}h Oversight | ${p.gov_pm_full}h Full) × Project Months`,
+          detailedExplanation:
+            "Multiplies the monthly hours for the chosen Project Management Involvement dropdown ('Set up / Light', 'Set up / Execution Oversight', or 'Full - End to End') by the total campaign duration in months.",
+          workedExample: (p) =>
+            `3-month project on Oversight tier → 3 × ${p.gov_pm_oversight} = ${3 * p.gov_pm_oversight} hrs.`,
         },
       ],
     },
@@ -897,13 +1199,14 @@ export function FeeCalcPresumptionsTab() {
       if (!searchQuery.trim()) return cat;
       const query = searchQuery.toLowerCase().trim();
       const matchingTasks = cat.tasks.filter((t) => {
-        const formulaStr = t.formulaTemplate(activePresumptions).toLowerCase();
+        const eqStr = t.equationDetail(activePresumptions).toLowerCase();
         return (
           t.task.toLowerCase().includes(query) ||
           t.role.toLowerCase().includes(query) ||
           t.scalingBadge.toLowerCase().includes(query) ||
-          t.logicDescription.toLowerCase().includes(query) ||
-          formulaStr.includes(query)
+          t.multiplierSummary.toLowerCase().includes(query) ||
+          t.detailedExplanation.toLowerCase().includes(query) ||
+          eqStr.includes(query)
         );
       });
       return {
@@ -1079,11 +1382,11 @@ export function FeeCalcPresumptionsTab() {
         <TabsList className="grid w-full grid-cols-3 max-w-2xl bg-muted/60 border">
           <TabsTrigger value="service-hours" className="font-semibold text-xs gap-1.5">
             <Clock className="w-3.5 h-3.5" />
-            Service Hours Engine
+            Service Hours
           </TabsTrigger>
           <TabsTrigger value="creator-costs" className="font-semibold text-xs gap-1.5">
             <Users className="w-3.5 h-3.5" />
-            Creator Cost Engine
+            Talent Costs
           </TabsTrigger>
           <TabsTrigger value="territories-boosters" className="font-semibold text-xs gap-1.5">
             <Globe className="w-3.5 h-3.5" />
@@ -1091,7 +1394,7 @@ export function FeeCalcPresumptionsTab() {
           </TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: Service Hours Engine */}
+        {/* TAB 1: Service Hours */}
         <TabsContent value="service-hours" className="space-y-6">
           <Card className="border-gray-200">
             <CardHeader className="pb-3">
@@ -1102,7 +1405,7 @@ export function FeeCalcPresumptionsTab() {
                     How Service Hours are Generated
                   </CardTitle>
                   <CardDescription className="text-xs mt-0.5">
-                    Click any value in the Allocated Hours column to edit it. Changes immediately update the Fee Calculator and are recorded in Version History.
+                    Click any value in Allocated Hours to edit it, or select the info icon in Formula/Multiplier for a full breakdown of how each rule works.
                   </CardDescription>
                 </div>
                 <div className="relative w-full sm:w-72">
@@ -1136,15 +1439,12 @@ export function FeeCalcPresumptionsTab() {
                   const Icon = cat.icon;
                   return (
                     <div key={idx} className="border rounded-lg overflow-hidden bg-card shadow-2xs">
-                      <div className="bg-muted/30 px-4 py-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="bg-muted/30 px-4 py-2.5 border-b flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2.5">
                           <div className="p-1.5 rounded-md bg-primary/10 text-primary">
                             <Icon className="w-4 h-4" />
                           </div>
-                          <div>
-                            <h3 className="font-bold text-sm text-foreground">{cat.category}</h3>
-                            <p className="text-xs text-muted-foreground">{cat.description}</p>
-                          </div>
+                          <h3 className="font-bold text-sm text-foreground">{cat.category}</h3>
                         </div>
                         <Badge variant="outline" className="text-[11px] font-medium bg-background shrink-0 w-fit">
                           Phase: {cat.phase}
@@ -1153,144 +1453,190 @@ export function FeeCalcPresumptionsTab() {
                       <Table>
                         <TableHeader className="bg-muted/10">
                           <TableRow>
-                            <TableHead className="text-xs font-semibold w-[22%]">Task / Activity</TableHead>
-                            <TableHead className="text-xs font-semibold w-[20%]">Assigned Role</TableHead>
+                            <TableHead className="text-xs font-semibold w-[24%]">Task / Activity</TableHead>
+                            <TableHead className="text-xs font-semibold w-[22%]">Assigned Role</TableHead>
                             <TableHead className="text-xs font-semibold w-[22%]">Allocated Hours</TableHead>
-                            <TableHead className="text-xs font-semibold w-[36%]">Formula/Multiplier</TableHead>
+                            <TableHead className="text-xs font-semibold w-[32%]">Formula/Multiplier</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {cat.tasks.map((task, tIdx) => (
-                            <TableRow key={tIdx} className="hover:bg-muted/15 align-top">
-                              <TableCell className="text-xs font-semibold text-foreground py-3">
-                                {task.task}
-                              </TableCell>
-                              <TableCell className="text-xs py-3">
-                                <Badge variant="secondary" className="font-medium text-[11px]">
-                                  {task.role}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-xs py-3">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  {task.params.map((param) => {
-                                    const currentVal = activePresumptions[param.ruleId];
-                                    const defaultVal = DEFAULT_SERVICE_HOUR_PRESUMPTIONS[param.ruleId];
-                                    const isModified = currentVal !== defaultVal;
-                                    const isEditing = editingRuleId === param.ruleId;
-
-                                    if (isEditing) {
-                                      return (
-                                        <div
-                                          key={param.ruleId}
-                                          className="inline-flex items-center gap-1 bg-background border border-primary rounded-md px-1.5 py-0.5 shadow-2xs"
-                                        >
-                                          {param.label && (
-                                            <span className="text-[10px] font-semibold text-muted-foreground">
-                                              {param.label}:
-                                            </span>
-                                          )}
-                                          <input
-                                            type="number"
-                                            step="0.05"
-                                            min="0"
-                                            autoFocus
-                                            value={editingDraft}
-                                            onChange={(e) => setEditingDraft(e.target.value)}
-                                            onKeyDown={(e) => {
-                                              if (e.key === "Enter") {
-                                                handleCommitEdit(cat.category, task.task, task.role, param, editingDraft);
-                                              } else if (e.key === "Escape") {
-                                                setEditingRuleId(null);
-                                              }
-                                            }}
-                                            className="w-14 text-xs font-mono font-bold text-primary bg-transparent focus:outline-none"
-                                          />
-                                          <span className="text-[10px] text-muted-foreground font-mono">
-                                            {param.unit.trim()}
-                                          </span>
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              handleCommitEdit(cat.category, task.task, task.role, param, editingDraft)
-                                            }
-                                            className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded"
-                                            title="Save"
-                                          >
-                                            <Check className="w-3 h-3" />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => setEditingRuleId(null)}
-                                            className="p-0.5 text-muted-foreground hover:bg-muted rounded"
-                                            title="Cancel"
-                                          >
-                                            <X className="w-3 h-3" />
-                                          </button>
-                                        </div>
-                                      );
-                                    }
-
-                                    return (
-                                      <div key={param.ruleId} className="inline-flex items-center gap-1">
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setEditingRuleId(param.ruleId);
-                                            setEditingDraft(String(currentVal));
-                                          }}
-                                          className={`group inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-mono font-bold transition-colors ${
-                                            isModified
-                                              ? "bg-amber-50/80 border-amber-300 text-amber-900 hover:bg-amber-100/80"
-                                              : "bg-muted/40 border-transparent hover:border-gray-300 hover:bg-muted text-primary"
-                                          }`}
-                                          title="Click to edit allocated hours"
-                                        >
-                                          {param.label && (
-                                            <span className="text-[10px] font-sans font-medium text-muted-foreground">
-                                              {param.label}:
-                                            </span>
-                                          )}
-                                          <span>
-                                            {currentVal}
-                                            {param.unit}
-                                          </span>
-                                          <Pencil className="w-2.5 h-2.5 opacity-0 group-hover:opacity-70 transition-opacity text-muted-foreground ml-0.5" />
-                                        </button>
-                                        {isModified && (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleResetRule(cat.category, task.task, task.role, param)}
-                                            className="p-1 text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded"
-                                            title={`Reset to default (${defaultVal}${param.unit})`}
-                                          >
-                                            <RotateCcw className="w-3 h-3" />
-                                          </button>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-xs py-3">
-                                <div className="space-y-1">
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[10px] font-semibold px-1.5 py-0 bg-primary/5 text-primary border-primary/20"
-                                    >
-                                      {task.scalingBadge}
+                          {cat.tasks.map((task, tIdx) => {
+                            const rowKey = `${cat.category}-${task.task}`;
+                            const isExpanded = !!expandedInfoRows[rowKey];
+                            return (
+                              <React.Fragment key={tIdx}>
+                                <TableRow className="hover:bg-muted/15 align-middle">
+                                  <TableCell className="text-xs font-semibold text-foreground py-2.5">
+                                    {task.task}
+                                  </TableCell>
+                                  <TableCell className="text-xs py-2.5">
+                                    <Badge variant="secondary" className="font-medium text-[11px]">
+                                      {task.role}
                                     </Badge>
-                                    <code className="bg-muted/80 px-2 py-0.5 rounded text-[11px] font-mono font-semibold text-foreground">
-                                      {task.formulaTemplate(activePresumptions)}
-                                    </code>
-                                  </div>
-                                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                    {task.logicDescription}
-                                  </p>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                                  </TableCell>
+                                  <TableCell className="text-xs py-2.5">
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      {task.params.map((param) => {
+                                        const currentVal = activePresumptions[param.ruleId];
+                                        const defaultVal = DEFAULT_SERVICE_HOUR_PRESUMPTIONS[param.ruleId];
+                                        const isModified = currentVal !== defaultVal;
+                                        const isEditing = editingRuleId === param.ruleId;
+
+                                        if (isEditing) {
+                                          return (
+                                            <div
+                                              key={param.ruleId}
+                                              className="inline-flex items-center gap-1 bg-background border border-primary rounded-md px-1.5 py-0.5 shadow-2xs"
+                                            >
+                                              {param.label && (
+                                                <span className="text-[10px] font-semibold text-muted-foreground">
+                                                  {param.label}:
+                                                </span>
+                                              )}
+                                              <input
+                                                type="number"
+                                                step="0.05"
+                                                min="0"
+                                                autoFocus
+                                                value={editingDraft}
+                                                onChange={(e) => setEditingDraft(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === "Enter") {
+                                                    handleCommitEdit(cat.category, task.task, task.role, param, editingDraft);
+                                                  } else if (e.key === "Escape") {
+                                                    setEditingRuleId(null);
+                                                  }
+                                                }}
+                                                className="w-14 text-xs font-mono font-bold text-primary bg-transparent focus:outline-none"
+                                              />
+                                              <span className="text-[10px] text-muted-foreground font-mono">
+                                                {param.unit.trim()}
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  handleCommitEdit(cat.category, task.task, task.role, param, editingDraft)
+                                                }
+                                                className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded"
+                                                title="Save"
+                                              >
+                                                <Check className="w-3 h-3" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => setEditingRuleId(null)}
+                                                className="p-0.5 text-muted-foreground hover:bg-muted rounded"
+                                                title="Cancel"
+                                              >
+                                                <X className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          );
+                                        }
+
+                                        return (
+                                          <div key={param.ruleId} className="inline-flex items-center gap-1">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setEditingRuleId(param.ruleId);
+                                                setEditingDraft(String(currentVal));
+                                              }}
+                                              className={`group inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-mono font-bold transition-colors ${
+                                                isModified
+                                                  ? "bg-amber-50/80 border-amber-300 text-amber-900 hover:bg-amber-100/80"
+                                                  : "bg-muted/40 border-transparent hover:border-gray-300 hover:bg-muted text-primary"
+                                              }`}
+                                              title="Click to edit allocated hours"
+                                            >
+                                              {param.label && (
+                                                <span className="text-[10px] font-sans font-medium text-muted-foreground">
+                                                  {param.label}:
+                                                </span>
+                                              )}
+                                              <span>
+                                                {currentVal}
+                                                {param.unit}
+                                              </span>
+                                              <Pencil className="w-2.5 h-2.5 opacity-0 group-hover:opacity-70 transition-opacity text-muted-foreground ml-0.5" />
+                                            </button>
+                                            {isModified && (
+                                              <button
+                                                type="button"
+                                                onClick={() => handleResetRule(cat.category, task.task, task.role, param)}
+                                                className="p-1 text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded"
+                                                title={`Reset to default (${defaultVal}${param.unit})`}
+                                              >
+                                                <RotateCcw className="w-3 h-3" />
+                                              </button>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-xs py-2.5">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[10px] font-semibold px-1.5 py-0 bg-primary/5 text-primary border-primary/20 shrink-0"
+                                        >
+                                          {task.scalingBadge}
+                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">
+                                          {task.multiplierSummary}
+                                        </span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleInfoRow(rowKey)}
+                                        className={`inline-flex items-center gap-0.5 px-1.5 py-1 rounded-md border text-[11px] font-medium transition-colors shrink-0 ${
+                                          isExpanded
+                                            ? "bg-primary/10 border-primary/30 text-primary"
+                                            : "bg-background border-gray-200 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                        }`}
+                                        title="View detailed formula logic and how it works"
+                                      >
+                                        <Info className="w-3.5 h-3.5" />
+                                        {isExpanded ? (
+                                          <ChevronUp className="w-3 h-3" />
+                                        ) : (
+                                          <ChevronDown className="w-3 h-3" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                                {isExpanded && (
+                                  <TableRow className="bg-primary/[0.03] hover:bg-primary/[0.04]">
+                                    <TableCell colSpan={4} className="py-3 px-4">
+                                      <div className="rounded-lg border border-primary/15 bg-background p-3.5 space-y-2 text-xs shadow-2xs">
+                                        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+                                          <span className="font-bold text-foreground flex items-center gap-1.5">
+                                            <Info className="w-3.5 h-3.5 text-primary" />
+                                            Formula & Calculation Logic: {task.task}
+                                          </span>
+                                          <code className="bg-muted px-2 py-0.5 rounded text-[11px] font-mono font-semibold text-primary">
+                                            {task.equationDetail(activePresumptions)}
+                                          </code>
+                                        </div>
+                                        <p className="text-muted-foreground leading-relaxed">
+                                          {task.detailedExplanation}
+                                        </p>
+                                        <div className="bg-muted/40 rounded px-2.5 py-1.5 border text-[11px] flex flex-wrap items-center gap-1.5">
+                                          <span className="font-semibold text-foreground">Example:</span>
+                                          <span className="font-mono text-muted-foreground">
+                                            {task.workedExample(activePresumptions)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </div>
@@ -1301,7 +1647,7 @@ export function FeeCalcPresumptionsTab() {
           </Card>
         </TabsContent>
 
-        {/* TAB 2: Creator Cost Engine */}
+        {/* TAB 2: Talent Costs */}
         <TabsContent value="creator-costs" className="space-y-6">
           <Card className="border-gray-200">
             <CardHeader>
