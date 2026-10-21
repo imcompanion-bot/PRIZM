@@ -125,6 +125,16 @@ export const DEFAULT_SERVICE_HOUR_PRESUMPTIONS = {
   gov_pm_light: 5.0,
   gov_pm_oversight: 20.0,
   gov_pm_full: 40.0,
+
+  // 9. Talent Costs — Estimated Format View Rates (%)
+  view_rate_ig_single_img: 25.0,
+  view_rate_ig_multi_img: 25.0,
+  view_rate_ig_short_vid: 34.0,
+  view_rate_ig_story: 5.0,
+  view_rate_tt_short_vid: 15.0,
+  view_rate_yt_short_vid: 15.0,
+  view_rate_yt_long_vid: 15.0,
+  view_rate_yt_story: 5.0,
 };
 
 export type PresumptionRuleId = keyof typeof DEFAULT_SERVICE_HOUR_PRESUMPTIONS;

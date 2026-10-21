@@ -22,6 +22,7 @@
  */
 
 import type { TalentBudgetState, InfluencerGroup } from "./TalentBudgetTab";
+import { getActivePresumptions } from "./serviceHoursEngine";
 
 /* ═══════════════ BENCHMARK TABLES ═══════════════ */
 
@@ -54,9 +55,23 @@ const BENCHMARKS_GBP: Record<string, Benchmark> = {
 const US_CONVERSION = 1.35;
 
 function getBenchmarks(office: "UK" | "US"): Record<string, Benchmark> {
-  if (office === "UK") return BENCHMARKS_GBP;
+  const p = getActivePresumptions();
+  const dynamicGBP: Record<string, Benchmark> = {
+    ...BENCHMARKS_GBP,
+    "Instagram - Single Image": { ...BENCHMARKS_GBP["Instagram - Single Image"], viewRate: p.view_rate_ig_single_img / 100 },
+    "Instagram - Multi Image": { ...BENCHMARKS_GBP["Instagram - Multi Image"], viewRate: p.view_rate_ig_multi_img / 100 },
+    "Instagram - Short Video": { ...BENCHMARKS_GBP["Instagram - Short Video"], viewRate: p.view_rate_ig_short_vid / 100 },
+    "Instagram - Story Frames": { ...BENCHMARKS_GBP["Instagram - Story Frames"], viewRate: p.view_rate_ig_story / 100 },
+    "TikTok - Short Video": { ...BENCHMARKS_GBP["TikTok - Short Video"], viewRate: p.view_rate_tt_short_vid / 100 },
+    "TikTok - Image": { ...BENCHMARKS_GBP["TikTok - Image"], viewRate: p.view_rate_tt_short_vid / 100 },
+    "TikTok - Carousel": { ...BENCHMARKS_GBP["TikTok - Carousel"], viewRate: p.view_rate_tt_short_vid / 100 },
+    "YouTube - Short Video": { ...BENCHMARKS_GBP["YouTube - Short Video"], viewRate: p.view_rate_yt_short_vid / 100 },
+    "YouTube - Long Video": { ...BENCHMARKS_GBP["YouTube - Long Video"], viewRate: p.view_rate_yt_long_vid / 100 },
+    "YouTube - Story Frames": { ...BENCHMARKS_GBP["YouTube - Story Frames"], viewRate: p.view_rate_yt_story / 100 },
+  };
+  if (office === "UK") return dynamicGBP;
   const usd: Record<string, Benchmark> = {};
-  for (const [k, v] of Object.entries(BENCHMARKS_GBP)) {
+  for (const [k, v] of Object.entries(dynamicGBP)) {
     usd[k] = {
       a: v.a * US_CONVERSION,
       b: v.b * US_CONVERSION,

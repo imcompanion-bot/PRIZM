@@ -222,10 +222,18 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
     return m;
   }, [peopleData]);
 
+  const [presumptionsRevision, setPresumptionsRevision] = useState(0);
+  useEffect(() => {
+    syncPresumptionsFromDatabase();
+    const handler = () => setPresumptionsRevision((v) => v + 1);
+    window.addEventListener(PRESUMPTIONS_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(PRESUMPTIONS_UPDATED_EVENT, handler);
+  }, []);
+
   // ═══ Creator costs engine ═══
   const talentCalc: TalentCalcResult = useMemo(
     () => calculateCreatorCosts(state.talentBudget, state.office),
-    [state.talentBudget, state.office]
+    [state.talentBudget, state.office, presumptionsRevision]
   );
 
   // ═══ Derive platform deliverables from talent groups ═══
@@ -266,14 +274,6 @@ export function FeeCalcSummary({ state, currencySymbol: sym, appliedRecs = [], o
       contentHouseAssets,
     };
   }, [state.talentBudget.groups]);
-
-  const [presumptionsRevision, setPresumptionsRevision] = useState(0);
-  useEffect(() => {
-    syncPresumptionsFromDatabase();
-    const handler = () => setPresumptionsRevision((v) => v + 1);
-    window.addEventListener(PRESUMPTIONS_UPDATED_EVENT, handler);
-    return () => window.removeEventListener(PRESUMPTIONS_UPDATED_EVENT, handler);
-  }, []);
 
   // ═══ Service hours engine ═══
   const serviceHoursResult = useMemo(() => {

@@ -13,6 +13,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Calculator,
   Users,
   Clock,
@@ -225,20 +231,23 @@ export function FeeCalcPresumptionsTab() {
     if (modifiedKeys.length === 0) return;
 
     const now = new Date().toISOString();
-    const resetEntries: PresumptionHistoryEntry[] = modifiedKeys.map((ruleId) => ({
-      id: `${Date.now()}-${ruleId}-${Math.random().toString(36).slice(2, 6)}`,
-      timestamp: now,
-      userName: currentUserName,
-      userEmail: currentUserEmail,
-      category: "All Categories",
-      task: `Reset ${ruleId} to V6-3 Default`,
-      role: "System Default",
-      ruleId,
-      previousValue: activePresumptions[ruleId],
-      newValue: DEFAULT_SERVICE_HOUR_PRESUMPTIONS[ruleId],
-      unit: " hrs",
-      action: "reset",
-    }));
+    const resetEntries: PresumptionHistoryEntry[] = modifiedKeys.map((ruleId) => {
+      const isPercent = ruleId.endsWith("_pct") || ruleId.startsWith("view_rate_");
+      return {
+        id: `${Date.now()}-${ruleId}-${Math.random().toString(36).slice(2, 6)}`,
+        timestamp: now,
+        userName: currentUserName,
+        userEmail: currentUserEmail,
+        category: ruleId.startsWith("view_rate_") ? "Talent Costs" : "All Categories",
+        task: `Reset ${ruleId} to V6-3 Default`,
+        role: "System Default",
+        ruleId,
+        previousValue: activePresumptions[ruleId],
+        newValue: DEFAULT_SERVICE_HOUR_PRESUMPTIONS[ruleId],
+        unit: isPercent ? "%" : " hrs",
+        action: "reset",
+      };
+    });
 
     const nextHistory = [...resetEntries, ...history];
     setOverrides({});
@@ -246,24 +255,32 @@ export function FeeCalcPresumptionsTab() {
 
     try {
       await savePresumptionChange({}, nextHistory);
-      toast.success("All allocated hours reset to official V6-3 defaults.");
+      toast.success("All presumptions reset to official V6-3 defaults.");
     } catch {
       toast.error("Reset locally, but failed to sync to cloud database.");
     }
   };
 
-  const benchmarksGBP = [
-    { platform: "Instagram", format: "Single Image", a: 115, b: -8.39, minCPM: "£12.00", viewRate: "25%", notes: "Static grid post" },
-    { platform: "Instagram", format: "Multi Image (Carousel)", a: 171, b: -12.50, minCPM: "£12.00", viewRate: "25%", notes: "2+ slides carousel" },
-    { platform: "Instagram", format: "Short Video (Reels)", a: 175, b: -12.50, minCPM: "£12.00", viewRate: "34%", notes: "Vertical Reel < 90s" },
-    { platform: "Instagram", format: "Story Frames", a: 151, b: -12.50, minCPM: "£12.00", viewRate: "5%", notes: "Ephemeral story set" },
-    { platform: "TikTok", format: "Short Video", a: 259, b: -18.70, minCPM: "£12.00", viewRate: "15%", notes: "Native vertical video" },
-    { platform: "YouTube", format: "Short Video (Shorts)", a: 277, b: -20.70, minCPM: "£12.00", viewRate: "15%", notes: "YouTube Shorts < 60s" },
-    { platform: "YouTube", format: "Long Video (Dedicated/Integr.)", a: 277, b: -20.70, minCPM: "£12.00", viewRate: "15%", notes: "Standard 8-15 min video" },
-    { platform: "YouTube", format: "Story Frames (Community)", a: 151, b: -12.50, minCPM: "£12.00", viewRate: "5%", notes: "Community post / story" },
-    { platform: "Content House", format: "Single Image", a: 200, b: 0, minCPM: "£200 flat", viewRate: "Flat fee", notes: "Studio production unit" },
-    { platform: "Content House", format: "Short Video", a: 1500, b: 0, minCPM: "£1,500 flat", viewRate: "Flat fee", notes: "Studio production unit" },
-    { platform: "Content House", format: "Long Video", a: 2500, b: 0, minCPM: "£2,500 flat", viewRate: "Flat fee", notes: "Studio production unit" },
+  const benchmarksGBP: {
+    platform: string;
+    format: string;
+    a: number;
+    b: number;
+    minCPM: string;
+    viewRateRuleId?: PresumptionRuleId;
+    staticViewRate?: string;
+  }[] = [
+    { platform: "Instagram", format: "Single Image", a: 115, b: -8.39, minCPM: "£12.00", viewRateRuleId: "view_rate_ig_single_img" },
+    { platform: "Instagram", format: "Multi Image (Carousel)", a: 171, b: -12.50, minCPM: "£12.00", viewRateRuleId: "view_rate_ig_multi_img" },
+    { platform: "Instagram", format: "Short Video (Reels)", a: 175, b: -12.50, minCPM: "£12.00", viewRateRuleId: "view_rate_ig_short_vid" },
+    { platform: "Instagram", format: "Story Frames", a: 151, b: -12.50, minCPM: "£12.00", viewRateRuleId: "view_rate_ig_story" },
+    { platform: "TikTok", format: "Short Video", a: 259, b: -18.70, minCPM: "£12.00", viewRateRuleId: "view_rate_tt_short_vid" },
+    { platform: "YouTube", format: "Short Video (Shorts)", a: 277, b: -20.70, minCPM: "£12.00", viewRateRuleId: "view_rate_yt_short_vid" },
+    { platform: "YouTube", format: "Long Video (Dedicated/Integr.)", a: 277, b: -20.70, minCPM: "£12.00", viewRateRuleId: "view_rate_yt_long_vid" },
+    { platform: "YouTube", format: "Story Frames (Community)", a: 151, b: -12.50, minCPM: "£12.00", viewRateRuleId: "view_rate_yt_story" },
+    { platform: "Content House", format: "Single Image", a: 200, b: 0, minCPM: "£200 flat", staticViewRate: "Flat fee" },
+    { platform: "Content House", format: "Short Video", a: 1500, b: 0, minCPM: "£1,500 flat", staticViewRate: "Flat fee" },
+    { platform: "Content House", format: "Long Video", a: 2500, b: 0, minCPM: "£2,500 flat", staticViewRate: "Flat fee" },
   ];
 
   const territoryMultipliers = [
@@ -1328,7 +1345,11 @@ export function FeeCalcPresumptionsTab() {
                         variant={entry.action === "reset" ? "secondary" : "default"}
                         className="text-[10px] px-1.5 py-0"
                       >
-                        {entry.action === "reset" ? "Reset to Default" : "Hours Updated"}
+                        {entry.action === "reset"
+                          ? "Reset to Default"
+                          : entry.ruleId?.startsWith("view_rate_")
+                          ? "View Rate Updated"
+                          : "Hours Updated"}
                       </Badge>
                       <span className="text-xs font-bold text-foreground">{entry.task}</span>
                       <span className="text-[11px] text-muted-foreground">({entry.category})</span>
@@ -1661,45 +1682,73 @@ export function FeeCalcPresumptionsTab() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Formula Callout */}
-              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5" />
+              <div className="p-5 rounded-lg bg-primary/5 border border-primary/20 space-y-4">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                  <Cpu className="w-4 h-4" />
                   Primary Creator Pricing Equations
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  <div className="bg-background p-3 rounded-md border">
-                    <span className="font-semibold text-foreground block mb-1">1. Estimated Post Views / Impressions</span>
-                    <code className="text-primary font-bold font-mono block text-xs bg-muted/50 p-1.5 rounded">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-background p-4 rounded-lg border shadow-2xs space-y-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-extrabold shrink-0">
+                        1
+                      </span>
+                      <h5 className="text-sm md:text-[15px] font-bold text-gray-900 tracking-tight">
+                        Estimated Post Views / Impressions
+                      </h5>
+                    </div>
+                    <code className="text-primary font-bold font-mono block text-xs bg-muted/50 p-2 rounded">
                       Views = Followers × Format View Rate
                     </code>
-                    <p className="text-[11px] text-muted-foreground mt-1.5">
-                      View rates vary by platform (e.g. IG Reels 34%, IG Static 25%, TikTok 15%, IG Stories 5%).
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      View rates vary by platform (e.g. IG Reels {activePresumptions.view_rate_ig_short_vid}%, IG Static {activePresumptions.view_rate_ig_single_img}%, TikTok {activePresumptions.view_rate_tt_short_vid}%, IG Stories {activePresumptions.view_rate_ig_story}%).
                     </p>
                   </div>
-                  <div className="bg-background p-3 rounded-md border">
-                    <span className="font-semibold text-foreground block mb-1">2. Logarithmic Dynamic CPM</span>
-                    <code className="text-primary font-bold font-mono block text-xs bg-muted/50 p-1.5 rounded">
+                  <div className="bg-background p-4 rounded-lg border shadow-2xs space-y-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-extrabold shrink-0">
+                        2
+                      </span>
+                      <h5 className="text-sm md:text-[15px] font-bold text-gray-900 tracking-tight">
+                        Logarithmic Dynamic CPM
+                      </h5>
+                    </div>
+                    <code className="text-primary font-bold font-mono block text-xs bg-muted/50 p-2 rounded">
                       CPM = Max(a + b · ln(Views), MinCPM)
                     </code>
-                    <p className="text-[11px] text-muted-foreground mt-1.5">
-                      Coefficients (a, b) define the economies of scale curve; higher impressions yield lower per-view costs.
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Coefficients (a, b) define the economies of scale curve; higher impressions yield lower per-view costs down to the floor CPM (c).
                     </p>
                   </div>
-                  <div className="bg-background p-3 rounded-md border">
-                    <span className="font-semibold text-foreground block mb-1">3. Base Content Fee Per Post</span>
-                    <code className="text-primary font-bold font-mono block text-xs bg-muted/50 p-1.5 rounded">
+                  <div className="bg-background p-4 rounded-lg border shadow-2xs space-y-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-extrabold shrink-0">
+                        3
+                      </span>
+                      <h5 className="text-sm md:text-[15px] font-bold text-gray-900 tracking-tight">
+                        Base Content Fee Per Post
+                      </h5>
+                    </div>
+                    <code className="text-primary font-bold font-mono block text-xs bg-muted/50 p-2 rounded">
                       Fee = (Views / 1,000) × CPM × Territory Multiplier
                     </code>
-                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
                       Adjusts baseline rate for creator territory index (e.g. US 1.40x, UK 1.00x, Nordics 2.00x).
                     </p>
                   </div>
-                  <div className="bg-background p-3 rounded-md border">
-                    <span className="font-semibold text-foreground block mb-1">4. Total Influencer Fee with Rights</span>
-                    <code className="text-primary font-bold font-mono block text-xs bg-muted/50 p-1.5 rounded">
+                  <div className="bg-background p-4 rounded-lg border shadow-2xs space-y-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-extrabold shrink-0">
+                        4
+                      </span>
+                      <h5 className="text-sm md:text-[15px] font-bold text-gray-900 tracking-tight">
+                        Total Influencer Fee with Rights
+                      </h5>
+                    </div>
+                    <code className="text-primary font-bold font-mono block text-xs bg-muted/50 p-2 rounded">
                       Total = Content Fee + Reposting + Boosters + Campaign Multiplier
                     </code>
-                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
                       Includes paid amplify (+usage ramp), brand exclusivity, and content rights extensions.
                     </p>
                   </div>
@@ -1708,35 +1757,196 @@ export function FeeCalcPresumptionsTab() {
 
               {/* Benchmarks Table */}
               <div>
-                <h4 className="text-sm font-bold text-gray-900 mb-2">Platform & Deliverable CPM Benchmark Coefficients (UK Baseline)</h4>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-muted/40">
-                      <TableRow>
-                        <TableHead className="text-xs font-semibold">Platform</TableHead>
-                        <TableHead className="text-xs font-semibold">Deliverable Format</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Benchmark (a)</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Slope (b)</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Floor CPM (c)</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Est. View Rate</TableHead>
-                        <TableHead className="text-xs font-semibold">Format Specification</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {benchmarksGBP.map((b, i) => (
-                        <TableRow key={i} className="hover:bg-muted/20">
-                          <TableCell className="text-xs font-bold text-foreground">{b.platform}</TableCell>
-                          <TableCell className="text-xs font-medium">{b.format}</TableCell>
-                          <TableCell className="text-xs font-mono text-center font-semibold">{b.a}</TableCell>
-                          <TableCell className="text-xs font-mono text-center text-muted-foreground">{b.b}</TableCell>
-                          <TableCell className="text-xs font-mono text-center font-bold text-primary">{b.minCPM}</TableCell>
-                          <TableCell className="text-xs font-mono text-center font-bold text-emerald-600">{b.viewRate}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{b.notes}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                  <div>
+                    <h4 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-primary" />
+                      Platform & Deliverable CPM Benchmark Coefficients (UK Baseline)
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Hover over the logarithmic curve headers for formula definitions, or click any Est. View Rate to edit it.
+                    </p>
+                  </div>
                 </div>
+                <TooltipProvider delayDuration={150}>
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-muted/40">
+                        <TableRow>
+                          <TableHead className="text-xs font-semibold">Platform</TableHead>
+                          <TableHead className="text-xs font-semibold">Deliverable Format</TableHead>
+                          <TableHead className="text-xs font-semibold text-center">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center justify-center gap-1 cursor-help hover:text-primary transition-colors">
+                                  Benchmark (a)
+                                  <Info className="w-3.5 h-3.5 text-muted-foreground/75" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed p-3">
+                                <p className="font-bold text-foreground mb-1">Intercept Coefficient (a)</p>
+                                <p className="text-muted-foreground">
+                                  The starting baseline value in the logarithmic curve <code className="font-mono text-primary">CPM = Max(a + b · ln(Views), c)</code> before scaling down for higher impression volumes. For Content House formats, this represents the flat studio unit rate.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-center">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center justify-center gap-1 cursor-help hover:text-primary transition-colors">
+                                  Slope (b)
+                                  <Info className="w-3.5 h-3.5 text-muted-foreground/75" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed p-3">
+                                <p className="font-bold text-foreground mb-1">Logarithmic Decay Slope (b)</p>
+                                <p className="text-muted-foreground">
+                                  Controls how rapidly CPM decreases as estimated post views grow (<code className="font-mono text-primary">b · ln(Views)</code>). Because <code className="font-mono">b</code> is negative, larger creator tiers achieve progressively lower cost-per-thousand impressions (economies of scale).
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-center">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center justify-center gap-1 cursor-help hover:text-primary transition-colors">
+                                  Floor CPM (c)
+                                  <Info className="w-3.5 h-3.5 text-muted-foreground/75" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed p-3">
+                                <p className="font-bold text-foreground mb-1">Minimum CPM Floor (c)</p>
+                                <p className="text-muted-foreground">
+                                  The lower bound in <code className="font-mono text-primary">Max(a + b · ln(Views), c)</code>. Prevents the logarithmic curve from dropping below a minimum commercial threshold (e.g. £12.00 CPM in UK) on Mega/Macro creators with very high view counts.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-center">Est. View Rate</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {benchmarksGBP.map((b, i) => {
+                          const ruleId = b.viewRateRuleId;
+                          const currentVal = ruleId ? activePresumptions[ruleId] : null;
+                          const defaultVal = ruleId ? DEFAULT_SERVICE_HOUR_PRESUMPTIONS[ruleId] : null;
+                          const isModified = ruleId != null && currentVal !== defaultVal;
+                          const isEditing = ruleId != null && editingRuleId === ruleId;
+                          const taskLabel = `${b.platform} — ${b.format} (Est. View Rate)`;
+                          const paramConfig: EditableParamConfig | null = ruleId
+                            ? { ruleId, unit: "%" }
+                            : null;
+
+                          return (
+                            <TableRow key={i} className="hover:bg-muted/20">
+                              <TableCell className="text-xs font-bold text-foreground">{b.platform}</TableCell>
+                              <TableCell className="text-xs font-medium">{b.format}</TableCell>
+                              <TableCell className="text-xs font-mono text-center font-semibold">{b.a}</TableCell>
+                              <TableCell className="text-xs font-mono text-center text-muted-foreground">{b.b}</TableCell>
+                              <TableCell className="text-xs font-mono text-center font-bold text-primary">{b.minCPM}</TableCell>
+                              <TableCell className="text-xs text-center py-2">
+                                {ruleId && paramConfig ? (
+                                  isEditing ? (
+                                    <div className="inline-flex items-center gap-1 bg-background border border-primary rounded-md px-1.5 py-0.5 shadow-2xs">
+                                      <input
+                                        type="number"
+                                        step="0.5"
+                                        min="0"
+                                        autoFocus
+                                        value={editingDraft}
+                                        onChange={(e) => setEditingDraft(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            handleCommitEdit(
+                                              "Talent Costs — CPM Benchmarks",
+                                              taskLabel,
+                                              b.platform,
+                                              paramConfig,
+                                              editingDraft
+                                            );
+                                          } else if (e.key === "Escape") {
+                                            setEditingRuleId(null);
+                                          }
+                                        }}
+                                        className="w-14 text-xs font-mono font-bold text-primary bg-transparent focus:outline-none text-center"
+                                      />
+                                      <span className="text-[10px] text-muted-foreground font-mono">%</span>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleCommitEdit(
+                                            "Talent Costs — CPM Benchmarks",
+                                            taskLabel,
+                                            b.platform,
+                                            paramConfig,
+                                            editingDraft
+                                          )
+                                        }
+                                        className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded"
+                                        title="Save"
+                                      >
+                                        <Check className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingRuleId(null)}
+                                        className="p-0.5 text-muted-foreground hover:bg-muted rounded"
+                                        title="Cancel"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="inline-flex items-center justify-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingRuleId(ruleId);
+                                          setEditingDraft(String(currentVal));
+                                        }}
+                                        className={`group inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-mono font-bold transition-colors ${
+                                          isModified
+                                            ? "bg-amber-50/80 border-amber-300 text-amber-900 hover:bg-amber-100/80"
+                                            : "bg-emerald-50/60 border-transparent hover:border-emerald-300 hover:bg-emerald-50 text-emerald-700"
+                                        }`}
+                                        title="Click to edit estimated view rate"
+                                      >
+                                        <span>{currentVal}%</span>
+                                        <Pencil className="w-2.5 h-2.5 opacity-0 group-hover:opacity-70 transition-opacity text-muted-foreground ml-0.5" />
+                                      </button>
+                                      {isModified && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleResetRule(
+                                              "Talent Costs — CPM Benchmarks",
+                                              taskLabel,
+                                              b.platform,
+                                              paramConfig
+                                            )
+                                          }
+                                          className="p-1 text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded"
+                                          title={`Reset to default (${defaultVal}%)`}
+                                        >
+                                          <RotateCcw className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  )
+                                ) : (
+                                  <Badge variant="secondary" className="font-mono text-[11px] font-medium">
+                                    {b.staticViewRate}
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TooltipProvider>
                 <p className="text-[11px] text-muted-foreground mt-2 italic">
                   * Note: US office currency benchmarks apply a native 1.35x currency conversion factor on coefficients (a, b, c).
                 </p>
