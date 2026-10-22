@@ -16,6 +16,7 @@ import {
   Activity,
   CheckSquare,
   FileText,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,6 +28,7 @@ const mainNav = [
   { to: "/dashboard", icon: LineChart, label: "Dashboard" },
   { to: "/utilisation", icon: Users, label: "Time & Utilisation" },
   { to: "/profitability", icon: TrendingUp, label: "Profitability" },
+  { to: "/wip-tracker", icon: AlertTriangle, label: "WIP Tracker" },
   { to: "/client-portfolio", icon: FolderKanban, label: "Client Portfolio" },
   { to: "/resource-planner", icon: CalendarRange, label: "Resource Planner" },
   { to: "/fee-calculator", icon: CalendarDays, label: "Fee Calculator" },
@@ -64,6 +66,7 @@ const AppLayout = () => {
     if (item.to === "/dashboard") return hasFeature("dashboard");
     if (item.to === "/utilisation") return hasFeature("utilisation");
     if (item.to === "/profitability") return hasFeature("profitability");
+    if (item.to === "/wip-tracker") return hasFeature("wipTracker");
     if (item.to === "/client-portfolio") return hasFeature("clientPortfolio");
     if (item.to === "/resource-planner") return hasFeature("resourcePlanner");
     if (item.to === "/fee-calculator") return hasFeature("feeCalculator");

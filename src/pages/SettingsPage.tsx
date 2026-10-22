@@ -838,6 +838,7 @@ export default function SettingsPage() {
                       { key: "home", label: "Home Dashboard", desc: "Main summary dashboard, key metrics, and Margin Sentry copilot" },
                       { key: "utilisation", label: "Time & Utilisation", desc: "Roster lists, capacity charts, and hours analytics" },
                       { key: "profitability", label: "Profitability Analytics", desc: "Revenue burn rate tracking and margin calculations" },
+                      { key: "wipTracker", label: "WIP Tracker", desc: "WIP review workflow and dashboard" },
                       { key: "clientPortfolio", label: "Client Portfolio", desc: "Accounts management and client roster" },
                       { key: "resourcePlanner", label: "Resource Planner", desc: "Cross-office resource allocations and forecast timeline" },
                       { key: "feeCalculator", label: "Fee Calculator", desc: "Billing rate models and project cost modeling" },

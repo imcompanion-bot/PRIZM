@@ -516,9 +516,14 @@ const ClientPortfolioPage = () => {
       primaryOffice: string;
       feeCalcsCount: number;
       assignedRolesCount: number;
+      hasRecentOrUpcomingProject: boolean;
+      hasOfficeMatch: boolean;
     }> = {};
 
-    const todayStr = format(new Date(), "yyyy-MM-dd");
+    const today = new Date();
+    const todayStr = format(today, "yyyy-MM-dd");
+    const threeMonthsAgo = format(subMonths(today, 3), "yyyy-MM-dd");
+    const threeMonthsFuture = format(addMonths(today, 3), "yyyy-MM-dd");
 
     for (const p of projects) {
       if (!p.ultimate_parent) continue;
@@ -533,6 +538,8 @@ const ClientPortfolioPage = () => {
           primaryOffice: p.office || "United Kingdom",
           feeCalcsCount: 0,
           assignedRolesCount: 0,
+          hasRecentOrUpcomingProject: false,
+          hasOfficeMatch: false,
         };
       }
 
@@ -544,9 +551,22 @@ const ClientPortfolioPage = () => {
         clientStat.activeProjectCount += 1;
       }
 
-      // Roll up client primary office
+      // Check if project is live within [-3 months, +3 months]
+      const isLiveInWindow = p.start_date <= threeMonthsFuture && p.end_date >= threeMonthsAgo;
+      if (isLiveInWindow) {
+        clientStat.hasRecentOrUpcomingProject = true;
+      }
+
+      // Roll up client primary office and check office match
       if (p.office && p.office !== "all") {
         clientStat.primaryOffice = p.office;
+        if (selectedOffice === "all" || p.office === selectedOffice) {
+          clientStat.hasOfficeMatch = true;
+        }
+      } else {
+        if (selectedOffice === "all") {
+          clientStat.hasOfficeMatch = true;
+        }
       }
 
       const projectRevenue = Number(p.revenue || p.gross_budget || 0);
@@ -568,8 +588,9 @@ const ClientPortfolioPage = () => {
 
     return Object.values(stats)
       .filter((stat: any) => showArchived ? inactiveClients.includes(stat.name) : !inactiveClients.includes(stat.name))
+      .filter((stat: any) => stat.hasOfficeMatch && stat.hasRecentOrUpcomingProject)
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [projects, inactiveClients, showArchived]);
+  }, [projects, inactiveClients, showArchived, selectedOffice]);
 
   // Build account list (parent_account) filtered by selected ultimate parent
   const accounts = useMemo(() => {
@@ -1226,13 +1247,25 @@ const ClientPortfolioPage = () => {
             
             {/* View Switching & Layout Toggles */}
             <div className="flex items-center gap-2">
+              <Select value={selectedOffice} onValueChange={setSelectedOffice}>
+                <SelectTrigger className="h-9 w-[150px] bg-background/50">
+                  <SelectValue placeholder="All Offices" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Offices</SelectItem>
+                  {offices.map((o) => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <div className="relative w-64">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/60" />
                 <Input
                   placeholder="Search clients or office hubs..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 bg-background/50 backdrop-blur-sm"
+                  className="pl-9 bg-background/50 backdrop-blur-sm h-9"
                 />
               </div>
 

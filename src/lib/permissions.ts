@@ -10,6 +10,7 @@ export interface FeaturePermissions {
   feeCalculator: boolean;
   operationsHub: boolean;
   settings: boolean;
+  wipTracker: boolean;
 }
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, FeaturePermissions> = {
@@ -23,6 +24,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, FeaturePermissions> = {
     feeCalculator: true,
     operationsHub: true,
     settings: true,
+    wipTracker: true,
   },
   Ambassador: {
     home: true,
@@ -32,7 +34,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, FeaturePermissions> = {
     clientPortfolio: true,
     resourcePlanner: false, // Flagged as still in active development
     feeCalculator: true,
-    operationsHub: false, // Flagged as still in active development
+    operationsHub: false, wipTracker: false, // Flagged as still in active development
     settings: true,
   },
   Champion: {
@@ -43,7 +45,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, FeaturePermissions> = {
     clientPortfolio: false,
     resourcePlanner: false,
     feeCalculator: true,
-    operationsHub: false,
+    operationsHub: false, wipTracker: false,
     settings: false,
   },
   Core: {
@@ -54,7 +56,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, FeaturePermissions> = {
     clientPortfolio: false,
     resourcePlanner: false,
     feeCalculator: true,
-    operationsHub: false,
+    operationsHub: false, wipTracker: false,
     settings: false,
   }
 };

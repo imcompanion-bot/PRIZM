@@ -1,0 +1,1 @@
+import { supabase } from '@/integrations/supabase/client'; async function run() { const { data } = await supabase.from('projects').select('id, title, opportunity_number').ilike('title', '%Adidas UK - Passthrough Creators%'); console.log(data); } run();

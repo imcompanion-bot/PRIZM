@@ -1155,7 +1155,10 @@ export async function runSync() {
         gp_q2_26_27: parseNumber(row[257]),
         gp_q3_26_27: parseNumber(row[258]),
         gp_q4_26_27: parseNumber(row[259]),
+        rtb_start_date: parseDate(row[157]),
+        rtb_end_date: parseDate(row[158]),
       },
+      last_fee_calc_url: row[211] || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
