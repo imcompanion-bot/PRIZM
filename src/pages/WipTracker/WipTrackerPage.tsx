@@ -23,6 +23,7 @@ export function WipTrackerPage() {
   const [selectedFlags, setSelectedFlags] = useState<string[]>([]);
   const [actionType, setActionType] = useState<"snooze" | "dismiss">("dismiss");
   const [isDismissedOpen, setIsDismissedOpen] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   React.useEffect(() => {
     if (dismissDialog) {
@@ -120,6 +121,13 @@ export function WipTrackerPage() {
   const formatCurrency = (amount: number | null | undefined, currency: string) => {
     if (amount === null || amount === undefined) return "-";
     return new Intl.NumberFormat("en-GB", { style: "currency", currency: currency || "GBP" }).format(amount);
+  };
+
+  const formatDateRange = (start?: string | null, end?: string | null) => {
+    if (!start && !end) return "-";
+    const s = start ? format(parseISO(start), 'd MMM yyyy') : "?";
+    const e = end ? format(parseISO(end), 'd MMM yyyy') : "?";
+    return `${s} - ${e}`;
   };
 
   const flaggedProjects = useMemo(() => {
@@ -330,7 +338,7 @@ export function WipTrackerPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[300px]">Project</TableHead>
-                  <TableHead>Financials</TableHead>
+                  <TableHead>Key Info</TableHead>
                   <TableHead className="w-[400px]">Flags</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -345,11 +353,12 @@ export function WipTrackerPage() {
                     const currency = p.extra_data?.project_currency || "GBP";
                     const isGBP = currency === "GBP";
                     
-                    const projCurrencyRevenue = p.extra_data?.project_currency_revenue;
-                    const exchangeRate = (!isGBP && projCurrencyRevenue && p.revenue) ? (projCurrencyRevenue / p.revenue) : 1;
-                    const netBudget = (p.budget_cost !== null && p.budget_cost !== undefined) 
-                      ? p.budget_cost * exchangeRate 
+                    const projCurrencyRevenue = p.extra_data?.project_currency_revenue || p.revenue;
+                    const exchangeRate = (!isGBP && p.extra_data?.project_currency_revenue && p.revenue) ? (p.extra_data.project_currency_revenue / p.revenue) : 1;
+                    const grossProfit = (p.gp_full_value !== null && p.gp_full_value !== undefined)
+                      ? p.gp_full_value * exchangeRate
                       : null;
+                    const margin = p.revenue && p.revenue > 0 ? (p.gp_full_value || 0) / p.revenue : null;
 
                     return (
                       <TableRow key={p.id} className="hover:bg-muted/30">
@@ -360,9 +369,11 @@ export function WipTrackerPage() {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm space-y-1">
-                            <div><span className="text-muted-foreground inline-block w-16">Price:</span> <span className="font-medium">{formatCurrency(p.extra_data?.project_currency_revenue || p.revenue, currency)}</span></div>
-                            <div><span className="text-muted-foreground inline-block w-16">Gross:</span> <span>{formatCurrency(p.extra_data?.project_currency_gross_budget, currency)}</span></div>
-                            <div><span className="text-muted-foreground inline-block w-16">Net:</span> <span>{formatCurrency(netBudget, currency)}</span></div>
+                            <div><span className="text-muted-foreground inline-block w-24">RTB Dates:</span> <span>{formatDateRange(p.extra_data?.rtb_start_date, p.extra_data?.rtb_end_date)}</span></div>
+                            <div><span className="text-muted-foreground inline-block w-24">Project Dates:</span> <span>{formatDateRange(p.start_date, p.end_date)}</span></div>
+                            <div><span className="text-muted-foreground inline-block w-24">Price:</span> <span className="font-medium">{formatCurrency(projCurrencyRevenue, currency)}</span></div>
+                            <div><span className="text-muted-foreground inline-block w-24">Gross Profit:</span> <span>{formatCurrency(grossProfit, currency)}</span></div>
+                            <div><span className="text-muted-foreground inline-block w-24">GP Margin:</span> <span>{margin !== null ? `${(margin * 100).toFixed(1)}%` : "-"}</span></div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -479,6 +490,64 @@ export function WipTrackerPage() {
           )}
         </Card>
       )}
+
+      {/* Rules Section */}
+      <div className="mt-8 border rounded-lg bg-slate-50 overflow-hidden">
+        <button 
+          onClick={() => setShowRules(!showRules)}
+          className="w-full flex items-center justify-between p-4 font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-slate-500" />
+            What gets flagged?
+          </div>
+          {showRules ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </button>
+        
+        {showRules && (
+          <div className="p-4 pt-0 text-sm text-slate-600 border-t bg-white">
+            <div className="mt-4 mb-2 p-3 bg-blue-50 text-blue-800 rounded border border-blue-100">
+              <strong>Note on Eligibility:</strong> Only active projects and projects that ended <strong>within the last 30 days</strong> are subject to these rules and will appear in the WIP Tracker. Older completed projects are automatically excluded.
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+              <div>
+                <h4 className="font-semibold text-slate-800 mb-2">Financial & Margin Flags</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>Standard Projects:</strong> Gross Profit Margin is outside the typical 20% - 60% range.</li>
+                  <li><strong>Passthrough Costs:</strong> Margin should be exactly 0%.</li>
+                  <li><strong>RTB & Talent Savings:</strong> Margin should be 100%.</li>
+                </ul>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold text-slate-800 mb-2">Pipeline & Dates</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>Stale Pipeline:</strong> Project start date is more than 2 weeks in the past, but the project is not marked as Committed or Closed Won.</li>
+                  <li><strong>Holding Pots:</strong> Should not have any project dates assigned.</li>
+                </ul>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold text-slate-800 mb-2">Missing Data & Links</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>Missing Financials:</strong> Missing Price, Gross Budget, or Net Budget.</li>
+                  <li><strong>Missing Dates:</strong> Missing Start Date, End Date, or RTB Dates (RTB Dates required for all standard projects).</li>
+                  <li><strong>Missing Fee Calc:</strong> Committed or Closed Won projects missing a linked Fee Calculator.</li>
+                </ul>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold text-slate-800 mb-2">Record Type Mismatches</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>Passthrough Mismatch:</strong> Project title implies passthrough costs, or margin is &le; 5%, but record type is not set to Passthrough Costs.</li>
+                  <li><strong>RFI / RFP Mismatch:</strong> Title contains RFI/RFP but record type is incorrect.</li>
+                  <li><strong>Talent Savings Mismatch:</strong> Title contains savings/efficiencies but record type is incorrect.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       <Dialog open={!!dismissDialog} onOpenChange={(open) => !open && setDismissDialog(null)}>
         <DialogContent>
