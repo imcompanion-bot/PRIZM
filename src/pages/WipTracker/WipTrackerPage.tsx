@@ -507,7 +507,7 @@ export function WipTrackerPage() {
         {showRules && (
           <div className="p-4 pt-0 text-sm text-slate-600 border-t bg-white">
             <div className="mt-4 mb-2 p-3 bg-blue-50 text-blue-800 rounded border border-blue-100">
-              <strong>Note on Eligibility:</strong> Only active projects and projects that ended <strong>within the last 30 days</strong> are subject to these rules and will appear in the WIP Tracker. Older completed projects are automatically excluded.
+              <strong>Note on Eligibility:</strong> Only active projects, projects with a future start date, and projects that ended <strong>within the last 30 days</strong> are subject to these rules and will appear in the WIP Tracker. Older completed projects are automatically excluded.
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
               <div>
