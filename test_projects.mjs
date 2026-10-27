@@ -1,7 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-dotenv.config();
-const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+import { createClient } from "@supabase/supabase-js";
+import { config } from "dotenv";
+config({path: ".env"});
+const supabase = createClient(process.env.VITE_SUPABASE_URL, "sb_publishable_UhHtt6QptJ1ujNZpohjJfA_S8lHrwvh");
 
-const { data: projects } = await supabase.from('projects').select('id, title, budget_cost, extra_data').ilike('title', '%Dove%');
-console.log(JSON.stringify(projects, null, 2));
+async function run() {
+  const { data: projs } = await supabase.from("projects").select("updated_at").order("updated_at", {ascending: false}).limit(1);
+  console.log("Last project update:", projs[0].updated_at);
+}
+run();
