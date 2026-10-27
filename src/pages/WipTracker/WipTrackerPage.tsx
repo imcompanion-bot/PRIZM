@@ -13,6 +13,80 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
+
+const ProjectNoteInput = ({ project, review, appUser }: { project: any; review: any; appUser: any }) => {
+  const queryClient = useQueryClient();
+  const existingNotes = useMemo(() => {
+    if (!review) return "";
+    try {
+      const parsed = JSON.parse(review.dismissal_reason || "{}");
+      return parsed.notes || "";
+    } catch {
+      return "";
+    }
+  }, [review]);
+
+  const [notes, setNotes] = React.useState(existingNotes);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [isFocused, setIsFocused] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isFocused) {
+      setNotes(existingNotes);
+    }
+  }, [existingNotes, isFocused]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (newNotes: string) => {
+      let payload: any = { type: "note", flags: [] };
+      if (review) {
+        try {
+          payload = JSON.parse(review.dismissal_reason || "{}");
+        } catch {}
+      }
+      payload.notes = newNotes;
+
+      const { error } = await supabase.from("project_wip_reviews").upsert({
+        project_id: project.id,
+        dismissed_by: appUser?.name || appUser?.email || "Unknown User",
+        dismissed_at: new Date().toISOString(),
+        dismissal_reason: JSON.stringify(payload)
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wip_reviews"] });
+      setIsSaving(false);
+    },
+    onError: () => {
+      setIsSaving(false);
+      toast.error("Failed to save notes");
+    }
+  });
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (notes !== existingNotes) {
+      setIsSaving(true);
+      saveMutation.mutate(notes);
+    }
+  };
+
+  return (
+    <div className="relative">
+      <Textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={handleBlur}
+        placeholder="Add note..."
+        className="text-xs min-h-[60px] w-full resize-y bg-white"
+      />
+      {isSaving && <div className="absolute right-2 bottom-2 text-[10px] text-muted-foreground flex items-center gap-1 bg-white/80 px-1 rounded"><Save className="w-3 h-3"/> Saving...</div>}
+    </div>
+  );
+};
+
 export function WipTrackerPage() {
   const { appUser } = useAuth();
   const queryClient = useQueryClient();
@@ -337,10 +411,10 @@ export function WipTrackerPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[300px]">Project</TableHead>
-                  <TableHead>Key Info</TableHead>
-                  <TableHead className="w-[400px]">Flags</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="w-[280px]">Project</TableHead>
+                  <TableHead className="w-[280px]">Key Info</TableHead>
+                  <TableHead className="w-[220px]">Flags</TableHead>
+                  <TableHead className="w-[280px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -369,38 +443,41 @@ export function WipTrackerPage() {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm space-y-1">
-                            <div><span className="text-muted-foreground inline-block w-24">RTB Dates:</span> <span>{formatDateRange(p.extra_data?.rtb_start_date, p.extra_data?.rtb_end_date)}</span></div>
-                            <div><span className="text-muted-foreground inline-block w-24">Project Dates:</span> <span>{formatDateRange(p.start_date, p.end_date)}</span></div>
-                            <div><span className="text-muted-foreground inline-block w-24">Price:</span> <span className="font-medium">{formatCurrency(projCurrencyRevenue, currency)}</span></div>
-                            <div><span className="text-muted-foreground inline-block w-24">Gross Profit:</span> <span>{formatCurrency(grossProfit, currency)}</span></div>
-                            <div><span className="text-muted-foreground inline-block w-24">GP Margin:</span> <span>{margin !== null ? `${(margin * 100).toFixed(1)}%` : "-"}</span></div>
+                            <div className="flex"><span className="text-muted-foreground inline-block w-[90px] flex-shrink-0">RTB Dates:</span> <span className="truncate">{formatDateRange(p.extra_data?.rtb_start_date, p.extra_data?.rtb_end_date)}</span></div>
+                            <div className="flex"><span className="text-muted-foreground inline-block w-[90px] flex-shrink-0">Proj Dates:</span> <span className="truncate">{formatDateRange(p.start_date, p.end_date)}</span></div>
+                            <div className="flex"><span className="text-muted-foreground inline-block w-[90px] flex-shrink-0">Price:</span> <span className="font-medium truncate">{formatCurrency(projCurrencyRevenue, currency)}</span></div>
+                            <div className="flex"><span className="text-muted-foreground inline-block w-[90px] flex-shrink-0">Gross Profit:</span> <span className="truncate">{formatCurrency(grossProfit, currency)}</span></div>
+                            <div className="flex"><span className="text-muted-foreground inline-block w-[90px] flex-shrink-0">GP Margin:</span> <span className="truncate">{margin !== null ? `${(margin * 100).toFixed(1)}%` : "-"}</span></div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1.5">
                             {p.flags.map((flag: string, idx: number) => (
-                              <Badge key={idx} variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 justify-start h-auto py-1">
+                              <Badge key={idx} variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 justify-start h-auto py-1 whitespace-normal text-left">
                                 {flag}
                               </Badge>
                             ))}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex flex-col gap-2 items-end w-[120px] ml-auto">
-                            {p.opportunity_number ? (
-                              <a href={`https://billiondollarboy.lightning.force.com/lightning/cmp/forceSearch%3AsearchPage?forceSearch%3AsearchPage.searchTerm=${p.opportunity_number}`} target="_blank" rel="noreferrer" className="block w-full">
-                                <Button variant="outline" size="sm" className="h-8 w-full justify-start">
+                        <TableCell>
+                          <div className="flex flex-col gap-2">
+                            <div className="flex gap-2">
+                              {p.opportunity_number ? (
+                                <a href={`https://billiondollarboy.lightning.force.com/lightning/cmp/forceSearch%3AsearchPage?forceSearch%3AsearchPage.searchTerm=${p.opportunity_number}`} target="_blank" rel="noreferrer" className="block w-1/2">
+                                  <Button variant="outline" size="sm" className="h-8 w-full justify-start">
+                                    <ExternalLink className="w-4 h-4 mr-2" /> Salesforce
+                                  </Button>
+                                </a>
+                              ) : (
+                                <Button variant="outline" size="sm" className="h-8 w-1/2 justify-start opacity-50 cursor-not-allowed" title="No Opportunity Number available">
                                   <ExternalLink className="w-4 h-4 mr-2" /> Salesforce
                                 </Button>
-                              </a>
-                            ) : (
-                              <Button variant="outline" size="sm" className="h-8 w-full justify-start opacity-50 cursor-not-allowed" title="No Opportunity Number available">
-                                <ExternalLink className="w-4 h-4 mr-2" /> Salesforce
+                              )}
+                              <Button variant="secondary" size="sm" className="h-8 w-1/2 justify-start" onClick={() => setDismissDialog({ project: p })}>
+                                <CheckCircle2 className="w-4 h-4 mr-2 text-green-600" /> Action
                               </Button>
-                            )}
-                            <Button variant="secondary" size="sm" className="h-8 w-full justify-start" onClick={() => setDismissDialog({ project: p })}>
-                              <CheckCircle2 className="w-4 h-4 mr-2 text-green-600" /> Action
-                            </Button>
+                            </div>
+                            <ProjectNoteInput project={p} review={reviews.find((r: any) => r.project_id === p.id)} appUser={appUser} />
                           </div>
                         </TableCell>
                       </TableRow>
@@ -434,9 +511,9 @@ export function WipTrackerPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[300px]">Project</TableHead>
-                      <TableHead className="w-[400px]">Original Flags</TableHead>
+                      <TableHead className="w-[300px]">Original Flags</TableHead>
                       <TableHead>Dismissal Reason</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="w-[280px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                 <TableBody>
@@ -475,10 +552,13 @@ export function WipTrackerPage() {
                           Dismissed by {p.review.dismissed_by} on {format(parseISO(p.review.dismissed_at), 'd MMM yyyy')}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" className="h-8 text-slate-500 hover:text-slate-900" onClick={() => restoreMutation.mutate(p.id)}>
-                          <X className="w-4 h-4 mr-2" /> Restore
-                        </Button>
+                      <TableCell>
+                        <div className="flex flex-col gap-2">
+                          <Button variant="ghost" size="sm" className="h-8 text-slate-500 hover:text-slate-900 justify-start w-1/2" onClick={() => restoreMutation.mutate(p.id)}>
+                            <X className="w-4 h-4 mr-2" /> Restore
+                          </Button>
+                          <ProjectNoteInput project={p} review={p.review} appUser={appUser} />
+                        </div>
                       </TableCell>
                     </TableRow>
                     );
