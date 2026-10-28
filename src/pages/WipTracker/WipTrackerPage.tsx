@@ -258,6 +258,19 @@ export function WipTrackerPage() {
           }
         }
 
+        // 2.5 Net Budget > Gross Budget
+        const currency = p.extra_data?.project_currency || "GBP";
+        const isGBP = currency === "GBP";
+        const exchangeRate = (!isGBP && p.extra_data?.project_currency_revenue && p.revenue) ? (p.extra_data.project_currency_revenue / p.revenue) : 1;
+        const netBudgetLocal = (p.budget_cost !== null && p.budget_cost !== undefined) ? p.budget_cost * exchangeRate : null;
+        const grossBudgetLocal = p.extra_data?.project_currency_gross_budget;
+        
+        if (netBudgetLocal !== null && grossBudgetLocal !== null && grossBudgetLocal !== undefined) {
+          if (netBudgetLocal > grossBudgetLocal + 1) { // 1 unit leeway for rounding errors
+            flags.push(`Net Budget (${formatCurrency(netBudgetLocal, currency)}) > Gross Budget (${formatCurrency(grossBudgetLocal, currency)})`);
+          }
+        }
+
         // 3. Missing data
         const missing = [];
         if (!p.start_date) missing.push("Project Start Date");
@@ -596,6 +609,7 @@ export function WipTrackerPage() {
                   <li><strong>Standard Projects:</strong> Gross Profit Margin is outside the typical 20% - 60% range.</li>
                   <li><strong>Passthrough Costs:</strong> Margin should be exactly 0%.</li>
                   <li><strong>RTB & Talent Savings:</strong> Margin should be 100%.</li>
+                  <li><strong>Budgets:</strong> Net Budget is strictly greater than Gross Budget.</li>
                 </ul>
               </div>
               
