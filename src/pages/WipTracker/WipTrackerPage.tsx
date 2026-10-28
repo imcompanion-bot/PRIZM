@@ -417,7 +417,6 @@ export function WipTrackerPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">WIP Tracker</h1>
-          <p className="text-muted-foreground mt-2">Flagging projects that require financial review or missing data</p>
         </div>
         <div className="flex gap-4">
           <Select value={selectedOffice} onValueChange={setSelectedOffice}>
