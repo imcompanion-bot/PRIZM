@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -92,6 +94,8 @@ export function WipTrackerPage() {
   const queryClient = useQueryClient();
   const [selectedOffice, setSelectedOffice] = useState<string>("All Offices");
   const [selectedClient, setSelectedClient] = useState<string>("All Clients");
+  const [selectedStages, setSelectedStages] = useState<string[]>([]);
+  const [isStagesInitialized, setIsStagesInitialized] = useState(false);
   const [dismissDialog, setDismissDialog] = useState<{ project: any } | null>(null);
   const [dismissReason, setDismissReason] = useState("");
   const [selectedFlags, setSelectedFlags] = useState<string[]>([]);
@@ -194,7 +198,7 @@ export function WipTrackerPage() {
 
   const formatCurrency = (amount: number | null | undefined, currency: string) => {
     if (amount === null || amount === undefined) return "-";
-    return new Intl.NumberFormat("en-GB", { style: "currency", currency: currency || "GBP" }).format(amount);
+    return new Intl.NumberFormat("en-GB", { style: "currency", currency: currency || "GBP", maximumFractionDigits: 0, minimumFractionDigits: 0 }).format(amount);
   };
 
   const formatDateRange = (start?: string | null, end?: string | null) => {
@@ -238,6 +242,14 @@ export function WipTrackerPage() {
         const twoWeeksAgoStr = format(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
         if (p.start_date && p.start_date < twoWeeksAgoStr && p.stage !== 'Committed' && p.stage !== 'Closed Won') {
           flags.push("Start date passed > 2 weeks but not Committed/Won");
+        }
+
+        // 1.5 Speculative project starting soon
+        const twoWeeksFromNowStr = format(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+        if (p.stage === 'Speculative') {
+          if ((p.start_date && p.start_date <= twoWeeksFromNowStr) || (p.extra_data?.rtb_start_date && p.extra_data.rtb_start_date <= twoWeeksFromNowStr)) {
+            flags.push("Speculative project with start date in past or next 2 weeks");
+          }
         }
 
         // 2. Margin out of bounds based on record type
@@ -360,6 +372,27 @@ export function WipTrackerPage() {
     return [{ name: "All Clients", count: totalCount }, ...sortedClients];
   }, [flaggedProjects, selectedOffice]);
 
+  const stages = useMemo(() => {
+    const set = new Set<string>();
+    flaggedProjects.forEach(p => p.stage && set.add(p.stage));
+        const order = ["Closed Won", "Committed", "Negotiation", "Pitch", "Brief", "Speculative"];
+    return Array.from(set).sort((a, b) => {
+      const idxA = order.indexOf(a);
+      const idxB = order.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }, [flaggedProjects]);
+
+  React.useEffect(() => {
+    if (!isStagesInitialized && stages.length > 0) {
+      setSelectedStages(stages);
+      setIsStagesInitialized(true);
+    }
+  }, [stages, isStagesInitialized]);
+
   const filteredProjects = useMemo(() => {
     const today = new Date();
     const cutoffStr = format(new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
@@ -371,9 +404,10 @@ export function WipTrackerPage() {
       const pClient = p.ultimate_parent || p.title || "";
       if (selectedOffice !== "All Offices" && p.office !== selectedOffice) return false;
       if (selectedClient !== "All Clients" && pClient !== selectedClient) return false;
+      if (isStagesInitialized && (!p.stage || !selectedStages.includes(p.stage))) return false;
       return true;
     });
-  }, [flaggedProjects, selectedOffice, selectedClient]);
+  }, [flaggedProjects, selectedOffice, selectedClient, selectedStages, isStagesInitialized]);
 
   const activeFlags = useMemo(() => filteredProjects.filter(p => p.flags.length > 0), [filteredProjects]);
   const dismissedFlags = useMemo(() => filteredProjects.filter(p => p.review && p.allFlags?.length > p.flags.length), [filteredProjects]);
@@ -409,6 +443,41 @@ export function WipTrackerPage() {
               ))}
             </SelectContent>
           </Select>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[200px] justify-between text-left font-normal bg-transparent">
+                {selectedStages.length === stages.length && stages.length > 0 ? "All Stages" : `${selectedStages.length} Stages Selected`}
+                <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[250px] p-0" align="end">
+              <div className="flex p-2 border-b gap-2 justify-between bg-slate-50 rounded-t-md">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedStages(stages)} className="text-xs h-7 flex-1 border border-slate-200 bg-white shadow-sm">Select All</Button>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedStages([])} className="text-xs h-7 flex-1 border border-slate-200 bg-white shadow-sm">Clear All</Button>
+              </div>
+              <div className="max-h-[300px] overflow-auto p-2">
+                {stages.map(stage => (
+                  <label key={stage} className="flex items-center gap-3 px-2 py-2 hover:bg-slate-50 cursor-pointer rounded transition-colors">
+                    <Checkbox 
+                      checked={selectedStages.includes(stage)} 
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedStages([...selectedStages, stage]);
+                        } else {
+                          setSelectedStages(selectedStages.filter(s => s !== stage));
+                        }
+                      }} 
+                    />
+                    <span className="text-sm font-medium text-slate-700">{stage}</span>
+                  </label>
+                ))}
+                {stages.length === 0 && (
+                  <div className="p-4 text-center text-sm text-slate-500">No stages found</div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -616,7 +685,8 @@ export function WipTrackerPage() {
               <div>
                 <h4 className="font-semibold text-slate-800 mb-2">Pipeline & Dates</h4>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li><strong>Stale Pipeline:</strong> Project start date is more than 2 weeks in the past, but the project is not marked as Committed or Closed Won.</li>
+                                    <li><strong>Stale Pipeline:</strong> Project start date is more than 2 weeks in the past, but the project is not marked as Committed or Closed Won.</li>
+                  <li><strong>Speculative:</strong> Any project in 'Speculative' stage where the RTB or Project start date is in the past or next 2 weeks.</li>
                   <li><strong>Holding Pots:</strong> Should not have any project dates assigned.</li>
                 </ul>
               </div>
