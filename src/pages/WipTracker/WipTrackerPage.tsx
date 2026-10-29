@@ -16,78 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 
-const ProjectNoteInput = ({ project, review, appUser }: { project: any; review: any; appUser: any }) => {
-  const queryClient = useQueryClient();
-  const existingNotes = useMemo(() => {
-    if (!review) return "";
-    try {
-      const parsed = JSON.parse(review.dismissal_reason || "{}");
-      return parsed.notes || "";
-    } catch {
-      return "";
-    }
-  }, [review]);
 
-  const [notes, setNotes] = React.useState(existingNotes);
-  const [isSaving, setIsSaving] = React.useState(false);
-  const [isFocused, setIsFocused] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!isFocused) {
-      setNotes(existingNotes);
-    }
-  }, [existingNotes, isFocused]);
-
-  const saveMutation = useMutation({
-    mutationFn: async (newNotes: string) => {
-      let payload: any = { type: "note", flags: [] };
-      if (review) {
-        try {
-          payload = JSON.parse(review.dismissal_reason || "{}");
-        } catch {}
-      }
-      payload.notes = newNotes;
-
-      const { error } = await supabase.from("project_wip_reviews").upsert({
-        project_id: project.id,
-        dismissed_by: appUser?.name || appUser?.email || "Unknown User",
-        dismissed_at: new Date().toISOString(),
-        dismissal_reason: JSON.stringify(payload)
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["wip_reviews"] });
-      setIsSaving(false);
-    },
-    onError: () => {
-      setIsSaving(false);
-      toast.error("Failed to save notes");
-    }
-  });
-
-  const handleBlur = () => {
-    setIsFocused(false);
-    if (notes !== existingNotes) {
-      setIsSaving(true);
-      saveMutation.mutate(notes);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <Textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        onFocus={() => setIsFocused(true)}
-        onBlur={handleBlur}
-        placeholder="Add note..."
-        className="text-xs min-h-[60px] w-full resize-y bg-white"
-      />
-      {isSaving && <div className="absolute right-2 bottom-2 text-[10px] text-muted-foreground flex items-center gap-1 bg-white/80 px-1 rounded"><Save className="w-3 h-3"/> Saving...</div>}
-    </div>
-  );
-};
 
 export function WipTrackerPage() {
   const { appUser } = useAuth();
@@ -98,6 +27,7 @@ export function WipTrackerPage() {
   const [isStagesInitialized, setIsStagesInitialized] = useState(false);
   const [dismissDialog, setDismissDialog] = useState<{ project: any } | null>(null);
   const [dismissReason, setDismissReason] = useState("");
+  const [dialogNote, setDialogNote] = useState("");
   const [selectedFlags, setSelectedFlags] = useState<string[]>([]);
   const [actionType, setActionType] = useState<"snooze" | "dismiss">("dismiss");
   const [isDismissedOpen, setIsDismissedOpen] = useState(false);
@@ -109,6 +39,18 @@ export function WipTrackerPage() {
       setSelectedFlags(flags.length === 1 ? [...flags] : []);
       setDismissReason("");
       setActionType("dismiss");
+      
+      const review = dismissDialog.project.review;
+      if (review && review.dismissal_reason) {
+        try {
+          const parsed = JSON.parse(review.dismissal_reason);
+          setDialogNote(parsed.notes || "");
+        } catch(e) {
+          setDialogNote("");
+        }
+      } else {
+        setDialogNote("");
+      }
     }
   }, [dismissDialog]);
 
@@ -144,26 +86,28 @@ export function WipTrackerPage() {
   });
 
   const dismissMutation = useMutation({
-    mutationFn: async ({ projectId, reason, flags, type, existingReview }: { projectId: string, reason: string, flags: string[], type: "snooze" | "dismiss", existingReview: any }) => {
-      let existingFlags: string[] = [];
+    mutationFn: async ({ projectId, reason, flags, type, existingReview, note }: { projectId: string, reason: string, flags: string[], type: "snooze" | "dismiss", existingReview: any, note: string }) => {
+      let payload: any = { type: "note", flags: [] };
       if (existingReview && existingReview.dismissal_reason) {
         try {
-          const parsed = JSON.parse(existingReview.dismissal_reason);
-          if (parsed.flags) existingFlags = parsed.flags;
+          payload = JSON.parse(existingReview.dismissal_reason);
         } catch (e) {
           // legacy
         }
       }
       
-      const mergedFlags = Array.from(new Set([...existingFlags, ...flags]));
-      
-      const payload: any = { type, flags: mergedFlags };
-      if (type === "snooze") {
-        const nextWeek = new Date();
-        nextWeek.setDate(nextWeek.getDate() + 7);
-        payload.until = nextWeek.toISOString();
-      } else {
-        payload.reason = reason;
+      payload.notes = note;
+
+      if (flags.length > 0) {
+        payload.type = type;
+        payload.flags = Array.from(new Set([...(payload.flags || []), ...flags]));
+        if (type === "snooze") {
+          const nextWeek = new Date();
+          nextWeek.setDate(nextWeek.getDate() + 7);
+          payload.until = nextWeek.toISOString();
+        } else {
+          payload.reason = reason;
+        }
       }
 
       const { error } = await supabase.from("project_wip_reviews").upsert({
@@ -211,6 +155,7 @@ export function WipTrackerPage() {
   const flaggedProjects = useMemo(() => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const result = projects.map(p => {
+      if (p.stage === "Churned" || p.stage === "Closed Lost") return { ...p, flags: [], allFlags: [], review: null };
       const flags: string[] = [];
       const recType = (p.opportunity_record_type || "").trim();
       const isTalentSavings = recType === 'Agency - Talent Savings';
@@ -374,8 +319,15 @@ export function WipTrackerPage() {
 
   const stages = useMemo(() => {
     const set = new Set<string>();
-    flaggedProjects.forEach(p => p.stage && set.add(p.stage));
-        const order = ["Closed Won", "Committed", "Negotiation", "Pitch", "Brief", "Speculative"];
+    const today = new Date();
+    const cutoffStr = format(new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+    
+    flaggedProjects.forEach(p => {
+      if (p.end_date && p.end_date >= cutoffStr && p.stage) {
+        set.add(p.stage);
+      }
+    });
+    const order = ["Closed Won", "Committed", "Negotiation", "Pitch", "Brief", "Speculative"];
     return Array.from(set).sort((a, b) => {
       const idxA = order.indexOf(a);
       const idxB = order.indexOf(b);
@@ -495,7 +447,7 @@ export function WipTrackerPage() {
                   <TableHead className="w-[280px]">Project</TableHead>
                   <TableHead className="w-[280px]">Key Info</TableHead>
                   <TableHead className="w-[220px]">Flags</TableHead>
-                  <TableHead className="w-[280px]">Actions</TableHead>
+                  <TableHead className="w-[200px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -540,25 +492,22 @@ export function WipTrackerPage() {
                             ))}
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-2">
-                            <div className="flex gap-2">
-                              {p.opportunity_number ? (
-                                <a href={`https://billiondollarboy.lightning.force.com/lightning/cmp/forceSearch%3AsearchPage?forceSearch%3AsearchPage.searchTerm=${p.opportunity_number}`} target="_blank" rel="noreferrer" className="block w-1/2">
-                                  <Button variant="outline" size="sm" className="h-8 w-full justify-start">
-                                    <ExternalLink className="w-4 h-4 mr-2" /> Salesforce
-                                  </Button>
-                                </a>
-                              ) : (
-                                <Button variant="outline" size="sm" className="h-8 w-1/2 justify-start opacity-50 cursor-not-allowed" title="No Opportunity Number available">
+                        <TableCell className="text-right">
+                          <div className="flex flex-col gap-2 items-end w-[130px] ml-auto">
+                            {p.opportunity_number ? (
+                              <a href={`https://billiondollarboy.lightning.force.com/lightning/cmp/forceSearch%3AsearchPage?forceSearch%3AsearchPage.searchTerm=${p.opportunity_number}`} target="_blank" rel="noreferrer" className="block w-full">
+                                <Button variant="outline" size="sm" className="h-8 w-full justify-start">
                                   <ExternalLink className="w-4 h-4 mr-2" /> Salesforce
                                 </Button>
-                              )}
-                              <Button variant="secondary" size="sm" className="h-8 w-1/2 justify-start" onClick={() => setDismissDialog({ project: p })}>
-                                <CheckCircle2 className="w-4 h-4 mr-2 text-green-600" /> Action
+                              </a>
+                            ) : (
+                              <Button variant="outline" size="sm" className="h-8 w-full justify-start opacity-50 cursor-not-allowed" title="No Opportunity Number available">
+                                <ExternalLink className="w-4 h-4 mr-2" /> Salesforce
                               </Button>
-                            </div>
-                            <ProjectNoteInput project={p} review={reviews.find((r: any) => r.project_id === p.id)} appUser={appUser} />
+                            )}
+                            <Button variant="secondary" size="sm" className="h-8 w-full justify-start" onClick={() => setDismissDialog({ project: p })}>
+                              <CheckCircle2 className="w-4 h-4 mr-2 text-green-600" /> Action
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -594,7 +543,7 @@ export function WipTrackerPage() {
                       <TableHead className="w-[300px]">Project</TableHead>
                       <TableHead className="w-[300px]">Original Flags</TableHead>
                       <TableHead>Dismissal Reason</TableHead>
-                      <TableHead className="w-[280px]">Actions</TableHead>
+                      <TableHead className="w-[140px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                 <TableBody>
@@ -633,12 +582,14 @@ export function WipTrackerPage() {
                           Dismissed by {p.review.dismissed_by} on {format(parseISO(p.review.dismissed_at), 'd MMM yyyy')}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-2">
-                          <Button variant="ghost" size="sm" className="h-8 text-slate-500 hover:text-slate-900 justify-start w-1/2" onClick={() => restoreMutation.mutate(p.id)}>
-                            <X className="w-4 h-4 mr-2" /> Restore
+                      <TableCell className="text-right">
+                        <div className="flex flex-col gap-2 items-end w-[130px] ml-auto">
+                          <Button variant="secondary" size="sm" className="h-8 w-full justify-start" onClick={() => setDismissDialog({ project: p })}>
+                            <MessageSquare className="w-4 h-4 mr-2 text-blue-600" /> Edit Note
                           </Button>
-                          <ProjectNoteInput project={p} review={p.review} appUser={appUser} />
+                          <Button variant="outline" size="sm" className="h-8 w-full justify-start text-slate-500 hover:text-slate-900" onClick={() => restoreMutation.mutate(p.id)}>
+                            <X className="w-4 h-4 mr-2" /> Restore Flags
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -712,75 +663,100 @@ export function WipTrackerPage() {
         )}
       </div>
 
-      <Dialog open={!!dismissDialog} onOpenChange={(open) => !open && setDismissDialog(null)}>
-        <DialogContent>
+            <Dialog open={!!dismissDialog} onOpenChange={(open) => !open && setDismissDialog(null)}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Action Required</DialogTitle>
+            <DialogTitle>Update Project</DialogTitle>
           </DialogHeader>
-          <div className="py-4 space-y-4">
+          <div className="py-4 space-y-6">
             <div>
               <div className="text-sm font-medium mb-1">Project</div>
               <div className="text-sm text-muted-foreground">{dismissDialog?.project.title}</div>
             </div>
             
-            <div>
-              <div className="text-sm font-medium mb-2">Select flags to action:</div>
-              <div className="flex flex-col gap-2">
-                {dismissDialog?.project.flags.map((f: string, i: number) => (
-                  <label key={i} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 p-2 rounded border border-transparent hover:border-slate-200 transition-colors">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedFlags.includes(f)}
-                      onChange={(e) => {
-                        if (e.target.checked) setSelectedFlags([...selectedFlags, f]);
-                        else setSelectedFlags(selectedFlags.filter(x => x !== f));
-                      }}
-                      className="rounded border-gray-300 w-4 h-4 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="font-medium text-slate-800">{f}</span>
-                  </label>
-                ))}
-              </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium">1. Add a note to this opportunity</div>
+              <Textarea 
+                placeholder="Write your note here... (Visible to everyone)"
+                value={dialogNote}
+                onChange={(e) => setDialogNote(e.target.value)}
+                className="h-24 bg-yellow-50/50"
+              />
             </div>
 
-            <div>
-              <div className="text-sm font-medium mb-2">Action Type</div>
-              <Select value={actionType} onValueChange={(v: "snooze" | "dismiss") => setActionType(v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dismiss">Dismiss & Justify</SelectItem>
-                  <SelectItem value="snooze">Snooze (1 week)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <div className="pt-4 border-t space-y-4">
+              <div className="text-sm font-medium">2. Action Flags (Optional)</div>
+              {dismissDialog?.project.flags?.length > 0 ? (
+                <div className="flex flex-col gap-2 mb-4">
+                  {dismissDialog?.project.flags.map((f: string, i: number) => (
+                    <label key={i} className="flex items-start gap-2 text-sm cursor-pointer hover:bg-slate-50 p-2 rounded border border-transparent hover:border-slate-200 transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedFlags.includes(f)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedFlags([...selectedFlags, f]);
+                          else setSelectedFlags(selectedFlags.filter(x => x !== f));
+                        }}
+                        className="rounded border-gray-300 w-4 h-4 text-blue-600 focus:ring-blue-500 mt-[2px]"
+                      />
+                      <span className="font-medium text-slate-800 leading-tight">{f}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground italic mb-4">No active flags to action.</div>
+              )}
 
-            {actionType === "dismiss" && (
-              <div>
-                <div className="text-sm font-medium mb-2">Reason for dismissal</div>
-                <Textarea 
-                  placeholder="Why are you comfortable with this status?"
-                  value={dismissReason}
-                  onChange={(e) => setDismissReason(e.target.value)}
-                  className="h-24"
-                />
-              </div>
-            )}
+              {dismissDialog?.project?.flags?.length > 0 && (
+                <div className="space-y-4 bg-slate-50 p-3 rounded-md border border-slate-100">
+                  <div>
+                    <div className="text-sm font-medium mb-2">Action Type</div>
+                    <Select value={actionType} onValueChange={(v: "snooze" | "dismiss") => setActionType(v)}>
+                      <SelectTrigger className="bg-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="dismiss">Dismiss & Justify</SelectItem>
+                        <SelectItem value="snooze">Snooze (1 week)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {actionType === "dismiss" && (
+                    <div>
+                      <div className="text-sm font-medium mb-2">Reason for dismissal</div>
+                      <Textarea 
+                        placeholder="Why are you comfortable with this status?"
+                        value={dismissReason}
+                        onChange={(e) => setDismissReason(e.target.value)}
+                        className="h-20 bg-white"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDismissDialog(null)}>Cancel</Button>
             <Button 
-              onClick={() => dismissDialog && dismissMutation.mutate({ 
-                projectId: dismissDialog.project.id, 
-                reason: dismissReason,
-                flags: selectedFlags,
-                type: actionType,
-                existingReview: dismissDialog.project.review
-              })} 
-              disabled={selectedFlags.length === 0 || (actionType === "dismiss" && !dismissReason.trim()) || dismissMutation.isPending}
+              onClick={() => {
+                if (selectedFlags.length > 0 && actionType === "dismiss" && !dismissReason.trim()) {
+                  toast.error("Please provide a reason for dismissal");
+                  return;
+                }
+                dismissMutation.mutate({ 
+                  projectId: dismissDialog!.project.id, 
+                  reason: dismissReason, 
+                  flags: selectedFlags, 
+                  type: actionType, 
+                  existingReview: dismissDialog!.project.review,
+                  note: dialogNote
+                });
+              }}
+              disabled={dismissMutation.isPending}
             >
-              {dismissMutation.isPending ? "Saving..." : "Confirm Action"}
+              {dismissMutation.isPending ? "Saving..." : "Save Updates"}
             </Button>
           </DialogFooter>
         </DialogContent>
